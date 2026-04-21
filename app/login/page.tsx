@@ -11,20 +11,34 @@ export default async function LoginPage({
   const { schoolSlug } = await searchParams;
   return (
     <main className="min-h-screen flex items-center justify-center p-6">
-      <div className="w-full max-w-md space-y-4">
-        <Link href="/" className="text-sm text-white/70 hover:text-white">
+      <div className="w-full max-w-[420px] space-y-5 animate-fade-up">
+
+        {/* Back link */}
+        <Link
+          href="/"
+          className="inline-flex items-center gap-1.5 text-sm text-white/45 hover:text-white/80 transition-colors"
+        >
           ← Back to home
         </Link>
+
+        {/* Brand */}
         <div className="flex justify-center">
           <BrandLogo />
         </div>
-        <Card title="Login">
+
+        {/* Form card */}
+        <Card title="Sign in to EduHub" description="Enter your credentials to continue" accent="indigo">
           <LoginForm defaultSchoolSlug={schoolSlug} />
         </Card>
-        <div className="text-sm text-white/70">
-          New school?{" "}
-          <Link href="/onboard" className="text-indigo-300 hover:text-indigo-200">
-            Onboard here
+
+        {/* Footer links */}
+        <div className="flex items-center justify-center gap-4 text-sm text-white/45">
+          <Link href="/onboard" className="hover:text-white/80 transition-colors">
+            Create a school
+          </Link>
+          <span className="text-white/20">·</span>
+          <Link href="/" className="hover:text-white/80 transition-colors">
+            Home
           </Link>
         </div>
       </div>

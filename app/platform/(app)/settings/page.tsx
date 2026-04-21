@@ -1,10 +1,20 @@
 import Link from "next/link";
-import { Card } from "@/components/ui";
+import { Card, Badge, SectionHeader } from "@/components/ui";
 import { prisma } from "@/lib/db";
 import { requireSuperAdmin } from "@/lib/platform-require";
 import { ensureBaseModules } from "@/lib/permissions";
 import { CreateCustomSubscriptionForm, CreateModuleForm, SubscriptionPlanSettingsForm } from "./ui";
 import { ensureSubscriptionPlanSettings } from "@/lib/subscription";
+
+const MODULE_ICONS: Record<string, string> = {
+  STUDENTS: "👥", FEES: "💳", ATTENDANCE: "✅", COMMUNICATION: "📢",
+  ACADEMICS: "📚", REPORTS: "📊", NOTIFICATIONS: "🔔", SETTINGS: "⚙️",
+  DASHBOARD: "◈", USERS: "🛡",
+};
+
+function fmt(cents: number) {
+  return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(cents / 100);
+}
 
 export default async function PlatformSettingsPage() {
   await requireSuperAdmin();
@@ -14,73 +24,74 @@ export default async function PlatformSettingsPage() {
   const [modules, planSettings, customPlans] = await Promise.all([
     prisma.module.findMany({ orderBy: { name: "asc" } }),
     prisma.subscriptionPlanSetting.findMany(),
-    prisma.customSubscriptionPlan.findMany({ orderBy: { createdAt: "desc" }, take: 100 })
+    prisma.customSubscriptionPlan.findMany({ orderBy: { createdAt: "desc" }, take: 100 }),
   ]);
-  const planByKey = new Map(planSettings.map((p) => [p.plan, p.durationDays]));
-  const planAmountByKey = new Map(planSettings.map((p) => [p.plan, p.amountCents]));
-  const premiumDays = planByKey.get("PREMIUM") ?? 730;
-  const defaultDays = planByKey.get("DEFAULT") ?? 365;
-  const defaultAmount = (planAmountByKey.get("DEFAULT") ?? 0) / 100;
-  const betaAmount = (planAmountByKey.get("BETA") ?? 0) / 100;
-  const unlimitedAmount = (planAmountByKey.get("UNLIMITED") ?? 0) / 100;
+
+  const planByKey       = new Map(planSettings.map(p => [p.plan, p.durationDays]));
+  const planAmountByKey = new Map(planSettings.map(p => [p.plan, p.amountCents]));
 
   return (
-    <div className="space-y-6">
-      <div>
-        <div className="text-2xl font-semibold">Platform Settings</div>
-        <div className="text-sm text-white/60">
-          View all school modules and open a school to assign/customize enabled modules.
-        </div>
-      </div>
+    <div className="space-y-5 animate-fade-up">
+      <SectionHeader title="Platform Settings" subtitle="Modules, subscription plans and global configuration" />
 
-      <Card title="Available Modules">
-        <CreateModuleForm />
-        <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3">
-          {modules.map((m) => (
+      {/* Modules */}
+      <Card title="Available Modules" description="Click a module to edit its fields and defaults" accent="indigo">
+        <div className="mb-4 mt-1">
+          <CreateModuleForm />
+        </div>
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+          {modules.map(m => (
             <Link
               key={m.id}
               href={`/platform/settings/modules/${m.id}`}
-              className="rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 hover:bg-white/[0.08] transition"
+              className="flex items-center gap-2.5 rounded-[13px] border border-white/[0.08]
+                         bg-white/[0.03] px-3.5 py-3 hover:bg-white/[0.07] hover:border-white/[0.13]
+                         transition-all group"
             >
-              <div className="font-semibold text-sm">{m.name}</div>
-              <div className="text-xs text-white/50">{m.key}</div>
+              <span className="text-lg">{MODULE_ICONS[m.key] ?? "•"}</span>
+              <div className="min-w-0">
+                <p className="text-[13px] font-semibold text-white/80 group-hover:text-white/95 transition truncate">{m.name}</p>
+                <p className="text-[10px] text-white/35">{m.key}</p>
+              </div>
             </Link>
           ))}
-          {modules.length === 0 ? <div className="text-sm text-white/60">No modules found.</div> : null}
+          {modules.length === 0 && <p className="text-sm text-white/40 col-span-full">No modules found.</p>}
         </div>
       </Card>
 
-      <Card
-        title="Subscription Mapping"
-        description="Configure plan durations used while assigning school subscriptions."
-      >
+      {/* Subscription plan settings */}
+      <Card title="Subscription Plans" description="Set durations and prices for standard plan tiers" accent="teal">
         <SubscriptionPlanSettingsForm
-          premiumDays={premiumDays}
-          defaultDays={defaultDays}
-          defaultAmount={defaultAmount}
-          betaAmount={betaAmount}
-          unlimitedAmount={unlimitedAmount}
+          premiumDays={planByKey.get("PREMIUM") ?? 730}
+          defaultDays={planByKey.get("DEFAULT") ?? 365}
+          defaultAmount={(planAmountByKey.get("DEFAULT") ?? 0) / 100}
+          betaAmount={(planAmountByKey.get("BETA") ?? 0) / 100}
+          unlimitedAmount={(planAmountByKey.get("UNLIMITED") ?? 0) / 100}
         />
-        <div className="mt-5 border-t border-white/10 pt-4 space-y-3">
-          <div className="text-sm text-white/70">Create custom subscription plans</div>
+      </Card>
+
+      {/* Custom plans */}
+      <Card title="Custom Plans" description="One-off pricing arrangements for specific schools" accent="violet">
+        <div className="mb-5">
           <CreateCustomSubscriptionForm />
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-            {customPlans.map((p) => (
-              <div key={p.id} className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm">
-                <div className="font-medium">{p.name}</div>
-                <div className="text-xs text-white/60">
-                  {p.code} • {p.durationDays == null ? "Lifetime" : `${p.durationDays} days`} • {formatUsdFromCents(p.amountCents)}
-                </div>
+        </div>
+        {customPlans.length > 0 ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 mt-1">
+            {customPlans.map(p => (
+              <div key={p.id} className="rounded-[13px] border border-white/[0.08] bg-white/[0.03] px-4 py-3">
+                <p className="text-[13px] font-semibold text-white/85">{p.name}</p>
+                <p className="text-[11px] font-mono text-white/40 mt-0.5">{p.code}</p>
+                <p className="text-[14px] font-bold text-white/90 mt-2">{fmt(p.amountCents)}</p>
+                <p className="text-[11px] text-white/35">
+                  {p.durationDays == null ? "Lifetime" : `${p.durationDays} days`}
+                </p>
               </div>
             ))}
-            {customPlans.length === 0 ? <div className="text-sm text-white/60">No custom plans yet.</div> : null}
           </div>
-        </div>
+        ) : (
+          <p className="text-sm text-white/40">No custom plans yet.</p>
+        )}
       </Card>
     </div>
   );
-}
-
-function formatUsdFromCents(cents: number) {
-  return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(cents / 100);
 }

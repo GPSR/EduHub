@@ -8,6 +8,15 @@ import { HomeCTA } from "@/components/home-cta";
 
 const STORAGE_KEY = "eduhub_onboarded_v1";
 
+const FEATURES = [
+  { icon: "👥", label: "Students",    desc: "Profiles, parents, guardians"  },
+  { icon: "✅", label: "Attendance",  desc: "Daily tracking & reports"       },
+  { icon: "💳", label: "Fees",        desc: "Invoices & online payments"     },
+  { icon: "📢", label: "Feed",        desc: "Posts, updates & announcements" },
+  { icon: "📚", label: "Academics",   desc: "Classes, subjects & grades"     },
+  { icon: "📊", label: "Reports",     desc: "Analytics & exports"            },
+];
+
 export function HomeShell({ isSignedIn }: { isSignedIn: boolean }) {
   const [onboarded, setOnboarded] = useState<boolean | null>(null);
 
@@ -19,94 +28,112 @@ export function HomeShell({ isSignedIn }: { isSignedIn: boolean }) {
     }
   }, []);
 
-  // Avoid a flash of the wrong screen.
+  /* Skeleton while checking localStorage */
   if (onboarded === null && !isSignedIn) {
     return (
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card title="Getting started">
-          <div className="h-10 w-44 rounded-2xl border border-white/10 bg-white/[0.04]" aria-hidden="true" />
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+        <Card>
+          <div className="space-y-3">
+            <div className="h-4 w-32 rounded-full bg-white/[0.06] animate-pulse" />
+            <div className="h-10 w-full rounded-[13px] bg-white/[0.04] animate-pulse" />
+          </div>
         </Card>
-        <Card title="Loading">
-          <div className="h-24 rounded-3xl border border-white/10 bg-white/[0.04]" aria-hidden="true" />
+        <Card>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="h-16 rounded-[13px] bg-white/[0.04] animate-pulse" />
+            ))}
+          </div>
         </Card>
       </div>
     );
   }
 
+  /* Signed-in state */
   if (isSignedIn) {
     return (
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card title="You’re signed in">
-          <div className="text-sm text-white/70">
-            Continue where you left off.{" "}
-            <Link href="/dashboard" className="text-indigo-300 hover:text-indigo-200">
-              Open dashboard
-            </Link>
-            .
-          </div>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+        <Card title="Welcome back" accent="indigo">
+          <p className="text-sm text-white/60 mb-4">Continue where you left off.</p>
+          <Link
+            href="/dashboard"
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-[13px]
+                       bg-gradient-to-b from-indigo-400 to-indigo-600 text-white text-sm font-medium
+                       shadow-[0_10px_28px_-12px_rgba(99,102,241,0.6)]
+                       hover:from-indigo-300 hover:to-indigo-500 transition-all"
+          >
+            Open dashboard →
+          </Link>
         </Card>
-        <Card title="Quick links">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
-            <Link href="/students" className="rounded-3xl border border-white/10 bg-white/[0.04] p-4 hover:bg-white/[0.06] transition">
-              <div className="font-semibold">Students</div>
-              <div className="mt-1 text-white/60">Profiles and contacts.</div>
-            </Link>
-            <Link href="/fees" className="rounded-3xl border border-white/10 bg-white/[0.04] p-4 hover:bg-white/[0.06] transition">
-              <div className="font-semibold">Fees</div>
-              <div className="mt-1 text-white/60">Invoices & payments.</div>
-            </Link>
+        <Card title="Quick links" accent="teal">
+          <div className="grid grid-cols-2 gap-2">
+            {[
+              { href: "/students",   icon: "👥", label: "Students"   },
+              { href: "/fees",       icon: "💳", label: "Fees"       },
+              { href: "/attendance", icon: "✅", label: "Attendance" },
+              { href: "/feed",       icon: "📢", label: "Feed"       },
+            ].map(item => (
+              <Link
+                key={item.href}
+                href={item.href}
+                className="flex items-center gap-2 rounded-[13px] border border-white/[0.07] bg-white/[0.03]
+                           px-3.5 py-3 hover:bg-white/[0.08] hover:border-white/[0.12] transition-all text-sm font-medium text-white/80"
+              >
+                <span className="text-base">{item.icon}</span> {item.label}
+              </Link>
+            ))}
           </div>
         </Card>
       </div>
     );
   }
 
-  // New user: show only onboarding.
+  /* New user — onboarding */
   if (!onboarded) {
     return (
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card title="Start here" description="Create your first school and admin account">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+        <Card title="Get started" description="Create your school & admin account in minutes" accent="indigo">
           <HomeCTA isSignedIn={false} />
-          <div className="mt-4 text-sm text-white/60">
-            You only need to do this once on a new device.
-          </div>
+          <p className="mt-4 text-xs text-white/40">Free to start · No credit card required</p>
         </Card>
-        <Card title="What you’ll get" description="Core modules in EduHub">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
-            <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-4">
-              <div className="font-semibold">Students</div>
-              <div className="mt-1 text-white/60">Profiles, parents, guardians.</div>
-            </div>
-            <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-4">
-              <div className="font-semibold">Attendance</div>
-              <div className="mt-1 text-white/60">Daily tracking.</div>
-            </div>
-            <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-4">
-              <div className="font-semibold">Fees</div>
-              <div className="mt-1 text-white/60">Invoices & payments.</div>
-            </div>
-            <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-4">
-              <div className="font-semibold">Announcements</div>
-              <div className="mt-1 text-white/60">Posts and updates.</div>
-            </div>
+        <Card title="Everything you need" description="Core modules included" accent="teal">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+            {FEATURES.map(f => (
+              <div
+                key={f.label}
+                className="rounded-[13px] border border-white/[0.07] bg-white/[0.03] px-3 py-3
+                           hover:bg-white/[0.06] transition-colors"
+              >
+                <div className="text-xl mb-1.5">{f.icon}</div>
+                <div className="text-[13px] font-semibold text-white/85">{f.label}</div>
+                <div className="mt-0.5 text-[11px] text-white/45 leading-snug">{f.desc}</div>
+              </div>
+            ))}
           </div>
         </Card>
       </div>
     );
   }
 
-  // Onboarded user: show only login.
+  /* Returning user — login */
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-      <Card title="Login" description="Enter your school code to continue">
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+      <Card title="Sign in" description="Enter your school code to continue" accent="indigo">
         <SchoolSlugCheck />
       </Card>
-      <Card title="Need another school?" description="You can onboard multiple schools on one device">
-        <Link href="/onboard" className="px-5 py-3 inline-flex rounded-2xl bg-white/10 hover:bg-white/15 text-white border border-white/10">
+      <Card title="New school?" description="Manage multiple schools from one device" accent="teal">
+        <p className="text-sm text-white/55 mb-4">
+          Each school has its own isolated data and user accounts.
+        </p>
+        <Link
+          href="/onboard"
+          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-[13px]
+                     border border-white/[0.10] bg-white/[0.07] text-sm font-medium text-white/80
+                     hover:bg-white/[0.12] hover:text-white transition-all"
+        >
           Onboard another school
         </Link>
       </Card>
     </div>
   );
 }
-

@@ -1,20 +1,20 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Card } from "@/components/ui";
+import { Badge, SectionHeader } from "@/components/ui";
 import { prisma } from "@/lib/db";
 import { requireSuperAdmin } from "@/lib/platform-require";
 
-export default async function PlatformSchoolDashboardPage({
-  params
-}: {
-  params: Promise<{ id: string }>;
-}) {
+function fmt(cents: number) {
+  return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(cents / 100);
+}
+
+export default async function PlatformSchoolDashboardPage({ params }: { params: Promise<{ id: string }> }) {
   await requireSuperAdmin();
   const { id } = await params;
 
   const school = await prisma.school.findUnique({
     where: { id },
-    include: { subscription: { include: { customPlan: true } } }
+    include: { subscription: { include: { customPlan: true } } },
   });
   if (!school) return notFound();
 
@@ -23,72 +23,85 @@ export default async function PlatformSchoolDashboardPage({
     prisma.user.count({ where: { schoolId: id, schoolRole: { key: { in: ["TEACHER", "CLASS_TEACHER"] } } } }),
     prisma.user.count({ where: { schoolId: id } }),
     prisma.feeInvoice.aggregate({ where: { schoolId: id }, _sum: { amountCents: true }, _count: { _all: true } }),
-    prisma.feePayment.aggregate({
-      where: { invoice: { schoolId: id } },
-      _sum: { amountCents: true },
-      _count: { _all: true }
-    })
+    prisma.feePayment.aggregate({ where: { invoice: { schoolId: id } }, _sum: { amountCents: true }, _count: { _all: true } }),
   ]);
 
-  const invoiced = invoices._sum.amountCents ?? 0;
+  const invoiced  = invoices._sum.amountCents ?? 0;
   const collected = payments._sum.amountCents ?? 0;
-  const pending = Math.max(0, invoiced - collected);
+  const pending   = Math.max(0, invoiced - collected);
+  const collectPct = invoiced > 0 ? Math.round((collected / invoiced) * 100) : 0;
+  const plan = school.subscription?.plan === "CUSTOM"
+    ? (school.subscription.customPlan?.name ?? "Custom")
+    : (school.subscription?.plan ?? "N/A");
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-start justify-between gap-4">
+    <div className="space-y-5 animate-fade-up">
+      {/* Header */}
+      <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
-          <div className="text-2xl font-semibold">{school.name} Dashboard</div>
-          <div className="text-sm text-white/60">
-            {school.slug} • Plan:{" "}
-            {school.subscription?.plan === "CUSTOM" ? (school.subscription.customPlan?.name ?? "Custom") : (school.subscription?.plan ?? "N/A")}
+          <SectionHeader title={`${school.name}`} subtitle={`${school.slug} · Plan: ${plan}`} />
+          <div className="flex items-center gap-2 mt-2">
+            <Badge tone={school.isActive ? "success" : "danger"} dot>{school.isActive ? "Active" : "Inactive"}</Badge>
+            <Badge tone="neutral">{plan}</Badge>
           </div>
         </div>
-        <div className="flex items-center gap-3">
-          <Link href="/platform/schools" className="text-sm text-white/70 hover:text-white">
-            ← Schools list
-          </Link>
-          <Link href={`/platform/schools/${school.id}`} className="text-sm text-indigo-300 hover:text-indigo-200">
-            Manage school →
+        <div className="flex items-center gap-2">
+          <Link href="/platform/schools" className="text-sm text-white/40 hover:text-white/75 transition">← Schools</Link>
+          <Link href={`/platform/schools/${school.id}`}>
+            <span className="text-sm text-indigo-300 hover:text-indigo-200 transition">Manage →</span>
           </Link>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-        <Card title="Students">
-          <div className="text-2xl font-semibold">{students}</div>
-        </Card>
-        <Card title="Teachers">
-          <div className="text-2xl font-semibold">{teachers}</div>
-        </Card>
-        <Card title="Users">
-          <div className="text-2xl font-semibold">{users}</div>
-        </Card>
-        <Card title="Invoices">
-          <div className="text-2xl font-semibold">{invoices._count._all}</div>
-        </Card>
+      {/* People stats */}
+      <div className="grid grid-cols-3 gap-4">
+        {[
+          { icon: "👥", label: "Students",  value: students,  color: "text-indigo-300",  bg: "bg-indigo-500/10 border-indigo-500/20" },
+          { icon: "📚", label: "Teachers",  value: teachers,  color: "text-teal-300",    bg: "bg-teal-500/10 border-teal-500/20"   },
+          { icon: "🏫", label: "All Users", value: users,     color: "text-violet-300",  bg: "bg-violet-500/10 border-violet-500/20"},
+        ].map(s => (
+          <div key={s.label} className={`rounded-[20px] border ${s.bg} p-5`}>
+            <div className="text-2xl mb-3">{s.icon}</div>
+            <div className={`text-3xl font-bold ${s.color} tabular-nums`}>{s.value.toLocaleString()}</div>
+            <div className="text-[12px] font-medium text-white/40 uppercase tracking-wider mt-1">{s.label}</div>
+          </div>
+        ))}
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <Card title="Total Invoiced">
-          <div className="text-xl font-semibold">{centsToUsd(invoiced)}</div>
-        </Card>
-        <Card title="Collected Revenue">
-          <div className="text-xl font-semibold">{centsToUsd(collected)}</div>
-          <div className="text-xs text-white/60 mt-1">{payments._count._all} payments</div>
-        </Card>
-        <Card title="Pending Amount">
-          <div className="text-xl font-semibold">{centsToUsd(pending)}</div>
-        </Card>
+      {/* Revenue stats */}
+      <div className="rounded-[22px] border border-white/[0.08] bg-white/[0.04] p-6">
+        <p className="text-[11px] font-semibold uppercase tracking-wider text-white/35 mb-5">Revenue Overview</p>
+        <div className="grid grid-cols-3 gap-6 mb-5">
+          <div>
+            <p className="text-[11px] text-white/35 uppercase tracking-wider mb-1">Invoiced</p>
+            <p className="text-2xl font-bold text-white/85 tabular-nums">{fmt(invoiced)}</p>
+            <p className="text-[12px] text-white/35 mt-0.5">{invoices._count._all} invoices</p>
+          </div>
+          <div>
+            <p className="text-[11px] text-white/35 uppercase tracking-wider mb-1">Collected</p>
+            <p className="text-2xl font-bold text-emerald-300 tabular-nums">{fmt(collected)}</p>
+            <p className="text-[12px] text-white/35 mt-0.5">{payments._count._all} payments</p>
+          </div>
+          <div>
+            <p className="text-[11px] text-white/35 uppercase tracking-wider mb-1">Pending</p>
+            <p className={`text-2xl font-bold tabular-nums ${pending > 0 ? "text-amber-300" : "text-white/50"}`}>{fmt(pending)}</p>
+            <p className="text-[12px] text-white/35 mt-0.5">{collectPct}% collected</p>
+          </div>
+        </div>
+        {/* Progress bar */}
+        <div>
+          <div className="flex justify-between text-[11px] text-white/30 mb-1.5">
+            <span>Collection rate</span>
+            <span>{collectPct}%</span>
+          </div>
+          <div className="h-2 w-full rounded-full bg-white/[0.08] overflow-hidden">
+            <div
+              className={`h-full rounded-full transition-all ${collectPct === 100 ? "bg-emerald-500" : "bg-indigo-500"}`}
+              style={{ width: `${collectPct}%` }}
+            />
+          </div>
+        </div>
       </div>
     </div>
   );
-}
-
-function centsToUsd(cents: number) {
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-    maximumFractionDigits: 2
-  }).format(cents / 100);
 }

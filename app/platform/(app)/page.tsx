@@ -6,222 +6,178 @@ import { ImpersonateLauncher } from "./ui";
 import { PlatformControls, PlatformRowActions } from "./ui-controls";
 import type { Plan } from "@prisma/client";
 
+function centsToUsd(cents: number) {
+  return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(cents / 100);
+}
+
+function planTone(plan: string): "success" | "info" | "warning" | "neutral" {
+  if (plan === "PREMIUM" || plan === "UNLIMITED") return "success";
+  if (plan === "BETA")    return "info";
+  if (plan === "TRIAL")   return "warning";
+  return "neutral";
+}
+
 export default async function PlatformHomePage({
-  searchParams
+  searchParams,
 }: {
   searchParams: Promise<{ q?: string; status?: string; plan?: string }>;
 }) {
   const { user } = await requirePlatformUser();
   const { q, status, plan } = await searchParams;
-  const query = (q ?? "").trim();
-  const statusFilter = status === "active" ? true : status === "inactive" ? false : null;
-  const customPlanIdFilter = plan?.startsWith("CUSTOM:") ? plan.slice("CUSTOM:".length) : null;
-  const planFilter: Plan | null =
-    plan && ["PREMIUM", "DEFAULT", "UNLIMITED", "BETA", "CUSTOM"].includes(plan)
-      ? (plan as Plan)
-      : null;
+  const query         = (q ?? "").trim();
+  const statusFilter  = status === "active" ? true : status === "inactive" ? false : null;
+  const customPlanId  = plan?.startsWith("CUSTOM:") ? plan.slice("CUSTOM:".length) : null;
+  const planFilter    = plan && ["PREMIUM","DEFAULT","UNLIMITED","BETA","CUSTOM"].includes(plan) ? (plan as Plan) : null;
 
   const customPlans = await prisma.customSubscriptionPlan.findMany({
-    where: { isActive: true },
-    orderBy: { createdAt: "desc" },
-    select: { id: true, name: true, code: true }
+    where: { isActive: true }, orderBy: { createdAt: "desc" }, select: { id: true, name: true, code: true },
   });
 
-  const monthStart = new Date();
-  monthStart.setDate(1);
-  monthStart.setHours(0, 0, 0, 0);
-  const last30Days = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+  const monthStart  = new Date(); monthStart.setDate(1); monthStart.setHours(0,0,0,0);
+  const last30Days  = new Date(Date.now() - 30 * 86400000);
 
-  const assignedSchoolIds =
-    user.role === "SUPER_ADMIN"
-      ? null
-      : (
-          await prisma.platformUserSchoolAssignment.findMany({
-            where: { platformUserId: user.id },
-            select: { schoolId: true }
-          })
-        ).map((a) => a.schoolId);
+  const assignedIds =
+    user.role === "SUPER_ADMIN" ? null
+    : (await prisma.platformUserSchoolAssignment.findMany({
+        where: { platformUserId: user.id }, select: { schoolId: true },
+      })).map(a => a.schoolId);
 
-  const [schools, totalSchools, totalStudents, totalTeachers, totalRevenueAgg, monthlyRevenueAgg, last30RevenueAgg, pendingOnboarding] =
+  const schoolFilter = {
+    ...(query ? { OR: [{ name: { contains: query } }, { slug: { contains: query } }] } : {}),
+    ...(statusFilter !== null ? { isActive: statusFilter } : {}),
+    ...(assignedIds ? { id: { in: assignedIds } } : {}),
+    ...(customPlanId
+      ? { subscription: { is: { plan: "CUSTOM" as Plan, customPlanId: customPlanId } } }
+      : planFilter ? { subscription: { is: { plan: planFilter } } } : {}),
+  };
+
+  const [schools, totalSchools, totalStudents, totalTeachers, totalRev, monthlyRev, last30Rev, pendingOnboarding] =
     await Promise.all([
       prisma.school.findMany({
-        where: {
-          ...(query
-            ? {
-                OR: [
-                  { name: { contains: query } },
-                  { slug: { contains: query } }
-                ]
-              }
-            : {}),
-          ...(statusFilter === null ? {} : { isActive: statusFilter }),
-          ...(assignedSchoolIds ? { id: { in: assignedSchoolIds } } : {}),
-          ...(customPlanIdFilter
-            ? { subscription: { is: { plan: "CUSTOM", customPlanId: customPlanIdFilter } } }
-            : planFilter
-              ? { subscription: { is: { plan: planFilter } } }
-              : {})
-        },
+        where: schoolFilter,
         include: { subscription: { include: { customPlan: true } }, users: { select: { id: true } }, students: { select: { id: true } } },
-        orderBy: { createdAt: "desc" },
-        take: 200
+        orderBy: { createdAt: "desc" }, take: 200,
       }),
-      prisma.school.count(assignedSchoolIds ? { where: { id: { in: assignedSchoolIds } } } : undefined),
-      prisma.student.count(assignedSchoolIds ? { where: { schoolId: { in: assignedSchoolIds } } } : undefined),
-      prisma.user.count({
-        where: {
-          ...(assignedSchoolIds ? { schoolId: { in: assignedSchoolIds } } : {}),
-          schoolRole: {
-            key: { in: ["TEACHER", "CLASS_TEACHER"] }
-          }
-        }
-      }),
-      prisma.feePayment.aggregate({
-        where: assignedSchoolIds ? { invoice: { schoolId: { in: assignedSchoolIds } } } : undefined,
-        _sum: { amountCents: true }
-      }),
-      prisma.feePayment.aggregate({
-        where: {
-          ...(assignedSchoolIds ? { invoice: { schoolId: { in: assignedSchoolIds } } } : {}),
-          paidAt: { gte: monthStart }
-        },
-        _sum: { amountCents: true }
-      }),
-      prisma.feePayment.aggregate({
-        where: {
-          ...(assignedSchoolIds ? { invoice: { schoolId: { in: assignedSchoolIds } } } : {}),
-          paidAt: { gte: last30Days }
-        },
-        _sum: { amountCents: true }
-      }),
-      user.role === "SUPER_ADMIN" ? prisma.schoolOnboardingRequest.count({ where: { status: "PENDING" } }) : Promise.resolve(0)
+      prisma.school.count(assignedIds ? { where: { id: { in: assignedIds } } } : undefined),
+      prisma.student.count(assignedIds ? { where: { schoolId: { in: assignedIds } } } : undefined),
+      prisma.user.count({ where: { ...(assignedIds ? { schoolId: { in: assignedIds } } : {}), schoolRole: { key: { in: ["TEACHER","CLASS_TEACHER"] } } } }),
+      prisma.feePayment.aggregate({ where: assignedIds ? { invoice: { schoolId: { in: assignedIds } } } : undefined, _sum: { amountCents: true } }),
+      prisma.feePayment.aggregate({ where: { ...(assignedIds ? { invoice: { schoolId: { in: assignedIds } } } : {}), paidAt: { gte: monthStart } }, _sum: { amountCents: true } }),
+      prisma.feePayment.aggregate({ where: { ...(assignedIds ? { invoice: { schoolId: { in: assignedIds } } } : {}), paidAt: { gte: last30Days } }, _sum: { amountCents: true } }),
+      user.role === "SUPER_ADMIN" ? prisma.schoolOnboardingRequest.count({ where: { status: "PENDING" } }) : 0,
     ]);
-  const totalRevenueCents = totalRevenueAgg._sum.amountCents ?? 0;
-  const monthlyRevenueCents = monthlyRevenueAgg._sum.amountCents ?? 0;
-  const last30RevenueCents = last30RevenueAgg._sum.amountCents ?? 0;
 
   return (
-    <div className="space-y-6">
-      <div className="relative overflow-hidden rounded-3xl border border-white/15 bg-gradient-to-br from-cyan-500/15 via-sky-500/10 to-blue-500/10 p-6 shadow-[0_30px_80px_-40px_rgba(56,189,248,0.45)]">
-        <div className="pointer-events-none absolute -left-16 -top-16 h-44 w-44 rounded-full bg-cyan-400/20 blur-3xl" />
-        <div className="pointer-events-none absolute -right-16 -bottom-16 h-52 w-52 rounded-full bg-blue-500/20 blur-3xl" />
-        <div className="relative flex items-start justify-between gap-4">
-        <div>
-          <div className="text-2xl font-semibold">Platform Dashboard</div>
-          <div className="text-sm text-white/70">Manage schools, plans, revenue, and support operations from one place.</div>
-        </div>
-        {user.role === "SUPER_ADMIN" ? (
-          <Link href="/platform/schools/new">
-            <Button>+ Add school</Button>
-          </Link>
-        ) : null}
+    <div className="space-y-6 animate-fade-up">
+      {/* ── Hero ── */}
+      <div className="rounded-[24px] border border-indigo-500/20 bg-gradient-to-br from-indigo-500/10 via-sky-500/5 to-transparent p-6">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight text-white/95">Platform Dashboard</h1>
+            <p className="mt-1.5 text-sm text-white/50 max-w-xl">
+              Manage schools, subscriptions, and support operations across EduHub.
+            </p>
+          </div>
+          {user.role === "SUPER_ADMIN" && (
+            <Link href="/platform/schools/new">
+              <Button>+ Add school</Button>
+            </Link>
+          )}
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 auto-rows-fr">
-        <div className="md:col-span-2 md:row-span-2 rounded-3xl border border-white/20 bg-white/10 p-6 backdrop-blur-md transition duration-300 hover:-translate-y-1 hover:bg-white/[0.13]">
-          <div className="text-sm text-white/70">Total Revenue</div>
-          <div className="mt-2 text-4xl font-semibold tracking-tight">{centsToUsd(totalRevenueCents)}</div>
-          <div className="mt-2 text-xs text-white/70">All schools combined</div>
-          <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div className="rounded-2xl border border-white/15 bg-white/[0.03] p-3">
-              <div className="text-xs text-white/60">This Month</div>
-              <div className="mt-1 text-xl font-semibold">{centsToUsd(monthlyRevenueCents)}</div>
+      {/* ── Revenue + stats grid ── */}
+      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-4">
+        {/* Revenue hero card */}
+        <div className="col-span-2 md:row-span-2 rounded-[22px] border border-emerald-500/20 bg-emerald-500/[0.06] p-6">
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-emerald-400/70 mb-2">Total Revenue</p>
+          <p className="text-4xl font-bold text-emerald-300 tabular-nums">{centsToUsd(totalRev._sum.amountCents ?? 0)}</p>
+          <p className="text-[12px] text-white/35 mt-1 mb-6">All time · all schools</p>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="rounded-[14px] border border-white/[0.07] bg-white/[0.03] px-3.5 py-3">
+              <p className="text-[11px] text-white/35">This month</p>
+              <p className="text-lg font-bold text-white/85 tabular-nums mt-0.5">{centsToUsd(monthlyRev._sum.amountCents ?? 0)}</p>
             </div>
-            <div className="rounded-2xl border border-white/15 bg-white/[0.03] p-3">
-              <div className="text-xs text-white/60">Last 30 Days</div>
-              <div className="mt-1 text-xl font-semibold">{centsToUsd(last30RevenueCents)}</div>
+            <div className="rounded-[14px] border border-white/[0.07] bg-white/[0.03] px-3.5 py-3">
+              <p className="text-[11px] text-white/35">Last 30 days</p>
+              <p className="text-lg font-bold text-white/85 tabular-nums mt-0.5">{centsToUsd(last30Rev._sum.amountCents ?? 0)}</p>
             </div>
           </div>
         </div>
 
-        <div className="rounded-3xl border border-white/20 bg-white/10 p-5 backdrop-blur-md transition duration-300 hover:-translate-y-1 hover:bg-white/[0.13]">
-          <div className="text-sm text-white/70">Total Schools</div>
-          <div className="mt-2 text-3xl font-semibold">{totalSchools}</div>
-          <div className="mt-1 text-xs text-white/70">Platform-wide schools</div>
-          <Link href="/platform/schools" className="mt-3 inline-flex text-xs text-cyan-200 hover:text-cyan-100">
-            Open schools →
-          </Link>
-        </div>
-        <div className="rounded-3xl border border-white/20 bg-white/10 p-5 backdrop-blur-md transition duration-300 hover:-translate-y-1 hover:bg-white/[0.13]">
-          <div className="text-sm text-white/70">Total Students</div>
-          <div className="mt-2 text-3xl font-semibold">{totalStudents}</div>
-          <div className="mt-1 text-xs text-white/70">Across all schools</div>
-        </div>
-        <div className="rounded-3xl border border-white/20 bg-white/10 p-5 backdrop-blur-md transition duration-300 hover:-translate-y-1 hover:bg-white/[0.13]">
-          <div className="text-sm text-white/70">Total Teachers</div>
-          <div className="mt-2 text-3xl font-semibold">{totalTeachers}</div>
-          <div className="mt-1 text-xs text-white/70">Teacher + Class Teacher roles</div>
-        </div>
-        <div className="rounded-3xl border border-white/20 bg-white/10 p-5 backdrop-blur-md transition duration-300 hover:-translate-y-1 hover:bg-white/[0.13]">
-          <div className="text-sm text-white/70">Pending Onboarding</div>
-          <div className="mt-2 text-3xl font-semibold">{pendingOnboarding}</div>
-          {user.role === "SUPER_ADMIN" ? (
-            <Link href="/platform/onboarding-requests" className="mt-3 inline-flex text-xs text-cyan-200 hover:text-cyan-100">
-              Open approvals →
-            </Link>
-          ) : null}
-        </div>
+        {[
+          { label: "Schools",           value: totalSchools,       icon: "🏫", color: "text-indigo-300",  href: "/platform/schools" },
+          { label: "Students",          value: totalStudents,      icon: "👥", color: "text-sky-300",     href: null },
+          { label: "Teachers",          value: totalTeachers,      icon: "📚", color: "text-violet-300",  href: null },
+          { label: "Pending Approvals", value: pendingOnboarding,  icon: "📋", color: pendingOnboarding > 0 ? "text-amber-300" : "text-white/60", href: user.role === "SUPER_ADMIN" ? "/platform/onboarding-requests" : null },
+          { label: "Custom Plans",      value: customPlans.length, icon: "💎", color: "text-teal-300",    href: user.role === "SUPER_ADMIN" ? "/platform/subscriptions" : null },
+        ].map(s => (
+          <div key={s.label} className="rounded-[22px] border border-white/[0.08] bg-white/[0.04] p-5 hover:bg-white/[0.06] transition-all">
+            <div className="text-2xl mb-3">{s.icon}</div>
+            <div className={`text-2xl font-bold tabular-nums ${s.color}`}>{s.value.toLocaleString()}</div>
+            <div className="text-[11px] font-medium text-white/40 uppercase tracking-wider mt-1">{s.label}</div>
+            {s.href && (
+              <Link href={s.href} className="mt-3 inline-flex text-[11px] text-indigo-300/70 hover:text-indigo-200 transition">
+                View →
+              </Link>
+            )}
+          </div>
+        ))}
       </div>
 
+      {/* ── Filters ── */}
       <PlatformControls q={query} status={status ?? ""} plan={plan ?? ""} customPlans={customPlans} />
 
-      <Card title="Schools">
-        <div className="text-sm text-white/60">{schools.length} schools</div>
-        <div className="mt-4 divide-y divide-white/10 border border-white/10 rounded-xl overflow-hidden">
-          {schools.map((s) => (
-            <div key={s.id} className="px-4 py-3 transition duration-200 hover:bg-white/10">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                <Link href={user.role === "SUPER_ADMIN" ? `/platform/schools/${s.id}` : "/platform"} className="min-w-0 flex-1">
-                  <div className="font-medium flex flex-wrap items-center gap-2 min-w-0">
-                    <span className="truncate max-w-[18rem] sm:max-w-[26rem]">{s.name}</span>
-                    <span className="text-xs text-white/50 truncate max-w-[10rem]">({s.slug})</span>
-                    <Badge tone={s.isActive ? "success" : "danger"}>
-                      {s.isActive ? "ACTIVE" : "INACTIVE"}
-                    </Badge>
-                  </div>
-                  <div className="text-xs text-white/60 mt-1">
-                    Plan: {s.subscription?.plan === "CUSTOM" ? (s.subscription.customPlan?.name ?? "Custom") : (s.subscription?.plan ?? "TRIAL")} • Ends:{" "}
-                    {s.subscription?.endsAt ? s.subscription.endsAt.toDateString() : "—"} • Amount: {centsToUsd(s.subscription?.amountCents ?? 0)} • Users:{" "}
-                    {s.users.length} • Students: {s.students.length}
-                  </div>
-                </Link>
-                <div className="flex flex-wrap items-center gap-2 sm:justify-end">
-                  <Link href={`/login?schoolSlug=${encodeURIComponent(s.slug)}`} className="shrink-0">
-                    <Button variant="secondary">School login</Button>
+      {/* ── Schools table ── */}
+      <Card title={`Schools${schools.length > 0 ? ` · ${schools.length} shown` : ""}`}>
+        {schools.length === 0 ? (
+          <div className="py-10 text-center text-sm text-white/40">No schools match your filters.</div>
+        ) : (
+          <div className="divide-y divide-white/[0.06] mt-2">
+            {schools.map((s, i) => {
+              const planLabel = s.subscription?.plan === "CUSTOM"
+                ? (s.subscription.customPlan?.name ?? "Custom") : (s.subscription?.plan ?? "TRIAL");
+              return (
+                <div key={s.id} className={`flex flex-wrap items-start gap-4 px-2 py-4 hover:bg-white/[0.03] transition
+                                             ${i === 0 ? "rounded-t-[14px]" : ""}
+                                             ${i === schools.length-1 ? "rounded-b-[14px]" : ""}`}>
+                  {/* Info */}
+                  <Link href={user.role === "SUPER_ADMIN" ? `/platform/schools/${s.id}` : "/platform"} className="flex-1 min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-[14px] font-semibold text-white/90">{s.name}</span>
+                      <span className="text-[12px] text-white/35">({s.slug})</span>
+                      <Badge tone={s.isActive ? "success" : "danger"} dot>{s.isActive ? "Active" : "Inactive"}</Badge>
+                      <Badge tone={planTone(planLabel)}>{planLabel}</Badge>
+                    </div>
+                    <div className="text-[12px] text-white/40 mt-1 flex flex-wrap gap-3">
+                      <span>💳 {centsToUsd(s.subscription?.amountCents ?? 0)}</span>
+                      <span>👥 {s.students.length} students</span>
+                      <span>🏫 {s.users.length} users</span>
+                      {s.subscription?.endsAt && <span>Expires {s.subscription.endsAt.toDateString()}</span>}
+                    </div>
                   </Link>
-                  <div className="shrink-0">
+                  {/* Actions */}
+                  <div className="flex flex-wrap items-center gap-2 shrink-0">
+                    <Link href={`/login?schoolSlug=${encodeURIComponent(s.slug)}`}>
+                      <Button variant="secondary" size="sm">School login</Button>
+                    </Link>
                     <ImpersonateLauncher schoolId={s.id} schoolName={s.name} />
+                    {user.role === "SUPER_ADMIN" && (
+                      <PlatformRowActions
+                        schoolId={s.id}
+                        isActive={s.isActive}
+                        currentPlan={s.subscription?.plan === "CUSTOM" && s.subscription.customPlanId
+                          ? `CUSTOM:${s.subscription.customPlanId}` : (s.subscription?.plan ?? "TRIAL")}
+                        customPlans={customPlans}
+                      />
+                    )}
                   </div>
-                  {user.role === "SUPER_ADMIN" ? (
-                    <PlatformRowActions
-                      schoolId={s.id}
-                      isActive={s.isActive}
-                      currentPlan={
-                        s.subscription?.plan === "CUSTOM" && s.subscription.customPlanId
-                          ? `CUSTOM:${s.subscription.customPlanId}`
-                          : (s.subscription?.plan ?? "TRIAL")
-                      }
-                      customPlans={customPlans}
-                    />
-                  ) : null}
                 </div>
-              </div>
-            </div>
-          ))}
-          {schools.length === 0 ? (
-            <div className="px-4 py-8 text-sm text-white/60">No schools onboarded yet.</div>
-          ) : null}
-        </div>
+              );
+            })}
+          </div>
+        )}
       </Card>
     </div>
   );
-}
-
-function centsToUsd(cents: number) {
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-    maximumFractionDigits: 2
-  }).format(cents / 100);
 }

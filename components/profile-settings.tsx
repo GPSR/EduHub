@@ -2,30 +2,29 @@
 
 import { useActionState } from "react";
 import { Button, Card, Input, Label, Select, Textarea } from "@/components/ui";
-import {
-  changePasswordAction,
-  updateProfileAction,
-  type ProfileState
-} from "@/app/(app)/profile/actions";
+import { changePasswordAction, updateProfileAction, type ProfileState } from "@/app/(app)/profile/actions";
 
 const initialState: ProfileState = { ok: true };
 
+function FormMessage({ state }: { state: ProfileState }) {
+  if (!state.message) return null;
+  return (
+    <div className={[
+      "md:col-span-2 flex items-start gap-2.5 rounded-[12px] border p-3.5 text-sm",
+      state.ok
+        ? "border-emerald-500/25 bg-emerald-500/10 text-emerald-200"
+        : "border-rose-500/25 bg-rose-500/10 text-rose-200",
+    ].join(" ")}>
+      <span className="shrink-0 mt-0.5">{state.ok ? "✓" : "⚠"}</span>
+      {state.message}
+    </div>
+  );
+}
+
 export function ProfileSettings({
-  email,
-  firstName,
-  lastName,
-  gender,
-  phoneNumber,
-  alternatePhoneNumber,
-  address,
-  city,
-  state,
-  country,
-  postalCode,
-  dateOfBirth,
-  emergencyContactName,
-  emergencyContactPhone,
-  notes
+  email, firstName, lastName, gender, phoneNumber, alternatePhoneNumber,
+  address, city, state: stateVal, country, postalCode, dateOfBirth,
+  emergencyContactName, emergencyContactPhone, notes,
 }: {
   email: string;
   firstName?: string | null;
@@ -48,34 +47,39 @@ export function ProfileSettings({
   const dobValue = dateOfBirth ? dateOfBirth.toISOString().slice(0, 10) : "";
 
   return (
-    <div className="space-y-6">
-      <Card title="Personal info" description="Update your profile and contact information">
-        <form action={profileAction} className="grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
+    <div className="space-y-5">
+      {/* ── Personal info ── */}
+      <Card title="Personal Information" description="Update your profile and contact details" accent="indigo">
+        <form action={profileAction} className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <Label>First name</Label>
+            <Label required>First name</Label>
             <Input name="firstName" defaultValue={firstName ?? ""} required />
           </div>
           <div>
-            <Label>Last name</Label>
+            <Label required>Last name</Label>
             <Input name="lastName" defaultValue={lastName ?? ""} required />
           </div>
           <div>
-            <Label>Email</Label>
+            <Label required>Email</Label>
             <Input name="email" type="email" defaultValue={email} required />
           </div>
           <div>
             <Label>Gender</Label>
             <Select name="gender" defaultValue={gender ?? ""}>
-              <option value="">Select gender</option>
+              <option value="">Select</option>
               <option value="Male">Male</option>
               <option value="Female">Female</option>
               <option value="Non-binary">Non-binary</option>
               <option value="Prefer not to say">Prefer not to say</option>
             </Select>
           </div>
+
+          {/* Divider */}
+          <div className="md:col-span-2 h-px bg-white/[0.07]" />
+
           <div>
             <Label>Phone number</Label>
-            <Input name="phoneNumber" defaultValue={phoneNumber ?? ""} />
+            <Input name="phoneNumber" defaultValue={phoneNumber ?? ""} placeholder="+1 555 000 0000" />
           </div>
           <div>
             <Label>Alternate phone</Label>
@@ -98,13 +102,17 @@ export function ProfileSettings({
             <Input name="city" defaultValue={city ?? ""} />
           </div>
           <div>
-            <Label>State</Label>
-            <Input name="state" defaultValue={state ?? ""} />
+            <Label>State / Province</Label>
+            <Input name="state" defaultValue={stateVal ?? ""} />
           </div>
           <div className="md:col-span-2">
             <Label>Country</Label>
             <Input name="country" defaultValue={country ?? ""} />
           </div>
+
+          {/* Divider */}
+          <div className="md:col-span-2 h-px bg-white/[0.07]" />
+
           <div>
             <Label>Emergency contact name</Label>
             <Input name="emergencyContactName" defaultValue={emergencyContactName ?? ""} />
@@ -115,61 +123,50 @@ export function ProfileSettings({
           </div>
           <div className="md:col-span-2">
             <Label>Additional notes</Label>
-            <Textarea name="notes" defaultValue={notes ?? ""} rows={4} placeholder="Any additional personal details" />
+            <Textarea name="notes" defaultValue={notes ?? ""} rows={3} placeholder="Any additional details…" />
           </div>
 
-          {profileState.message ? (
-            <div
-              className={
-                "md:col-span-2 rounded-2xl border p-3 text-sm " +
-                (profileState.ok
-                  ? "border-emerald-500/25 bg-emerald-500/10 text-emerald-100"
-                  : "border-rose-500/30 bg-rose-500/10 text-rose-200")
-              }
-            >
-              {profileState.message}
-            </div>
-          ) : null}
+          <FormMessage state={profileState} />
 
           <div className="md:col-span-2 flex justify-end">
             <Button type="submit" disabled={profilePending}>
-              {profilePending ? "Saving..." : "Save changes"}
+              {profilePending ? (
+                <span className="flex items-center gap-2">
+                  <span className="h-4 w-4 rounded-full border-2 border-white/40 border-t-white animate-spin" />
+                  Saving…
+                </span>
+              ) : "Save changes"}
             </Button>
           </div>
         </form>
       </Card>
 
-      <Card title="Change password" description="Use a strong password with at least 8 characters">
-        <form action={pwAction} className="grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
+      {/* ── Password ── */}
+      <Card title="Change Password" description="Use a strong password with at least 8 characters" accent="rose">
+        <form action={pwAction} className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="md:col-span-2">
-            <Label>Current password</Label>
-            <Input name="currentPassword" type="password" required />
+            <Label required>Current password</Label>
+            <Input name="currentPassword" type="password" required autoComplete="current-password" />
           </div>
           <div>
-            <Label>New password</Label>
-            <Input name="newPassword" type="password" minLength={8} required />
+            <Label required>New password</Label>
+            <Input name="newPassword" type="password" minLength={8} required autoComplete="new-password" />
           </div>
           <div>
-            <Label>Confirm new password</Label>
-            <Input name="confirmPassword" type="password" minLength={8} required />
+            <Label required>Confirm new password</Label>
+            <Input name="confirmPassword" type="password" minLength={8} required autoComplete="new-password" />
           </div>
 
-          {pwState.message ? (
-            <div
-              className={
-                "md:col-span-2 rounded-2xl border p-3 text-sm " +
-                (pwState.ok
-                  ? "border-emerald-500/25 bg-emerald-500/10 text-emerald-100"
-                  : "border-rose-500/30 bg-rose-500/10 text-rose-200")
-              }
-            >
-              {pwState.message}
-            </div>
-          ) : null}
+          <FormMessage state={pwState} />
 
           <div className="md:col-span-2 flex justify-end">
             <Button type="submit" disabled={pwPending}>
-              {pwPending ? "Updating..." : "Update password"}
+              {pwPending ? (
+                <span className="flex items-center gap-2">
+                  <span className="h-4 w-4 rounded-full border-2 border-white/40 border-t-white animate-spin" />
+                  Updating…
+                </span>
+              ) : "Update password"}
             </Button>
           </div>
         </form>

@@ -1,45 +1,42 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect } from "react";
-import { Card, Button } from "@/components/ui";
 
-export default function GlobalError({
-  error,
-  reset
-}: {
-  error: Error & { digest?: string };
-  reset: () => void;
-}) {
-  useEffect(() => {
-    // eslint-disable-next-line no-console
-    console.error(error);
-  }, [error]);
+export default function GlobalError({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
+  useEffect(() => { console.error(error); }, [error]);
 
   return (
     <html lang="en">
+      <head>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700&display=swap" rel="stylesheet" />
+        <style>{`
+          * { box-sizing: border-box; margin: 0; padding: 0; }
+          body { background: #060912; color: #dde3f4; font-family: 'Plus Jakarta Sans', sans-serif; -webkit-font-smoothing: antialiased; }
+          main { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px; }
+          .box { max-width: 400px; width: 100%; text-align: center; }
+          .icon { font-size: 48px; margin-bottom: 20px; }
+          h1 { font-size: 20px; font-weight: 700; color: rgba(221,227,244,0.92); }
+          p { margin-top: 8px; font-size: 14px; color: rgba(221,227,244,0.5); line-height: 1.6; }
+          .btns { margin-top: 28px; display: flex; gap: 12px; justify-content: center; }
+          button { padding: 10px 20px; border-radius: 13px; font-size: 14px; font-weight: 500; cursor: pointer; transition: all .15s; border: none; }
+          .primary { background: linear-gradient(180deg,#818cf8,#6366f1); color: #fff; }
+          .primary:hover { background: linear-gradient(180deg,#a5b4fc,#818cf8); }
+        `}</style>
+      </head>
       <body>
-        <main className="min-h-screen flex items-center justify-center p-6">
-          <div className="w-full max-w-lg space-y-4">
-            <Card title="Unexpected error">
-              <div className="text-sm text-white/70">
-                An unexpected error occurred. Please try again.
-              </div>
-              <div className="mt-4 flex gap-3">
-                <Button type="button" onClick={reset}>
-                  Try again
-                </Button>
-                <Link href="/">
-                  <Button type="button" variant="secondary">
-                    Back to home
-                  </Button>
-                </Link>
-              </div>
-            </Card>
+        <main>
+          <div className="box">
+            <div className="icon">💥</div>
+            <h1>Unexpected error</h1>
+            <p>Something critical failed. Please refresh or try again.</p>
+            <div className="btns">
+              <button className="primary" onClick={reset}>Reload</button>
+            </div>
           </div>
         </main>
       </body>
     </html>
   );
 }
-

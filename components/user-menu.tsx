@@ -6,88 +6,87 @@ import { clsx } from "clsx";
 
 function initials(name: string) {
   const parts = name.trim().split(/\s+/).filter(Boolean);
-  const first = parts[0]?.[0] ?? "";
-  const last = parts.length > 1 ? parts[parts.length - 1]?.[0] ?? "" : "";
-  return (first + last).toUpperCase();
+  return ((parts[0]?.[0] ?? "") + (parts.length > 1 ? parts[parts.length - 1]?.[0] ?? "" : "")).toUpperCase();
 }
 
-export function UserMenu({
-  userName,
-  userEmail
-}: {
-  userName: string;
-  userEmail: string;
-}) {
+export function UserMenu({ userName, userEmail }: { userName: string; userEmail: string }) {
   const [open, setOpen] = useState(false);
   const panelRef = useRef<HTMLDivElement | null>(null);
-
   const avatar = useMemo(() => initials(userName), [userName]);
 
   useEffect(() => {
-    function onKeyDown(e: KeyboardEvent) {
-      if (e.key === "Escape") setOpen(false);
-    }
-    function onClickOutside(e: MouseEvent) {
-      const panel = panelRef.current;
-      if (!panel) return;
-      if (e.target instanceof Node && !panel.contains(e.target)) setOpen(false);
-    }
     if (!open) return;
-    window.addEventListener("keydown", onKeyDown);
-    window.addEventListener("mousedown", onClickOutside);
-    return () => {
-      window.removeEventListener("keydown", onKeyDown);
-      window.removeEventListener("mousedown", onClickOutside);
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
+    const onClick = (e: MouseEvent) => {
+      if (panelRef.current && e.target instanceof Node && !panelRef.current.contains(e.target))
+        setOpen(false);
     };
+    window.addEventListener("keydown", onKey);
+    window.addEventListener("mousedown", onClick);
+    return () => { window.removeEventListener("keydown", onKey); window.removeEventListener("mousedown", onClick); };
   }, [open]);
 
   return (
-    <div className="relative" ref={panelRef}>
+    <div className="relative hidden md:block" ref={panelRef}>
       <button
         type="button"
         aria-haspopup="menu"
         aria-expanded={open}
-        onClick={() => setOpen((v) => !v)}
-        className="hidden md:flex items-center gap-3 rounded-2xl border border-white/10 bg-white/5 px-3 py-2 hover:bg-white/10"
+        onClick={() => setOpen(v => !v)}
+        className={clsx(
+          "flex items-center gap-2.5 rounded-[13px] border px-3 py-2 transition-all",
+          open
+            ? "border-indigo-400/30 bg-indigo-500/[0.12]"
+            : "border-white/[0.09] bg-white/[0.05] hover:bg-white/[0.09] hover:border-white/[0.14]"
+        )}
       >
-        <div className="grid h-9 w-9 place-items-center rounded-2xl bg-gradient-to-b from-indigo-400 to-indigo-600 text-sm font-semibold shadow-sm shadow-indigo-500/25">
+        <div className="grid h-8 w-8 place-items-center rounded-[10px]
+                        bg-gradient-to-b from-indigo-400 to-indigo-600
+                        text-xs font-bold text-white shadow-sm">
           {avatar}
         </div>
-        <div className="text-left">
-          <div className="text-sm font-semibold leading-tight">{userName}</div>
-          <div className="text-xs text-white/60 leading-tight">{userEmail}</div>
+        <div className="text-left max-w-[120px]">
+          <div className="text-[13px] font-semibold text-white/90 truncate leading-tight">{userName}</div>
+          <div className="text-[11px] text-white/45 truncate leading-tight">{userEmail}</div>
         </div>
+        <svg width="12" height="12" viewBox="0 0 12 12" fill="none" className={clsx("text-white/35 transition-transform", open && "rotate-180")}>
+          <path d="M2 4l4 4 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
       </button>
 
-      {open ? (
+      {open && (
         <div
           role="menu"
-          className={clsx(
-            "hidden md:block absolute right-0 mt-2 w-56 overflow-hidden rounded-2xl border border-white/10 bg-[#0b1020]/95 backdrop-blur",
-            "shadow-[0_25px_60px_-30px_rgba(0,0,0,0.8)]"
-          )}
+          className="absolute right-0 mt-2 w-52 overflow-hidden rounded-[16px]
+                     border border-white/[0.10] bg-[#0c1121]/97 backdrop-blur-2xl
+                     shadow-[0_20px_60px_-20px_rgba(0,0,0,0.8),0_0_0_1px_rgba(255,255,255,0.06)]
+                     animate-fade-up"
+          style={{ animationDuration: "0.15s" }}
         >
+          <div className="px-3.5 py-3 border-b border-white/[0.07]">
+            <div className="text-[12px] text-white/40 font-medium mb-0.5">Signed in as</div>
+            <div className="text-[13px] font-semibold text-white/85 truncate">{userEmail}</div>
+          </div>
           <Link
             role="menuitem"
             href="/profile"
             onClick={() => setOpen(false)}
-            className="block px-4 py-3 text-sm text-white/80 hover:bg-white/10"
+            className="flex items-center gap-2.5 px-3.5 py-2.5 text-sm text-white/70 hover:bg-white/[0.07] hover:text-white transition"
           >
-            Profile
+            <span>👤</span> Profile settings
           </Link>
-          <div className="h-px bg-white/10" />
+          <div className="h-px bg-white/[0.07]" />
           <form action="/logout" method="post">
             <button
               type="submit"
               role="menuitem"
-              className="w-full text-left px-4 py-3 text-sm text-rose-100 hover:bg-rose-500/15"
+              className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-sm text-rose-300 hover:bg-rose-500/[0.12] transition"
             >
-              Logout
+              <span>→</span> Sign out
             </button>
           </form>
         </div>
-      ) : null}
+      )}
     </div>
   );
 }
-

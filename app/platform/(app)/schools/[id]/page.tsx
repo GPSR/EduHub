@@ -1,10 +1,20 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Card, Button } from "@/components/ui";
+import { Card, Button, Badge, SectionHeader } from "@/components/ui";
 import { prisma } from "@/lib/db";
 import { requireSuperAdmin } from "@/lib/platform-require";
 import { ensureBaseModules } from "@/lib/permissions";
 import { impersonateSchoolAction, impersonateUserAction } from "./actions";
+
+const MODULE_ICONS: Record<string, string> = {
+  STUDENTS: "👥", FEES: "💳", ATTENDANCE: "✅", COMMUNICATION: "📢",
+  ACADEMICS: "📚", REPORTS: "📊", NOTIFICATIONS: "🔔", SETTINGS: "⚙️", DASHBOARD: "◈", USERS: "🛡",
+};
+
+function avatarColor(name: string) {
+  const c = ["from-indigo-400 to-indigo-600","from-violet-400 to-violet-600","from-teal-400 to-teal-600","from-rose-400 to-rose-600","from-amber-400 to-amber-600"];
+  return c[name.charCodeAt(0) % c.length];
+}
 
 export default async function PlatformSchoolPage({ params }: { params: Promise<{ id: string }> }) {
   await requireSuperAdmin();
@@ -17,117 +27,130 @@ export default async function PlatformSchoolPage({ params }: { params: Promise<{
       subscription: true,
       invites: { orderBy: { createdAt: "desc" }, take: 20 },
       users: { orderBy: { createdAt: "asc" }, take: 200, include: { schoolRole: true } },
-      modules: { include: { module: true } }
-    }
+      modules: { include: { module: true } },
+    },
   });
   if (!school) return notFound();
 
   const modules = await prisma.module.findMany({ orderBy: { name: "asc" } });
-  const schoolEnabledByModuleId = new Map(school.modules.map((m) => [m.moduleId, m.enabled]));
-  const schoolModules = modules.map((m) => ({
-    id: m.id,
-    key: m.key,
-    name: m.name,
-    enabled: schoolEnabledByModuleId.get(m.id) ?? false
-  }));
+  const enabledByModuleId = new Map(school.modules.map(m => [m.moduleId, m.enabled]));
+  const schoolModules = modules.map(m => ({ id: m.id, key: m.key, name: m.name, enabled: enabledByModuleId.get(m.id) ?? false }));
+
+  const plan = school.subscription?.plan ?? "TRIAL";
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <div className="text-2xl font-semibold">{school.name}</div>
-          <div className="text-sm text-white/60">
-            Slug: <code>{school.slug}</code> • Plan: {school.subscription?.plan ?? "TRIAL"} •{" "}
-            {school.isActive ? "Active" : "Inactive"}
-          </div>
-        </div>
-        <Link href="/platform" className="text-sm text-white/70 hover:text-white">
-          ← Back
-        </Link>
-      </div>
+    <div className="space-y-5 animate-fade-up">
+      <Link href="/platform" className="inline-flex items-center gap-1.5 text-sm text-white/40 hover:text-white/75 transition">
+        ← Platform Dashboard
+      </Link>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <Card title="Actions">
-          <div className="flex flex-wrap gap-3">
+      {/* School hero */}
+      <div className="rounded-[22px] border border-white/[0.08] bg-white/[0.04] p-6">
+        <div className="flex items-start justify-between gap-4 flex-wrap">
+          <div>
+            <h1 className="text-xl font-bold text-white/95 tracking-tight">{school.name}</h1>
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <code className="text-[12px] text-white/40">{school.slug}</code>
+              <Badge tone={school.isActive ? "success" : "danger"} dot>{school.isActive ? "Active" : "Inactive"}</Badge>
+              <Badge tone={plan === "PREMIUM" || plan === "UNLIMITED" ? "success" : plan === "TRIAL" ? "warning" : "neutral"}>{plan}</Badge>
+              {school.subscription?.endsAt && (
+                <Badge tone="neutral">Expires {school.subscription.endsAt.toDateString()}</Badge>
+              )}
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-2">
             <Link href={`/login?schoolSlug=${encodeURIComponent(school.slug)}`}>
-              <Button variant="secondary">Open school login</Button>
+              <Button variant="secondary" size="sm">School login</Button>
             </Link>
             <form action={impersonateSchoolAction} method="post">
               <input type="hidden" name="schoolId" value={school.id} />
-              <Button type="submit">Impersonate (Admin)</Button>
+              <Button type="submit" size="sm">Impersonate admin</Button>
             </form>
-            <Link href="/platform/schools/new">
-              <Button variant="secondary">+ Add school</Button>
-            </Link>
           </div>
-          <div className="mt-3 text-xs text-white/50">
-            Impersonation signs you in as the earliest-created <code>ADMIN</code> user for that school.
-          </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+        {/* Invite form */}
+        <Card title="Invite Admin User" accent="indigo">
+          <InviteForm schoolId={school.id} />
         </Card>
 
-        <Card title="Invite Admin">
-          <InviteForm schoolId={school.id} />
+        {/* Recent invites */}
+        <Card title="Recent Invites" accent="teal">
+          {school.invites.length === 0 ? (
+            <p className="text-sm text-white/40 py-4 text-center">No invites sent yet.</p>
+          ) : (
+            <div className="space-y-2 mt-1">
+              {school.invites.map(inv => (
+                <div key={inv.id} className="rounded-[12px] border border-white/[0.07] bg-white/[0.03] px-3.5 py-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-[13px] font-medium text-white/80 truncate">{inv.email}</p>
+                    <Badge tone={inv.usedAt ? "success" : "neutral"}>{inv.usedAt ? "Used" : "Pending"}</Badge>
+                  </div>
+                  <p className="text-[11px] text-white/35 mt-0.5">
+                    Expires {inv.expiresAt.toDateString()}
+                    {inv.usedAt && ` · Used ${inv.usedAt.toDateString()}`}
+                  </p>
+                  <p className="text-[10px] font-mono text-white/25 mt-1 truncate">/accept-invite?token={inv.token}</p>
+                </div>
+              ))}
+            </div>
+          )}
         </Card>
       </div>
 
-      <Card title="Impersonate Any Role" description="Choose a user to sign in as for troubleshooting and support.">
-        <div className="divide-y divide-white/10 border border-white/10 rounded-xl overflow-hidden">
-          {school.users.map((u) => (
-            <div key={u.id} className="px-4 py-3 flex items-center justify-between gap-4">
-              <div>
-                <div className="font-medium">
-                  {u.name} <span className="text-xs text-white/50">({u.schoolRole.name})</span>
+      {/* Impersonate any user */}
+      <Card title="Impersonate User" description="Sign in as any school user for support and troubleshooting">
+        {school.users.length === 0 ? (
+          <p className="text-sm text-white/40 py-4 text-center">No users in this school yet.</p>
+        ) : (
+          <div className="divide-y divide-white/[0.06] mt-2">
+            {school.users.map((u, i) => {
+              const initials = u.name.trim().split(/\s+/).map((p: string) => p[0]).slice(0,2).join("").toUpperCase();
+              return (
+                <div key={u.id} className={`flex items-center gap-3 py-3 px-1
+                                              ${i === 0 ? "rounded-t-[12px]" : ""}
+                                              ${i === school.users.length - 1 ? "rounded-b-[12px]" : ""}
+                                              hover:bg-white/[0.03] transition`}>
+                  <div className={`hidden sm:grid h-8 w-8 shrink-0 place-items-center rounded-[9px]
+                                    bg-gradient-to-b ${avatarColor(u.name)} text-[11px] font-bold text-white`}>
+                    {initials}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[13px] font-semibold text-white/85 truncate">{u.name}</p>
+                    <p className="text-[11px] text-white/40 truncate">{u.email} · {u.schoolRole.name}</p>
+                  </div>
+                  <form action={impersonateUserAction} method="post">
+                    <input type="hidden" name="schoolId" value={school.id} />
+                    <input type="hidden" name="userId"   value={u.id} />
+                    <Button type="submit" variant="secondary" size="sm">Sign in as</Button>
+                  </form>
                 </div>
-                <div className="text-xs text-white/60">{u.email}</div>
-              </div>
-              <form action={impersonateUserAction} method="post">
-                <input type="hidden" name="schoolId" value={school.id} />
-                <input type="hidden" name="userId" value={u.id} />
-                <Button type="submit" variant="secondary">
-                  Impersonate
-                </Button>
-              </form>
-            </div>
-          ))}
-          {school.users.length === 0 ? (
-            <div className="px-4 py-8 text-sm text-white/60">No users found for this school.</div>
-          ) : null}
-        </div>
+              );
+            })}
+          </div>
+        )}
       </Card>
 
-      <Card title="Recent Invites">
-        <div className="divide-y divide-white/10 border border-white/10 rounded-xl overflow-hidden">
-          {school.invites.map((inv) => (
-            <div key={inv.id} className="px-4 py-3">
-              <div className="font-medium">{inv.email}</div>
-              <div className="text-xs text-white/60">
-                Expires: {inv.expiresAt.toDateString()} • Status:{" "}
-                {inv.usedAt ? `USED (${inv.usedAt.toDateString()})` : "PENDING"}
-              </div>
-              <div className="mt-2 text-xs text-white/50">
-                Invite link: <code>{`/accept-invite?token=${inv.token}`}</code>
-              </div>
-            </div>
-          ))}
-          {school.invites.length === 0 ? (
-            <div className="px-4 py-8 text-sm text-white/60">No invites yet.</div>
-          ) : null}
-        </div>
-      </Card>
-
-      <Card title="School Modules" description="Super admin can enable or disable modules for this school.">
+      {/* Modules */}
+      <Card title="School Modules" description="Enable or disable modules and customize fields per module">
         <SchoolModulesForm schoolId={school.id} modules={schoolModules} />
-        <div className="mt-5 border-t border-white/10 pt-4">
-          <div className="text-sm text-white/70 mb-2">Customize fields per module for this school:</div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-            {schoolModules.map((m) => (
+        <div className="mt-5 pt-4 border-t border-white/[0.07]">
+          <p className="text-[12px] font-medium text-white/40 mb-3 uppercase tracking-wider">Customize per module</p>
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+            {schoolModules.map(m => (
               <Link
                 key={m.id}
                 href={`/platform/schools/${school.id}/modules/${m.id}`}
-                className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-sm hover:bg-white/[0.07] transition flex items-center justify-between"
+                className="flex items-center gap-2 rounded-[12px] border border-white/[0.07]
+                           bg-white/[0.03] px-3 py-2.5 hover:bg-white/[0.07] hover:border-white/[0.12] transition group"
               >
-                <span>{m.name}</span>
-                <span className="text-xs text-white/60">{m.enabled ? "Enabled" : "Disabled"}</span>
+                <span className="text-sm">{MODULE_ICONS[m.key] ?? "•"}</span>
+                <div className="min-w-0">
+                  <p className="text-[12px] font-medium text-white/75 group-hover:text-white/90 transition truncate">{m.name}</p>
+                  <p className="text-[10px] text-white/35">{m.enabled ? "Enabled" : "Disabled"}</p>
+                </div>
               </Link>
             ))}
           </div>
@@ -142,10 +165,7 @@ async function InviteForm({ schoolId }: { schoolId: string }) {
   return <PlatformInviteForm schoolId={schoolId} />;
 }
 
-async function SchoolModulesForm(props: {
-  schoolId: string;
-  modules: Array<{ id: string; key: string; name: string; enabled: boolean }>;
-}) {
+async function SchoolModulesForm(props: { schoolId: string; modules: Array<{ id: string; key: string; name: string; enabled: boolean }> }) {
   const { PlatformSchoolModulesForm } = await import("./ui");
   return <PlatformSchoolModulesForm schoolId={props.schoolId} modules={props.modules} />;
 }

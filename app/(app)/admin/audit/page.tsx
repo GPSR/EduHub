@@ -1,4 +1,4 @@
-import { Card, Badge } from "@/components/ui";
+import { Card, Badge, SectionHeader, EmptyState } from "@/components/ui";
 import { prisma } from "@/lib/db";
 import { requirePermission } from "@/lib/require-permission";
 
@@ -8,73 +8,82 @@ export default async function SchoolAuditPage() {
   const logs = await prisma.auditLog.findMany({
     where: { schoolId: session.schoolId },
     orderBy: { createdAt: "desc" },
-    take: 200
+    take: 200,
   });
   const schoolUserIds = Array.from(
-    new Set(logs.filter((l) => l.actorType === "SCHOOL_USER" && l.actorId).map((l) => l.actorId as string))
+    new Set(logs.filter(l => l.actorType === "SCHOOL_USER" && l.actorId).map(l => l.actorId as string))
   );
   const schoolUsers = schoolUserIds.length
     ? await prisma.user.findMany({
         where: { id: { in: schoolUserIds } },
-        select: { id: true, name: true, email: true, schoolRole: { select: { name: true } } }
+        select: { id: true, name: true, email: true, schoolRole: { select: { name: true } } },
       })
     : [];
-  const schoolUserById = new Map(schoolUsers.map((u) => [u.id, u]));
+  const schoolUserById = new Map(schoolUsers.map(u => [u.id, u]));
 
   return (
-    <Card title="School Activity Log" description="Easy-to-read timeline of activity in this school.">
-      <div className="mt-2 text-sm text-white/70">
-        <Badge>{logs.length} activities</Badge>
+    <div className="space-y-5 animate-fade-up">
+      <div className="flex items-start justify-between gap-4">
+        <SectionHeader title="Audit Logs" subtitle="Timeline of all activity in your school" />
+        <Badge tone="neutral">{logs.length} events</Badge>
       </div>
-      <div className="mt-4 divide-y divide-white/10 border border-white/10 rounded-xl overflow-hidden">
-        {logs.map((l) => (
-          <div key={l.id} className="px-4 py-3">
-            <div className="flex items-center justify-between gap-4">
-              <div className="font-medium">{humanizeToken(l.action)}</div>
-              <div className="text-xs text-white/50">{formatDateTime(l.createdAt)}</div>
-            </div>
-            <div className="text-xs text-white/70 mt-1">
-              <span className="text-white/50">Who:</span>{" "}
-              {formatActor({
-                actorType: l.actorType,
-                actorId: l.actorId,
-                schoolUserById
-              })}{" "}
-              • <span className="text-white/50">Target:</span>{" "}
-              {l.entityType ? `${humanizeToken(l.entityType)} ${l.entityId ?? ""}`.trim() : "N/A"}
-            </div>
-            {l.metadataJson ? <MetadataRow metadataJson={l.metadataJson} /> : null}
+
+      <Card>
+        {logs.length === 0 ? (
+          <EmptyState icon="🔍" title="No activity yet" />
+        ) : (
+          <div className="divide-y divide-white/[0.05]">
+            {logs.map((l, i) => (
+              <div
+                key={l.id}
+                className={`flex gap-4 px-4 py-3.5
+                             ${i === 0 ? "rounded-t-[16px]" : ""}
+                             ${i === logs.length - 1 ? "rounded-b-[16px]" : ""}
+                             hover:bg-white/[0.02] transition`}
+              >
+                {/* Timeline dot */}
+                <div className="mt-1.5 shrink-0 flex flex-col items-center gap-1">
+                  <span className="h-2 w-2 rounded-full bg-indigo-400/60" />
+                  {i !== logs.length - 1 && <span className="w-px flex-1 min-h-[1rem] bg-white/[0.06]" />}
+                </div>
+
+                <div className="flex-1 min-w-0 pb-1">
+                  <div className="flex items-start justify-between gap-3 flex-wrap">
+                    <p className="text-[14px] font-semibold text-white/85">{humanizeToken(l.action)}</p>
+                    <time className="text-[11px] text-white/30 shrink-0">{formatDateTime(l.createdAt)}</time>
+                  </div>
+                  <div className="mt-1 text-[12px] text-white/45 flex flex-wrap items-center gap-1.5">
+                    <span>{formatActor({ actorType: l.actorType, actorId: l.actorId, schoolUserById })}</span>
+                    {l.entityType && (
+                      <>
+                        <span className="text-white/20">·</span>
+                        <span>{humanizeToken(l.entityType)}{l.entityId ? ` ${l.entityId}` : ""}</span>
+                      </>
+                    )}
+                  </div>
+                  {l.metadataJson && <MetadataRow metadataJson={l.metadataJson} />}
+                </div>
+              </div>
+            ))}
           </div>
-        ))}
-        {logs.length === 0 ? <div className="px-4 py-8 text-sm text-white/60">No activity yet.</div> : null}
-      </div>
-    </Card>
+        )}
+      </Card>
+    </div>
   );
 }
 
 function formatDateTime(date: Date) {
   return new Intl.DateTimeFormat("en-US", {
-    month: "short",
-    day: "2-digit",
-    year: "numeric",
-    hour: "numeric",
-    minute: "2-digit"
+    month: "short", day: "2-digit", year: "numeric",
+    hour: "numeric", minute: "2-digit",
   }).format(date);
 }
 
 function humanizeToken(value: string) {
-  return value
-    .toLowerCase()
-    .split("_")
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(" ");
+  return value.toLowerCase().split("_").map(p => p.charAt(0).toUpperCase() + p.slice(1)).join(" ");
 }
 
-function formatActor({
-  actorType,
-  actorId,
-  schoolUserById
-}: {
+function formatActor({ actorType, actorId, schoolUserById }: {
   actorType: "PLATFORM_USER" | "SCHOOL_USER" | "SYSTEM";
   actorId: string | null;
   schoolUserById: Map<string, { id: string; name: string; email: string; schoolRole: { name: string } | null }>;
@@ -84,21 +93,21 @@ function formatActor({
   if (actorType === "SCHOOL_USER") {
     const actor = schoolUserById.get(actorId);
     return actor
-      ? `${actor.name} (${actor.email})${actor.schoolRole?.name ? ` - ${actor.schoolRole.name}` : ""}`
-      : `School User (${actorId})`;
+      ? `${actor.name}${actor.schoolRole?.name ? ` (${actor.schoolRole.name})` : ""}`
+      : `User ${actorId}`;
   }
-  return `Platform User (${actorId})`;
+  return `Platform User`;
 }
 
 function MetadataRow({ metadataJson }: { metadataJson: string }) {
   const parsed = safeParseMetadata(metadataJson);
   if (!parsed) return null;
   const entries = Object.entries(parsed);
-  if (entries.length === 0) return null;
+  if (!entries.length) return null;
   return (
-    <div className="mt-2 flex flex-wrap gap-2">
+    <div className="mt-2 flex flex-wrap gap-1.5">
       {entries.map(([key, value]) => (
-        <span key={key} className="rounded-full border border-white/15 bg-white/[0.06] px-2.5 py-1 text-[11px] text-white/80">
+        <span key={key} className="rounded-full border border-white/[0.10] bg-white/[0.04] px-2.5 py-0.5 text-[11px] text-white/60">
           {humanizeToken(key)}: {String(value)}
         </span>
       ))}
@@ -111,7 +120,5 @@ function safeParseMetadata(json: string): Record<string, unknown> | null {
     const parsed = JSON.parse(json) as unknown;
     if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return null;
     return parsed as Record<string, unknown>;
-  } catch {
-    return null;
-  }
+  } catch { return null; }
 }

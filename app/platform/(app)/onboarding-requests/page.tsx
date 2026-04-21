@@ -1,4 +1,4 @@
-import { Card, Badge } from "@/components/ui";
+import { Badge, SectionHeader, EmptyState } from "@/components/ui";
 import { prisma } from "@/lib/db";
 import { requireSuperAdmin } from "@/lib/platform-require";
 import { RequestApprovalForm } from "./ui";
@@ -9,70 +9,84 @@ export default async function PlatformOnboardingRequestsPage() {
   await ensureBaseModules();
 
   const [requests, modules, schoolModules] = await Promise.all([
-    prisma.schoolOnboardingRequest.findMany({
-      orderBy: [{ status: "asc" }, { createdAt: "desc" }],
-      take: 200
-    }),
+    prisma.schoolOnboardingRequest.findMany({ orderBy: [{ status: "asc" }, { createdAt: "desc" }], take: 200 }),
     prisma.module.findMany({ orderBy: { name: "asc" } }),
-    prisma.schoolModule.findMany({ where: { enabled: true }, select: { moduleId: true } })
+    prisma.schoolModule.findMany({ where: { enabled: true }, select: { moduleId: true } }),
   ]);
 
-  const defaultEnabled = new Set(schoolModules.map((m) => m.moduleId));
-  const pending = requests.filter((r) => r.status === "PENDING");
-  const history = requests.filter((r) => r.status !== "PENDING");
+  const defaultEnabled = new Set(schoolModules.map(m => m.moduleId));
+  const pending  = requests.filter(r => r.status === "PENDING");
+  const history  = requests.filter(r => r.status !== "PENDING");
 
   return (
-    <div className="space-y-6">
-      <Card title="Onboarding Requests" description="Approve or reject new school onboarding requests.">
-        <div className="text-sm text-white/70">
-          <Badge tone="info">{pending.length} pending</Badge>
-          <span className="ml-2 text-white/50">{history.length} processed</span>
+    <div className="space-y-5 animate-fade-up">
+      <div className="flex items-start justify-between gap-4">
+        <SectionHeader
+          title="Onboarding Requests"
+          subtitle="Approve or reject new school sign-up requests"
+        />
+        <div className="flex items-center gap-2">
+          {pending.length > 0 && <Badge tone="warning" dot>{pending.length} pending</Badge>}
+          <Badge tone="neutral">{history.length} processed</Badge>
         </div>
-      </Card>
+      </div>
 
-      <Card title="Pending Requests">
+      {/* Pending */}
+      {pending.length === 0 ? (
+        <div className="rounded-[22px] border border-white/[0.08] bg-white/[0.04] py-8">
+          <EmptyState icon="✓" title="No pending requests" description="All caught up — new requests will appear here." />
+        </div>
+      ) : (
         <div className="space-y-4">
-          {pending.map((r) => (
-            <div key={r.id} className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
-              <div className="font-semibold">{r.schoolName}</div>
-              <div className="text-xs text-white/60 mt-1">
-                Slug: <code>{r.schoolSlug}</code> • Admin: {r.adminName} ({r.adminEmail}) • Submitted:{" "}
-                {r.createdAt.toLocaleString()}
+          {pending.map(r => (
+            <div key={r.id} className="rounded-[22px] border border-amber-500/20 bg-amber-500/[0.04] p-6">
+              <div className="flex items-start justify-between gap-4 mb-5">
+                <div>
+                  <p className="text-[16px] font-bold text-white/95">{r.schoolName}</p>
+                  <div className="mt-1.5 flex flex-wrap items-center gap-2 text-[12px] text-white/45">
+                    <span>Slug: <code className="text-white/60">{r.schoolSlug}</code></span>
+                    <span className="text-white/20">·</span>
+                    <span>Admin: {r.adminName} ({r.adminEmail})</span>
+                    <span className="text-white/20">·</span>
+                    <span>Submitted {r.createdAt.toLocaleDateString()}</span>
+                  </div>
+                </div>
+                <Badge tone="warning" dot>Pending</Badge>
               </div>
-              <div className="mt-4">
-                <RequestApprovalForm
-                  requestId={r.id}
-                  modules={modules.map((m) => ({
-                    id: m.id,
-                    key: m.key,
-                    name: m.name,
-                    enabledByDefault: defaultEnabled.has(m.id)
-                  }))}
-                />
-              </div>
+              <RequestApprovalForm
+                requestId={r.id}
+                modules={modules.map(m => ({ id: m.id, key: m.key, name: m.name, enabledByDefault: defaultEnabled.has(m.id) }))}
+              />
             </div>
           ))}
-          {pending.length === 0 ? <div className="text-sm text-white/60">No pending requests.</div> : null}
         </div>
-      </Card>
+      )}
 
-      <Card title="Processed Requests">
-        <div className="divide-y divide-white/10 border border-white/10 rounded-xl overflow-hidden">
-          {history.map((r) => (
-            <div key={r.id} className="px-4 py-3">
-              <div className="flex items-center justify-between gap-3">
-                <div className="font-medium">{r.schoolName}</div>
+      {/* History */}
+      {history.length > 0 && (
+        <div className="rounded-[22px] border border-white/[0.08] bg-white/[0.04]">
+          <div className="px-5 py-4 border-b border-white/[0.07]">
+            <p className="text-[13px] font-semibold text-white/55 uppercase tracking-wider">Processed</p>
+          </div>
+          <div className="divide-y divide-white/[0.06]">
+            {history.map((r, i) => (
+              <div key={r.id} className={`flex items-start justify-between gap-4 px-5 py-4
+                                           ${i === history.length - 1 ? "rounded-b-[22px]" : ""}`}>
+                <div>
+                  <p className="text-[14px] font-semibold text-white/85">{r.schoolName}</p>
+                  <div className="text-[12px] text-white/40 mt-0.5 flex flex-wrap gap-2">
+                    <span>Slug: <code className="text-white/55">{r.schoolSlug}</code></span>
+                    <span>·</span>
+                    <span>{r.adminEmail}</span>
+                    {r.note && <><span>·</span><span className="italic">{r.note}</span></>}
+                  </div>
+                </div>
                 <Badge tone={r.status === "APPROVED" ? "success" : "danger"}>{r.status}</Badge>
               </div>
-              <div className="text-xs text-white/60 mt-1">
-                Slug: <code>{r.schoolSlug}</code> • Admin: {r.adminEmail}
-              </div>
-              {r.note ? <div className="text-xs text-white/70 mt-1">Note: {r.note}</div> : null}
-            </div>
-          ))}
-          {history.length === 0 ? <div className="px-4 py-8 text-sm text-white/60">No processed requests.</div> : null}
+            ))}
+          </div>
         </div>
-      </Card>
+      )}
     </div>
   );
 }

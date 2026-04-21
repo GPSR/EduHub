@@ -1,57 +1,86 @@
-import { Card, Button, Badge } from "@/components/ui";
+import { Card, Button, Badge, SectionHeader, EmptyState } from "@/components/ui";
 import { prisma } from "@/lib/db";
 import { requireSession } from "@/lib/require";
 import { markAllReadAction, markNotificationReadAction } from "./actions";
+
+function timeAgo(date: Date): string {
+  const diff = Date.now() - date.getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  return `${Math.floor(hrs / 24)}d ago`;
+}
 
 export default async function NotificationsPage() {
   const session = await requireSession();
   const notifications = await prisma.notification.findMany({
     where: { schoolId: session.schoolId, userId: session.userId },
     orderBy: { createdAt: "desc" },
-    take: 100
+    take: 100,
   });
 
-  const unread = notifications.filter((n) => !n.readAt).length;
+  const unread = notifications.filter(n => !n.readAt).length;
 
   return (
-    <Card title="Notifications" description="Updates and alerts for your account.">
-      <div className="flex items-center justify-between gap-4">
-        <div className="text-sm text-white/70">
-          {unread > 0 ? <Badge tone="info">{unread} unread</Badge> : <Badge>All caught up</Badge>}
-        </div>
-        <form action={markAllReadAction}>
-          <Button type="submit" variant="secondary" disabled={unread === 0}>
-            Mark all read
-          </Button>
-        </form>
+    <div className="space-y-5 animate-fade-up">
+      <div className="flex items-start justify-between gap-4">
+        <SectionHeader
+          title="Notifications"
+          subtitle={unread > 0 ? `${unread} unread notification${unread !== 1 ? "s" : ""}` : "All caught up"}
+        />
+        {unread > 0 && (
+          <form action={markAllReadAction}>
+            <Button type="submit" variant="secondary" size="sm">Mark all read</Button>
+          </form>
+        )}
       </div>
 
-      <div className="mt-4 divide-y divide-white/10 border border-white/10 rounded-xl overflow-hidden">
-        {notifications.map((n) => (
-          <div key={n.id} className="px-4 py-3 flex items-start justify-between gap-4">
-            <div className="min-w-0">
-              <div className="flex items-center gap-2">
-                <div className="font-medium truncate">{n.title}</div>
-                {!n.readAt ? <Badge tone="info">NEW</Badge> : null}
-              </div>
-              {n.body ? <div className="mt-1 text-sm text-white/70 whitespace-pre-wrap">{n.body}</div> : null}
-              <div className="mt-2 text-xs text-white/50">{n.createdAt.toDateString()}</div>
-            </div>
-            {!n.readAt ? (
-              <form action={markNotificationReadAction}>
-                <input type="hidden" name="id" value={n.id} />
-                <Button type="submit" variant="secondary">
-                  Mark read
-                </Button>
-              </form>
-            ) : null}
-          </div>
-        ))}
+      <Card>
         {notifications.length === 0 ? (
-          <div className="px-4 py-8 text-sm text-white/60">No notifications yet.</div>
-        ) : null}
-      </div>
-    </Card>
+          <EmptyState icon="🔔" title="No notifications" description="You're all caught up! New alerts will appear here." />
+        ) : (
+          <div className="divide-y divide-white/[0.06]">
+            {notifications.map((n, i) => (
+              <div
+                key={n.id}
+                className={`flex items-start gap-4 px-4 py-4 transition-colors
+                             ${!n.readAt ? "bg-indigo-500/[0.04]" : "hover:bg-white/[0.02]"}
+                             ${i === 0 ? "rounded-t-[16px]" : ""}
+                             ${i === notifications.length - 1 ? "rounded-b-[16px]" : ""}`}
+              >
+                {/* Dot indicator */}
+                <div className="mt-1.5 shrink-0">
+                  {!n.readAt ? (
+                    <span className="block h-2 w-2 rounded-full bg-indigo-400 shadow-[0_0_8px_rgba(99,102,241,0.8)]" />
+                  ) : (
+                    <span className="block h-2 w-2 rounded-full bg-white/15" />
+                  )}
+                </div>
+
+                {/* Content */}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap mb-1">
+                    <span className="text-[14px] font-semibold text-white/90">{n.title}</span>
+                    {!n.readAt && <Badge tone="info">New</Badge>}
+                  </div>
+                  {n.body && <p className="text-sm text-white/60 leading-relaxed">{n.body}</p>}
+                  <p className="mt-2 text-[11px] text-white/30">{timeAgo(n.createdAt)}</p>
+                </div>
+
+                {/* Mark read action */}
+                {!n.readAt && (
+                  <form action={markNotificationReadAction} className="shrink-0">
+                    <input type="hidden" name="id" value={n.id} />
+                    <Button type="submit" variant="ghost" size="sm">✓</Button>
+                  </form>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </Card>
+    </div>
   );
 }
-

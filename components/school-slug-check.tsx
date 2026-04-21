@@ -11,22 +11,28 @@ export function SchoolSlugCheck() {
   const [state, action, pending] = useActionState(validateSchoolSlugAction, initialState);
 
   return (
-    <form action={action} className="space-y-3">
+    <form action={action} className="space-y-4">
       <div>
-        <Label>School slug</Label>
-        <Input name="schoolSlug" placeholder="e.g. greenwood" required />
+        <Label required>School slug</Label>
+        <Input name="schoolSlug" placeholder="e.g. greenwood" required autoComplete="organization" />
         {!state.ok && state.message ? (
-          <div className="mt-2 text-sm text-rose-300">{state.message}</div>
+          <p className="mt-2 text-sm text-rose-300 flex items-center gap-1.5">
+            <span>⚠</span> {state.message}
+          </p>
         ) : (
-          <div className="mt-2 text-xs text-white/50">
-            Enter your school slug to continue to login.
-          </div>
+          <p className="mt-1.5 text-xs text-white/38">
+            Enter your school's unique identifier to proceed.
+          </p>
         )}
       </div>
-      <Button type="submit" className="w-full" disabled={pending}>
-        {pending ? "Checking..." : "Continue"}
+      <Button type="submit" className="w-full" disabled={pending} size="lg">
+        {pending ? (
+          <span className="flex items-center gap-2">
+            <span className="h-4 w-4 rounded-full border-2 border-white/40 border-t-white animate-spin" />
+            Checking…
+          </span>
+        ) : "Continue →"}
       </Button>
     </form>
   );
 }
-
