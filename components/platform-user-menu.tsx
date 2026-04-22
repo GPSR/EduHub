@@ -50,10 +50,11 @@ export function PlatformUserMenu({ name, email }: { name: string; email: string 
       </button>
 
       {open && (
-        <div className="absolute right-0 mt-2 w-[min(22rem,calc(100vw-1rem))] max-w-[calc(100vw-1rem)] max-h-[75vh] overflow-y-auto rounded-[20px] border border-white/[0.10]
-                        bg-[#060912]/97 backdrop-blur-2xl p-5 z-30
+        <div className="fixed left-2 right-2 top-[68px] bottom-2 z-50 overflow-y-auto rounded-[20px] border border-white/[0.10]
+                        bg-[#060912]/97 backdrop-blur-2xl p-5
                         shadow-[0_20px_60px_-20px_rgba(0,0,0,0.8),0_0_0_1px_rgba(255,255,255,0.05)]
-                        animate-fade-up" style={{ animationDuration: "0.15s" }}>
+                        animate-fade-up md:absolute md:left-auto md:right-0 md:top-auto md:bottom-auto md:mt-2 md:w-[min(22rem,calc(100vw-1rem))] md:max-w-[calc(100vw-1rem)] md:max-h-[75vh] md:z-30"
+             style={{ animationDuration: "0.15s" }}>
           {/* User info header */}
           <div className="flex items-center gap-3 pb-4 border-b border-white/[0.07] mb-4">
             <div className="grid h-10 w-10 place-items-center rounded-[11px]
@@ -63,7 +64,7 @@ export function PlatformUserMenu({ name, email }: { name: string; email: string 
             </div>
             <div className="min-w-0">
               <p className="text-[14px] font-semibold text-white/90 truncate">{name}</p>
-              <p className="text-[11px] text-white/40 truncate">{email}</p>
+              <p className="text-[11px] text-white/40 break-all">{email}</p>
             </div>
           </div>
 
