@@ -1,3 +1,5 @@
+import nodemailer from "nodemailer";
+
 export type InviteNotifyResult = {
   emailSent: boolean;
   smsSent: boolean;
@@ -9,10 +11,45 @@ async function sendApprovalEmail(args: {
   schoolName: string;
   inviteUrl: string;
 }) {
+  const zohoUser = process.env.ZOHO_SMTP_USER;
+  const zohoPass = process.env.ZOHO_SMTP_PASS;
+  const zohoHost = process.env.ZOHO_SMTP_HOST || "smtp.zoho.com";
+  const zohoPort = Number(process.env.ZOHO_SMTP_PORT || 465);
+  const zohoSecure = (process.env.ZOHO_SMTP_SECURE || "true").toLowerCase() !== "false";
+  const zohoFrom = process.env.ZOHO_FROM_EMAIL || process.env.RESEND_FROM_EMAIL || zohoUser;
+
+  if (zohoUser && zohoPass && zohoFrom) {
+    const transporter = nodemailer.createTransport({
+      host: zohoHost,
+      port: zohoPort,
+      secure: zohoSecure,
+      auth: {
+        user: zohoUser,
+        pass: zohoPass
+      }
+    });
+
+    await transporter.sendMail({
+      from: zohoFrom,
+      to: args.to,
+      subject: `EduHub onboarding approved - ${args.schoolName}`,
+      text: [
+        `Your school onboarding has been approved for ${args.schoolName}.`,
+        "",
+        "Use this link to create your admin account:",
+        args.inviteUrl,
+        "",
+        "This invite may expire soon."
+      ].join("\n")
+    });
+
+    return { sent: true } as const;
+  }
+
   const apiKey = process.env.RESEND_API_KEY;
   const from = process.env.RESEND_FROM_EMAIL;
   if (!apiKey || !from) {
-    return { sent: false, reason: "resend_not_configured" } as const;
+    return { sent: false, reason: "email_provider_not_configured" } as const;
   }
 
   const response = await fetch("https://api.resend.com/emails", {
