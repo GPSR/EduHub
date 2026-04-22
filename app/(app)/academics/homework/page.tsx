@@ -121,7 +121,7 @@ export default async function HomeworkPage() {
 async function CreateHomeworkCard({ students }: { students: { id: string; fullName: string }[] }) {
   const { createHomeworkAction } = await import("./actions");
   return (
-    <Card title="Post Homework" accent="violet">
+    <Card title="Post Homework" accent="indigo">
       <form action={createHomeworkAction} className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="md:col-span-2">
           <Label required>Student</Label>

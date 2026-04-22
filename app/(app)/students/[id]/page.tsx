@@ -68,7 +68,7 @@ export default async function StudentProfilePage({ params }: { params: Promise<{
           </div>
         </Card>
 
-        <Card title="Parent & Guardian" accent="violet" className="md:col-span-2">
+        <Card title="Parent & Guardian" accent="indigo" className="md:col-span-2">
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
             <Field label="Father's Name" value={student.fatherName ?? "—"} />
             <Field label="Mother's Name" value={student.motherName ?? "—"} />

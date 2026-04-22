@@ -71,7 +71,7 @@ export default async function PlatformSettingsPage() {
       </Card>
 
       {/* Custom plans */}
-      <Card title="Custom Plans" description="One-off pricing arrangements for specific schools" accent="violet">
+      <Card title="Custom Plans" description="One-off pricing arrangements for specific schools" accent="indigo">
         <div className="mb-5">
           <CreateCustomSubscriptionForm />
         </div>

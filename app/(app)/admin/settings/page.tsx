@@ -51,7 +51,7 @@ export default async function AdminSettingsPage({
         />
       </Card>
 
-      <Card title="Roles" description="Create, rename, and delete roles for your school." accent="violet">
+      <Card title="Roles" description="Create, rename, and delete roles for your school." accent="indigo">
         <RolesPanel
           schoolId={school.id}
           roles={roles.map(r => ({ id: r.id, key: r.key, name: r.name, isSystem: r.isSystem }))}
