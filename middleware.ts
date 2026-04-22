@@ -12,6 +12,24 @@ const PUBLIC_ROUTES = new Set([
 
 export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
+  const host = req.headers.get("host")?.toLowerCase() ?? "";
+
+  if (host.startsWith("platform.")) {
+    const url = req.nextUrl.clone();
+    if (pathname === "/") {
+      url.pathname = "/platform";
+      return NextResponse.redirect(url);
+    }
+    if (pathname === "/login") {
+      url.pathname = "/platform/login";
+      return NextResponse.redirect(url);
+    }
+    if (pathname === "/onboard") {
+      url.pathname = "/platform/onboard";
+      return NextResponse.redirect(url);
+    }
+  }
+
   if (
     pathname.startsWith("/_next") ||
     pathname.startsWith("/favicon") ||
