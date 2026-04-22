@@ -105,11 +105,15 @@ function MetadataRow({ metadataJson }: { metadataJson: string }) {
   const entries = Object.entries(parsed);
   if (!entries.length) return null;
   return (
-    <div className="mt-2 flex flex-wrap gap-1.5">
+    <div className="mt-2 grid grid-cols-1 gap-1.5">
       {entries.map(([key, value]) => (
-        <span key={key} className="rounded-full border border-white/[0.10] bg-white/[0.04] px-2.5 py-0.5 text-[11px] text-white/60">
-          {humanizeToken(key)}: {String(value)}
-        </span>
+        <div
+          key={key}
+          className="rounded-[10px] border border-white/[0.10] bg-white/[0.03] px-2.5 py-1.5 text-[11px] text-white/65 leading-relaxed break-words"
+        >
+          <span className="text-white/40">{humanizeToken(key)}:</span>{" "}
+          <span className="break-all">{String(value)}</span>
+        </div>
       ))}
     </div>
   );

@@ -62,11 +62,15 @@ export default async function PlatformAuditPage() {
                       {l.entityType && <><span className="text-white/20">·</span><span>{humanize(l.entityType)}{l.entityId ? ` ${l.entityId}` : ""}</span></>}
                     </div>
                     {meta && Object.entries(meta).length > 0 && (
-                      <div className="mt-2 flex flex-wrap gap-1.5">
+                      <div className="mt-2 grid grid-cols-1 gap-1.5">
                         {Object.entries(meta).map(([k, v]) => (
-                          <span key={k} className="rounded-full border border-white/[0.09] bg-white/[0.04] px-2.5 py-0.5 text-[11px] text-white/55">
-                            {humanize(k)}: {String(v)}
-                          </span>
+                          <div
+                            key={k}
+                            className="rounded-[10px] border border-white/[0.10] bg-white/[0.03] px-2.5 py-1.5 text-[11px] text-white/65 leading-relaxed break-words"
+                          >
+                            <span className="text-white/40">{humanize(k)}:</span>{" "}
+                            <span className="break-all">{String(v)}</span>
+                          </div>
                         ))}
                       </div>
                     )}
