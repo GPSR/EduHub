@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { Card, Badge, SectionHeader } from "@/components/ui";
+import { Card, Badge, Button } from "@/components/ui";
 import { prisma } from "@/lib/db";
 import { requireSession } from "@/lib/require";
 
@@ -28,6 +28,13 @@ export default async function StudentProfilePage({ params }: { params: Promise<{
       <Link href="/students" className="inline-flex items-center gap-1.5 text-sm text-white/45 hover:text-white/80 transition-colors">
         ← Students
       </Link>
+      {session.roleKey !== "PARENT" && (
+        <div>
+          <Link href={`/students/${student.id}/edit`}>
+            <Button variant="secondary" size="sm">Edit Student</Button>
+          </Link>
+        </div>
+      )}
 
       {/* Hero card */}
       <div className="rounded-[22px] border border-white/[0.08] bg-white/[0.04] p-6">

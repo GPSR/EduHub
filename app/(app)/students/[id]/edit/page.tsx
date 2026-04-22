@@ -1,0 +1,168 @@
+import Link from "next/link";
+import { notFound } from "next/navigation";
+import { Button, Card, Input, Label, SectionHeader, Textarea } from "@/components/ui";
+import { prisma } from "@/lib/db";
+import { requirePermission } from "@/lib/require-permission";
+import { updateStudentAction } from "../../actions";
+
+function dateValue(d: Date | null | undefined) {
+  if (!d) return "";
+  return d.toISOString().slice(0, 10);
+}
+
+export default async function EditStudentPage({ params }: { params: Promise<{ id: string }> }) {
+  const { session } = await requirePermission("STUDENTS", "EDIT");
+  const { id } = await params;
+
+  const student = await prisma.student.findFirst({
+    where: { id, schoolId: session.schoolId },
+    include: { class: true }
+  });
+  if (!student) return notFound();
+
+  return (
+    <div className="space-y-5 animate-fade-up">
+      <Link href={`/students/${student.id}`} className="inline-flex items-center gap-1.5 text-sm text-white/40 hover:text-white/75 transition">
+        ← Back to student
+      </Link>
+      <SectionHeader title="Edit Student" subtitle="Update student, parent, and guardian information" />
+
+      <Card>
+        <form action={updateStudentAction} className="grid grid-cols-1 md:grid-cols-2 gap-5">
+          <input type="hidden" name="id" value={student.id} />
+
+          <div className="md:col-span-2">
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-white/35 mb-3">Identity</p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Label required>Student ID</Label>
+                <Input name="studentId" defaultValue={student.studentId} required />
+              </div>
+              <div>
+                <Label>Admission number</Label>
+                <Input name="admissionNo" defaultValue={student.admissionNo ?? ""} />
+              </div>
+              <div className="md:col-span-2">
+                <Label required>Full name</Label>
+                <Input name="fullName" defaultValue={student.fullName} required />
+              </div>
+            </div>
+          </div>
+
+          <div className="md:col-span-2 pt-3 border-t border-white/[0.07]">
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-white/35 mb-3">Academic & Contact</p>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <Label>Class</Label>
+                <Input name="className" defaultValue={student.class?.name ?? ""} placeholder="Grade 6" />
+              </div>
+              <div>
+                <Label>Section</Label>
+                <Input name="section" defaultValue={student.class?.section ?? ""} placeholder="A" />
+              </div>
+              <div>
+                <Label>Roll number</Label>
+                <Input name="rollNumber" defaultValue={student.rollNumber ?? ""} />
+              </div>
+              <div>
+                <Label>Gender</Label>
+                <Input name="gender" defaultValue={student.gender ?? ""} placeholder="Male / Female / Other" />
+              </div>
+              <div>
+                <Label>Date of birth</Label>
+                <Input name="dateOfBirth" type="date" defaultValue={dateValue(student.dateOfBirth)} />
+              </div>
+              <div>
+                <Label>Blood group</Label>
+                <Input name="bloodGroup" defaultValue={student.bloodGroup ?? ""} placeholder="O+" />
+              </div>
+              <div className="md:col-span-3">
+                <Label>Address</Label>
+                <Textarea name="address" rows={2} defaultValue={student.address ?? ""} />
+              </div>
+              <div>
+                <Label>Transport</Label>
+                <Input name="transportDetails" defaultValue={student.transportDetails ?? ""} />
+              </div>
+              <div className="md:col-span-2">
+                <Label>Medical notes</Label>
+                <Textarea name="medicalNotes" rows={2} defaultValue={student.medicalNotes ?? ""} />
+              </div>
+            </div>
+          </div>
+
+          <div className="md:col-span-2 pt-3 border-t border-white/[0.07]">
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-white/35 mb-3">Parent Details</p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Label>Father's name</Label>
+                <Input name="fatherName" defaultValue={student.fatherName ?? ""} />
+              </div>
+              <div>
+                <Label>Mother's name</Label>
+                <Input name="motherName" defaultValue={student.motherName ?? ""} />
+              </div>
+              <div>
+                <Label>Mobile(s)</Label>
+                <Input name="parentMobiles" defaultValue={student.parentMobiles ?? ""} placeholder="Comma-separated" />
+              </div>
+              <div>
+                <Label>Email(s)</Label>
+                <Input name="parentEmails" defaultValue={student.parentEmails ?? ""} placeholder="Comma-separated" />
+              </div>
+              <div>
+                <Label>Occupation</Label>
+                <Input name="parentOccupation" defaultValue={student.parentOccupation ?? ""} />
+              </div>
+              <div>
+                <Label>Emergency contact</Label>
+                <Input name="emergencyContact" defaultValue={student.emergencyContact ?? ""} />
+              </div>
+              <div className="md:col-span-2">
+                <Label>Parent address</Label>
+                <Textarea name="parentAddress" rows={2} defaultValue={student.parentAddress ?? ""} />
+              </div>
+            </div>
+          </div>
+
+          <div className="md:col-span-2 pt-3 border-t border-white/[0.07]">
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-white/35 mb-3">Guardian Details</p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Label>Guardian name</Label>
+                <Input name="guardianName" defaultValue={student.guardianName ?? ""} />
+              </div>
+              <div>
+                <Label>Relationship</Label>
+                <Input name="guardianRelationship" defaultValue={student.guardianRelationship ?? ""} />
+              </div>
+              <div>
+                <Label>Guardian mobile</Label>
+                <Input name="guardianMobile" defaultValue={student.guardianMobile ?? ""} />
+              </div>
+              <div>
+                <Label>Alternate contact</Label>
+                <Input name="guardianAltContact" defaultValue={student.guardianAltContact ?? ""} />
+              </div>
+              <div className="md:col-span-2">
+                <Label>Guardian address</Label>
+                <Textarea name="guardianAddress" rows={2} defaultValue={student.guardianAddress ?? ""} />
+              </div>
+              <div className="md:col-span-2">
+                <Label>Pickup authorization details</Label>
+                <Textarea name="pickupAuthDetails" rows={2} defaultValue={student.pickupAuthDetails ?? ""} />
+              </div>
+            </div>
+          </div>
+
+          <div className="md:col-span-2 pt-3 border-t border-white/[0.07] flex items-center justify-between">
+            <Link href={`/students/${student.id}`}>
+              <Button variant="ghost" type="button">Cancel</Button>
+            </Link>
+            <Button type="submit">Save changes →</Button>
+          </div>
+        </form>
+      </Card>
+    </div>
+  );
+}
