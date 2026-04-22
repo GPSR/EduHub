@@ -20,6 +20,10 @@ export default async function PlatformSchoolPage({ params }: { params: Promise<{
   await requireSuperAdmin();
   const { id } = await params;
   await ensureBaseModules();
+  const schoolAppBaseUrl =
+    process.env.SCHOOL_APP_BASE_URL?.replace(/\/+$/, "") ||
+    process.env.NEXT_PUBLIC_SCHOOL_APP_BASE_URL?.replace(/\/+$/, "") ||
+    "https://schools.softlanetech.com";
 
   const school = await prisma.school.findUnique({
     where: { id },
@@ -82,7 +86,9 @@ export default async function PlatformSchoolPage({ params }: { params: Promise<{
             <p className="text-sm text-white/40 py-4 text-center">No invites sent yet.</p>
           ) : (
             <div className="space-y-2 mt-1">
-              {school.invites.map(inv => (
+              {school.invites.map(inv => {
+                const inviteUrl = `${schoolAppBaseUrl}/accept-invite?token=${encodeURIComponent(inv.token)}`;
+                return (
                 <div key={inv.id} className="rounded-[12px] border border-white/[0.07] bg-white/[0.03] px-3.5 py-3">
                   <div className="flex items-center justify-between gap-2">
                     <p className="text-[13px] font-medium text-white/80 truncate">{inv.email}</p>
@@ -92,9 +98,18 @@ export default async function PlatformSchoolPage({ params }: { params: Promise<{
                     Expires {inv.expiresAt.toDateString()}
                     {inv.usedAt && ` · Used ${inv.usedAt.toDateString()}`}
                   </p>
-                  <p className="text-[10px] font-mono text-white/25 mt-1 truncate">/accept-invite?token={inv.token}</p>
+                  <a
+                    href={inviteUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="block text-[10px] font-mono text-indigo-300/80 hover:text-indigo-200 mt-1 break-all"
+                    title={inviteUrl}
+                  >
+                    {inviteUrl}
+                  </a>
                 </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </Card>
