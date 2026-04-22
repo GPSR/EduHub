@@ -15,6 +15,7 @@ export type OnboardingApprovalState = {
   message?: string;
   inviteUrl?: string;
   adminEmail?: string;
+  adminPhone?: string;
   schoolName?: string;
 };
 
@@ -133,6 +134,7 @@ export async function approveOnboardingRequestAction(
   const notify = await sendOnboardingApprovalNotifications({
     schoolName: request.schoolName,
     adminEmail: request.adminEmail.toLowerCase(),
+    adminPhone: request.adminPhone,
     inviteUrl
   });
 
@@ -158,6 +160,7 @@ export async function approveOnboardingRequestAction(
     } Share options are below.`,
     inviteUrl,
     adminEmail: request.adminEmail.toLowerCase(),
+    adminPhone: request.adminPhone ?? undefined,
     schoolName: request.schoolName
   };
 }

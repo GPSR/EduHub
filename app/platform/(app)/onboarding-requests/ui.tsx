@@ -30,7 +30,7 @@ export function RequestApprovalForm({
     );
     return {
       emailHref: approveState.adminEmail ? `mailto:${approveState.adminEmail}?subject=${subject}&body=${body}` : null,
-      smsHref: `sms:?&body=${body}`,
+      smsHref: `sms:${approveState.adminPhone ?? ""}?&body=${body}`,
       waHref: `https://wa.me/?text=${body}`
     };
   }, [approveState]);

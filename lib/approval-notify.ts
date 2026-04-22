@@ -44,11 +44,11 @@ async function sendApprovalEmail(args: {
   return { sent: true } as const;
 }
 
-async function sendApprovalSms(args: { inviteUrl: string }) {
+async function sendApprovalSms(args: { inviteUrl: string; adminPhone?: string | null }) {
   const sid = process.env.TWILIO_ACCOUNT_SID;
   const token = process.env.TWILIO_AUTH_TOKEN;
   const from = process.env.TWILIO_FROM_NUMBER;
-  const to = process.env.TWILIO_DEFAULT_TO;
+  const to = args.adminPhone || process.env.TWILIO_DEFAULT_TO;
 
   if (!sid || !token || !from || !to) {
     return { sent: false, reason: "twilio_not_configured" } as const;
@@ -80,6 +80,7 @@ async function sendApprovalSms(args: { inviteUrl: string }) {
 export async function sendOnboardingApprovalNotifications(args: {
   schoolName: string;
   adminEmail: string;
+  adminPhone?: string | null;
   inviteUrl: string;
 }): Promise<InviteNotifyResult> {
   const result: InviteNotifyResult = { emailSent: false, smsSent: false, errors: [] };
@@ -96,7 +97,7 @@ export async function sendOnboardingApprovalNotifications(args: {
   }
 
   try {
-    const sms = await sendApprovalSms({ inviteUrl: args.inviteUrl });
+    const sms = await sendApprovalSms({ inviteUrl: args.inviteUrl, adminPhone: args.adminPhone });
     result.smsSent = sms.sent;
   } catch (err) {
     result.errors.push(err instanceof Error ? err.message : "sms_send_failed");

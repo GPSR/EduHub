@@ -40,6 +40,26 @@ export function OnboardForm() {
         <Label required>Admin email</Label>
         <Input name="adminEmail" type="email" placeholder="admin@school.edu" required />
       </div>
+      <div>
+        <Label required>Country code</Label>
+        <select
+          name="adminPhoneCountryCode"
+          defaultValue="+1"
+          className="w-full rounded-[13px] bg-black/25 border border-white/[0.09] px-3.5 py-2.5 text-sm text-white outline-none focus:border-indigo-400/50 focus:ring-4 focus:ring-indigo-500/12 transition-all"
+          required
+        >
+          <option value="+1">+1 (US/CA)</option>
+          <option value="+44">+44 (UK)</option>
+          <option value="+91">+91 (IN)</option>
+          <option value="+61">+61 (AU)</option>
+          <option value="+971">+971 (UAE)</option>
+          <option value="+65">+65 (SG)</option>
+        </select>
+      </div>
+      <div>
+        <Label required>Admin phone</Label>
+        <Input name="adminPhone" type="tel" inputMode="numeric" placeholder="9876543210" required />
+      </div>
 
       {state.message && (
         <div className={[

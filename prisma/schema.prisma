@@ -130,6 +130,8 @@ model SchoolOnboardingRequest {
   schoolSlug String
   adminName  String
   adminEmail String
+  adminPhoneCountryCode String?
+  adminPhone String?
   status     OnboardingRequestStatus @default(PENDING)
   note       String?
   schoolId   String?
@@ -145,6 +147,7 @@ model SchoolOnboardingRequest {
   @@index([status, createdAt])
   @@index([schoolSlug])
   @@index([adminEmail, createdAt])
+  @@index([adminPhone, createdAt])
 }
 
 model ModuleField {

@@ -47,6 +47,12 @@ export default async function PlatformOnboardingRequestsPage() {
                     <span>Slug: <code className="text-white/60">{r.schoolSlug}</code></span>
                     <span className="text-white/20">·</span>
                     <span>Admin: {r.adminName} ({r.adminEmail})</span>
+                    {r.adminPhone && (
+                      <>
+                        <span className="text-white/20">·</span>
+                        <span>Phone: {r.adminPhone}</span>
+                      </>
+                    )}
                     <span className="text-white/20">·</span>
                     <span>Submitted {r.createdAt.toLocaleDateString()}</span>
                   </div>
@@ -78,6 +84,7 @@ export default async function PlatformOnboardingRequestsPage() {
                     <span>Slug: <code className="text-white/55">{r.schoolSlug}</code></span>
                     <span>·</span>
                     <span>{r.adminEmail}</span>
+                    {r.adminPhone && <><span>·</span><span>{r.adminPhone}</span></>}
                     {r.note && <><span>·</span><span className="italic">{r.note}</span></>}
                   </div>
                 </div>
