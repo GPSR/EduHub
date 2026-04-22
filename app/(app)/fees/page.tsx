@@ -120,7 +120,7 @@ async function CreateInvoiceCard({ students }: { students: { id: string; fullNam
           <Label>Student</Label>
           <select
             name="studentId"
-            className="w-full rounded-[13px] bg-black/25 border border-white/[0.09] px-3.5 py-2.5 text-sm text-white outline-none focus:border-indigo-400/50 focus:ring-4 focus:ring-indigo-500/12 transition-all"
+            className="w-full rounded-[13px] bg-black/25 border border-white/[0.09] px-3.5 py-2.5 text-base sm:text-sm text-white outline-none focus:border-indigo-400/50 focus:ring-4 focus:ring-indigo-500/12 transition-all"
             required
           >
             <option value="" disabled>Select student</option>
@@ -155,7 +155,7 @@ async function CreateInvoiceCard({ students }: { students: { id: string; fullNam
           <input
             name="dueOn"
             type="date"
-            className="w-full rounded-[13px] bg-black/25 border border-white/[0.09] px-3.5 py-2.5 text-sm text-white outline-none focus:border-indigo-400/50 focus:ring-4 focus:ring-indigo-500/12 transition-all"
+            className="w-full rounded-[13px] bg-black/25 border border-white/[0.09] px-3.5 py-2.5 text-base sm:text-sm text-white outline-none focus:border-indigo-400/50 focus:ring-4 focus:ring-indigo-500/12 transition-all"
           />
         </div>
         <div className="md:col-span-2 flex justify-end">

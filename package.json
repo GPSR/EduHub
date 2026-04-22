@@ -14,7 +14,10 @@
     "prisma:generate": "prisma generate",
     "mobile:sync": "cap sync",
     "mobile:open:ios": "cap open ios",
-    "mobile:open:android": "cap open android"
+    "mobile:open:android": "cap open android",
+    "mobile:build": "next build && cap sync",
+    "mobile:build:ios": "next build && cap sync ios",
+    "mobile:build:android": "next build && cap sync android"
   },
   "dependencies": {
     "@capacitor/android": "^8.3.1",
@@ -31,7 +34,13 @@
     "next-pwa": "^5.6.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "zod": "^3.24.3"
+    "zod": "^3.24.3",
+    "@capacitor/splash-screen": "^7.0.0",
+    "@capacitor/status-bar": "^7.0.0",
+    "@capacitor/keyboard": "^7.0.0",
+    "@capacitor/haptics": "^7.0.0",
+    "@capacitor/network": "^7.0.0",
+    "@capacitor/app": "^7.0.0"
   },
   "devDependencies": {
     "@capacitor/assets": "^3.0.5",

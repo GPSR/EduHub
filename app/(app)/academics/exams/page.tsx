@@ -106,7 +106,7 @@ async function CreateResultCard({ students }: { students: { id: string; fullName
           <Label required>Student</Label>
           <select
             name="studentId"
-            className="w-full rounded-[13px] bg-black/25 border border-white/[0.09] px-3.5 py-2.5 text-sm text-white outline-none focus:border-indigo-400/50 focus:ring-4 focus:ring-indigo-500/12 transition-all"
+            className="w-full rounded-[13px] bg-black/25 border border-white/[0.09] px-3.5 py-2.5 text-base sm:text-sm text-white outline-none focus:border-indigo-400/50 focus:ring-4 focus:ring-indigo-500/12 transition-all"
             required
           >
             <option value="" disabled>Select student</option>

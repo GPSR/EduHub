@@ -149,7 +149,7 @@ function DateHeader({ date, isToday }: { date: Date; isToday: boolean }) {
             type="date"
             name="date"
             defaultValue={dateStr}
-            className="rounded-[11px] bg-black/25 border border-white/[0.09] px-3 py-1.5 text-sm text-white outline-none focus:border-indigo-400/50 transition"
+            className="rounded-[11px] bg-black/25 border border-white/[0.09] px-3 py-1.5 text-base sm:text-sm text-white outline-none focus:border-indigo-400/50 transition"
           />
           <Button type="submit" variant="secondary" size="sm">Go</Button>
         </form>
@@ -191,7 +191,7 @@ async function AttendanceRow({
         <select
           name="status"
           defaultValue={current === "NOT_MARKED" ? "PRESENT" : current}
-          className="rounded-[11px] bg-black/25 border border-white/[0.09] px-3 py-2 text-sm text-white outline-none focus:border-indigo-400/50 transition"
+          className="rounded-[11px] bg-black/25 border border-white/[0.09] px-3 py-2 text-base sm:text-sm text-white outline-none focus:border-indigo-400/50 transition"
         >
           <option value="PRESENT">✅ Present</option>
           <option value="ABSENT">❌ Absent</option>

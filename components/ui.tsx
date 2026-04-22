@@ -82,7 +82,7 @@ export function Input(props: React.InputHTMLAttributes<HTMLInputElement>) {
       {...props}
       className={clsx(
         "w-full rounded-[13px] bg-black/25 border border-white/[0.09] px-3.5 py-2.5",
-        "text-sm text-white placeholder:text-white/30 outline-none",
+        "text-base sm:text-sm text-white placeholder:text-white/30 outline-none",
         "transition-all duration-150",
         "hover:border-white/[0.15]",
         "focus:border-indigo-400/50 focus:bg-black/30 focus:ring-4 focus:ring-indigo-500/12",
@@ -99,7 +99,7 @@ export function Select(props: React.SelectHTMLAttributes<HTMLSelectElement>) {
       {...props}
       className={clsx(
         "w-full rounded-[13px] bg-black/25 border border-white/[0.09] px-3.5 py-2.5",
-        "text-sm text-white outline-none appearance-none",
+        "text-base sm:text-sm text-white outline-none appearance-none",
         "transition-all duration-150",
         "hover:border-white/[0.15]",
         "focus:border-indigo-400/50 focus:ring-4 focus:ring-indigo-500/12",
@@ -116,7 +116,7 @@ export function Textarea(props: React.TextareaHTMLAttributes<HTMLTextAreaElement
       {...props}
       className={clsx(
         "w-full rounded-[13px] bg-black/25 border border-white/[0.09] px-3.5 py-2.5",
-        "text-sm text-white placeholder:text-white/30 outline-none resize-none",
+        "text-base sm:text-sm text-white placeholder:text-white/30 outline-none resize-none",
         "transition-all duration-150",
         "hover:border-white/[0.15]",
         "focus:border-indigo-400/50 focus:ring-4 focus:ring-indigo-500/12",
