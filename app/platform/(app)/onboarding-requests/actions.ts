@@ -7,6 +7,7 @@ import { randomToken } from "@/lib/token";
 import { ensureSubscriptionPlanSettings, getPlanAmountCents, getPlanEndsAt } from "@/lib/subscription";
 import { ensureBaseModules, seedSchoolModulesAndRolePerms } from "@/lib/permissions";
 import { auditLog } from "@/lib/audit";
+import { sendOnboardingApprovalNotifications } from "@/lib/approval-notify";
 import { revalidatePath } from "next/cache";
 
 export type OnboardingApprovalState = {
@@ -129,10 +130,32 @@ export async function approveOnboardingRequestAction(
     process.env.NEXT_PUBLIC_SCHOOL_APP_BASE_URL?.replace(/\/+$/, "") ||
     "https://schools.softlanetech.com";
   const inviteUrl = `${schoolAppBaseUrl}/accept-invite?token=${encodeURIComponent(token)}`;
+  const notify = await sendOnboardingApprovalNotifications({
+    schoolName: request.schoolName,
+    adminEmail: request.adminEmail.toLowerCase(),
+    inviteUrl
+  });
+
+  await auditLog({
+    actor: { type: "PLATFORM_USER", id: session.platformUserId },
+    action: "PLATFORM_ONBOARDING_APPROVAL_NOTIFICATIONS",
+    entityType: "SchoolOnboardingRequest",
+    entityId: request.id,
+    schoolId: school.id,
+    metadata: {
+      emailSent: notify.emailSent,
+      smsSent: notify.smsSent,
+      errors: notify.errors.slice(0, 3)
+    }
+  });
 
   return {
     ok: true,
-    message: "Approved. Share the invitation link below with the school admin.",
+    message: `Approved. ${
+      notify.emailSent ? "Invitation email sent." : "Invitation email not sent."
+    } ${
+      notify.smsSent ? "SMS sent." : "SMS not sent."
+    } Share options are below.`,
     inviteUrl,
     adminEmail: request.adminEmail.toLowerCase(),
     schoolName: request.schoolName
