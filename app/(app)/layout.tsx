@@ -16,6 +16,12 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   });
 
   const canView = (moduleKey: string) => {
+    if (
+      session.roleKey === "ADMIN" &&
+      (moduleKey === "DASHBOARD" || moduleKey === "REPORTS" || moduleKey === "SETTINGS" || moduleKey === "USERS")
+    ) {
+      return true;
+    }
     const level = perms[moduleKey];
     return level ? atLeastLevel(level, "VIEW") : false;
   };
@@ -32,6 +38,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     canView("ACADEMICS")      ? { href: "/academics",        label: "Academics",     activeStartsWith: true } : null,
     canView("NOTIFICATIONS")  ? { href: "/notifications",    label: "Notifications", activeStartsWith: true } : null,
     canView("REPORTS")        ? { href: "/reports",          label: "Reports",       activeStartsWith: true } : null,
+    session.roleKey === "ADMIN" ? { href: "/admin/users",    label: "Users",         activeStartsWith: true } : null,
+    session.roleKey === "ADMIN" ? { href: "/admin/settings", label: "Settings",      activeStartsWith: true } : null,
   ].filter(Boolean) as { href: string; label: string; activeStartsWith?: boolean }[];
 
   return (
