@@ -10,12 +10,13 @@ export function Card({
 }: {
   title?: string;
   description?: string;
-  accent?: "indigo" | "emerald" | "amber" | "rose" | "teal";
+  accent?: "indigo" | "emerald" | "amber" | "rose" | "teal" | "violet";
   children: React.ReactNode;
   className?: string;
 }) {
   const accentBar = {
     indigo:  "before:bg-indigo-500",
+    violet:  "before:bg-violet-500",
     emerald: "before:bg-emerald-500",
     amber:   "before:bg-amber-500",
     rose:    "before:bg-rose-500",
