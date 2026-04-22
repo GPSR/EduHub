@@ -50,7 +50,7 @@ export function PlatformUserMenu({ name, email }: { name: string; email: string 
       </button>
 
       {open && (
-        <div className="absolute right-0 mt-2 w-[360px] rounded-[20px] border border-white/[0.10]
+        <div className="absolute right-0 mt-2 w-[min(22rem,calc(100vw-1rem))] max-w-[calc(100vw-1rem)] max-h-[75vh] overflow-y-auto rounded-[20px] border border-white/[0.10]
                         bg-[#060912]/97 backdrop-blur-2xl p-5 z-30
                         shadow-[0_20px_60px_-20px_rgba(0,0,0,0.8),0_0_0_1px_rgba(255,255,255,0.05)]
                         animate-fade-up" style={{ animationDuration: "0.15s" }}>

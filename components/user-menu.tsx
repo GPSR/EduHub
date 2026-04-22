@@ -57,7 +57,7 @@ export function UserMenu({ userName, userEmail }: { userName: string; userEmail:
       {open && (
         <div
           role="menu"
-          className="absolute right-0 mt-2 w-52 overflow-hidden rounded-[16px]
+          className="absolute right-0 mt-2 w-[min(20rem,calc(100vw-1rem))] max-w-[calc(100vw-1rem)] overflow-hidden rounded-[16px]
                      border border-white/[0.10] bg-[#0c1121]/97 backdrop-blur-2xl
                      shadow-[0_20px_60px_-20px_rgba(0,0,0,0.8),0_0_0_1px_rgba(255,255,255,0.06)]
                      animate-fade-up"
@@ -65,7 +65,7 @@ export function UserMenu({ userName, userEmail }: { userName: string; userEmail:
         >
           <div className="px-3.5 py-3 border-b border-white/[0.07]">
             <div className="text-[12px] text-white/40 font-medium mb-0.5">Signed in as</div>
-            <div className="text-[13px] font-semibold text-white/85 truncate">{userEmail}</div>
+            <div className="text-[13px] font-semibold text-white/85 break-all">{userEmail}</div>
           </div>
           <Link
             role="menuitem"
