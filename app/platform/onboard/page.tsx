@@ -5,6 +5,8 @@ import { PlatformOnboardForm } from "@/components/platform-onboard-form";
 import { BrandIcon } from "@/components/brand";
 import { prisma } from "@/lib/db";
 
+export const dynamic = "force-dynamic";
+
 export default async function PlatformOnboardPage() {
   const existing = await prisma.platformUser.findFirst({ select: { id: true } });
   if (existing) redirect("/platform/login");

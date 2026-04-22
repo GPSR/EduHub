@@ -4,6 +4,8 @@ import { PlatformLoginForm } from "@/components/platform-login-form";
 import { BrandLogo } from "@/components/brand";
 import { prisma } from "@/lib/db";
 
+export const dynamic = "force-dynamic";
+
 export default async function PlatformLoginPage() {
   const hasSuperAdmin = Boolean(await prisma.platformUser.findFirst({ select: { id: true } }));
 
