@@ -47,6 +47,7 @@ export async function getSession(): Promise<Session | null> {
   const cookieStore = await cookies();
   const token = cookieStore.get(SESSION_COOKIE)?.value;
   if (!token) return null;
+  if (!process.env.AUTH_SECRET) return null;
   try {
     const { payload } = await jwtVerify(token, getSecret());
     return SessionSchema.parse(payload);
