@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useMemo, useState } from "react";
 import { Button, Input, Label, Select } from "@/components/ui";
 import {
   approveOnboardingRequestAction,
@@ -19,6 +19,21 @@ export function RequestApprovalForm({
 }) {
   const [approveState, approveAction, approvePending] = useActionState(approveOnboardingRequestAction, initialState);
   const [rejectState, rejectAction, rejectPending] = useActionState(rejectOnboardingRequestAction, initialState);
+  const [copied, setCopied] = useState(false);
+
+  const share = useMemo(() => {
+    if (!approveState.ok || !approveState.inviteUrl) return null;
+    const schoolName = approveState.schoolName ?? "your school";
+    const subject = encodeURIComponent(`EduHub Invite Approved - ${schoolName}`);
+    const body = encodeURIComponent(
+      `Your school onboarding is approved.\n\nUse this link to create the admin account:\n${approveState.inviteUrl}\n\nThis link may expire soon.`
+    );
+    return {
+      emailHref: approveState.adminEmail ? `mailto:${approveState.adminEmail}?subject=${subject}&body=${body}` : null,
+      smsHref: `sms:?&body=${body}`,
+      waHref: `https://wa.me/?text=${body}`
+    };
+  }, [approveState]);
 
   return (
     <div className="space-y-4">
@@ -61,6 +76,57 @@ export function RequestApprovalForm({
             }
           >
             {approveState.message}
+            {approveState.ok && approveState.inviteUrl && (
+              <div className="mt-3 space-y-2">
+                <p className="text-[11px] text-emerald-200/90">Invitation link</p>
+                <a
+                  href={approveState.inviteUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="block text-[11px] font-mono text-indigo-200/90 break-all underline-offset-2 hover:underline"
+                >
+                  {approveState.inviteUrl}
+                </a>
+                <div className="flex flex-wrap gap-2 pt-1">
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    onClick={async () => {
+                      await navigator.clipboard.writeText(approveState.inviteUrl ?? "");
+                      setCopied(true);
+                      setTimeout(() => setCopied(false), 1800);
+                    }}
+                  >
+                    {copied ? "Copied" : "Copy link"}
+                  </Button>
+                  {share?.emailHref && (
+                    <a
+                      href={share.emailHref}
+                      className="inline-flex items-center justify-center gap-2 rounded-[10px] border border-white/[0.10] bg-white/[0.07] px-3 py-1.5 text-[13px] font-medium text-white/90 hover:bg-white/[0.12] hover:border-white/[0.18] transition-all"
+                    >
+                      Email
+                    </a>
+                  )}
+                  <a
+                    href={share?.smsHref}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center justify-center gap-2 rounded-[10px] border border-white/[0.10] bg-white/[0.07] px-3 py-1.5 text-[13px] font-medium text-white/90 hover:bg-white/[0.12] hover:border-white/[0.18] transition-all"
+                  >
+                    SMS
+                  </a>
+                  <a
+                    href={share?.waHref}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center justify-center gap-2 rounded-[10px] border border-white/[0.10] bg-white/[0.07] px-3 py-1.5 text-[13px] font-medium text-white/90 hover:bg-white/[0.12] hover:border-white/[0.18] transition-all"
+                  >
+                    WhatsApp
+                  </a>
+                </div>
+              </div>
+            )}
           </div>
         ) : null}
 

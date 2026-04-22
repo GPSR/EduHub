@@ -9,7 +9,13 @@ import { ensureBaseModules, seedSchoolModulesAndRolePerms } from "@/lib/permissi
 import { auditLog } from "@/lib/audit";
 import { revalidatePath } from "next/cache";
 
-export type OnboardingApprovalState = { ok: boolean; message?: string };
+export type OnboardingApprovalState = {
+  ok: boolean;
+  message?: string;
+  inviteUrl?: string;
+  adminEmail?: string;
+  schoolName?: string;
+};
 
 const ApproveSchema = z.object({
   requestId: z.string().min(1),
@@ -118,7 +124,19 @@ export async function approveOnboardingRequestAction(
 
   revalidatePath("/platform/onboarding-requests");
   revalidatePath("/platform");
-  return { ok: true, message: "Approved. School created and admin invite generated." };
+  const schoolAppBaseUrl =
+    process.env.SCHOOL_APP_BASE_URL?.replace(/\/+$/, "") ||
+    process.env.NEXT_PUBLIC_SCHOOL_APP_BASE_URL?.replace(/\/+$/, "") ||
+    "https://schools.softlanetech.com";
+  const inviteUrl = `${schoolAppBaseUrl}/accept-invite?token=${encodeURIComponent(token)}`;
+
+  return {
+    ok: true,
+    message: "Approved. Share the invitation link below with the school admin.",
+    inviteUrl,
+    adminEmail: request.adminEmail.toLowerCase(),
+    schoolName: request.schoolName
+  };
 }
 
 const RejectSchema = z.object({
