@@ -87,13 +87,13 @@ export default async function PlatformHomePage({
       </div>
 
       {/* ── Revenue + stats grid ── */}
-      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-4">
         {/* Revenue hero card */}
-        <div className="col-span-2 md:row-span-2 rounded-[22px] border border-emerald-500/20 bg-emerald-500/[0.06] p-6">
+        <div className="sm:col-span-2 md:row-span-2 rounded-[22px] border border-emerald-500/20 bg-emerald-500/[0.06] p-4 sm:p-6">
           <p className="text-[11px] font-semibold uppercase tracking-wider text-emerald-400/70 mb-2">Total Revenue</p>
           <p className="text-4xl font-bold text-emerald-300 tabular-nums">{centsToUsd(totalRev._sum.amountCents ?? 0)}</p>
           <p className="text-[12px] text-white/35 mt-1 mb-6">All time · all schools</p>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="rounded-[14px] border border-white/[0.07] bg-white/[0.03] px-3.5 py-3">
               <p className="text-[11px] text-white/35">This month</p>
               <p className="text-lg font-bold text-white/85 tabular-nums mt-0.5">{centsToUsd(monthlyRev._sum.amountCents ?? 0)}</p>
@@ -138,11 +138,11 @@ export default async function PlatformHomePage({
               const planLabel = s.subscription?.plan === "CUSTOM"
                 ? (s.subscription.customPlan?.name ?? "Custom") : (s.subscription?.plan ?? "TRIAL");
               return (
-                <div key={s.id} className={`flex flex-wrap items-start gap-4 px-2 py-4 hover:bg-white/[0.03] transition
+                <div key={s.id} className={`flex flex-col sm:flex-row sm:flex-wrap items-start gap-3 sm:gap-4 px-2 py-4 hover:bg-white/[0.03] transition
                                              ${i === 0 ? "rounded-t-[14px]" : ""}
                                              ${i === schools.length-1 ? "rounded-b-[14px]" : ""}`}>
                   {/* Info */}
-                  <Link href={user.role === "SUPER_ADMIN" ? `/platform/schools/${s.id}` : "/platform"} className="flex-1 min-w-0">
+                  <Link href={user.role === "SUPER_ADMIN" ? `/platform/schools/${s.id}` : "/platform"} className="flex-1 min-w-0 w-full">
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="text-[14px] font-semibold text-white/90">{s.name}</span>
                       <span className="text-[12px] text-white/35">({s.slug})</span>
@@ -157,9 +157,9 @@ export default async function PlatformHomePage({
                     </div>
                   </Link>
                   {/* Actions */}
-                  <div className="flex flex-wrap items-center gap-2 shrink-0">
+                  <div className="flex flex-wrap items-center gap-2 shrink-0 w-full sm:w-auto">
                     <Link href={`/login?schoolSlug=${encodeURIComponent(s.slug)}`}>
-                      <Button variant="secondary" size="sm">School login</Button>
+                      <Button variant="secondary" size="sm" className="w-full sm:w-auto">School login</Button>
                     </Link>
                     <ImpersonateLauncher schoolId={s.id} schoolName={s.name} />
                     {user.role === "SUPER_ADMIN" && (

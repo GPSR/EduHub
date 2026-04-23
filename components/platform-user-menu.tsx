@@ -66,11 +66,25 @@ export function PlatformUserMenu({ name, email }: { name: string; email: string 
       </button>
 
       {open && (
-        <div className="fixed left-2 right-2 top-[max(68px,calc(env(safe-area-inset-top)+56px))] bottom-[calc(5.5rem+env(safe-area-inset-bottom,0px))] z-50 overflow-y-auto rounded-[20px] border border-white/[0.10]
-                        bg-[#060912]/97 backdrop-blur-2xl p-4 sm:p-5
-                        shadow-[0_20px_60px_-20px_rgba(0,0,0,0.8),0_0_0_1px_rgba(255,255,255,0.05)]
-                        animate-fade-up md:absolute md:left-auto md:right-0 md:top-auto md:bottom-auto md:mt-2 md:w-[min(22rem,calc(100vw-1rem))] md:max-w-[calc(100vw-1rem)] md:max-h-[75vh] md:z-30"
-             style={{ animationDuration: "0.15s" }}>
+        <>
+          <button
+            type="button"
+            aria-label="Close profile menu"
+            onClick={() => setOpen(false)}
+            className="md:hidden fixed inset-0 z-40 bg-black/75 backdrop-blur-sm"
+          />
+          <div
+            className="fixed left-2 right-2 z-50 overflow-y-auto rounded-[20px] border border-white/[0.10]
+                       bg-[#060912]/97 backdrop-blur-2xl p-4 sm:p-5
+                       shadow-[0_20px_60px_-20px_rgba(0,0,0,0.8),0_0_0_1px_rgba(255,255,255,0.05)]
+                       animate-fade-up top-[var(--platform-menu-top)] bottom-[var(--platform-menu-bottom)]
+                       md:absolute md:left-auto md:right-0 md:top-auto md:bottom-auto md:mt-2 md:w-[min(22rem,calc(100vw-1rem))] md:max-w-[calc(100vw-1rem)] md:max-h-[75vh] md:z-30"
+            style={{
+              animationDuration: "0.15s",
+              ["--platform-menu-top" as string]: "calc(env(safe-area-inset-top, 0px) + 56px)",
+              ["--platform-menu-bottom" as string]: "calc(env(safe-area-inset-bottom, 0px) + 5.5rem)"
+            }}
+          >
           {/* User info header */}
           <div className="flex items-center gap-3 pb-4 border-b border-white/[0.07] mb-4">
             <div className="grid h-10 w-10 place-items-center rounded-[11px]
@@ -116,7 +130,8 @@ export function PlatformUserMenu({ name, email }: { name: string; email: string 
               </Button>
             </div>
           </form>
-        </div>
+          </div>
+        </>
       )}
     </div>
   );
