@@ -207,7 +207,16 @@ export async function updateStudentAction(formData: FormData) {
             schoolId: session.schoolId,
             parents: { some: { userId: session.userId } }
           },
-    select: { id: true, studentId: true, admissionNo: true, fullName: true, classId: true, rollNumber: true }
+    select: {
+      id: true,
+      studentId: true,
+      admissionNo: true,
+      fullName: true,
+      classId: true,
+      rollNumber: true,
+      address: true,
+      parentAddress: true
+    }
   });
   if (!existing) redirect("/students");
 
@@ -243,6 +252,13 @@ export async function updateStudentAction(formData: FormData) {
     rollNumber = String(classStrength + 1);
   }
 
+  const useStudentAddressForParent = Boolean(formData.get("parentAddressSameAsStudent"));
+  const parentAddressValue = useStudentAddressForParent
+    ? (canEditStudents
+        ? (normalizeOptional(formData.get("address")) ?? existing.address ?? null)
+        : (existing.address ?? null))
+    : normalizeOptional(formData.get("parentAddress"));
+
   await prisma.student.update({
     where: { id: parsed.data.id },
     data: {
@@ -263,7 +279,7 @@ export async function updateStudentAction(formData: FormData) {
       parentMobiles: normalizeOptional(formData.get("parentMobiles")),
       parentEmails: normalizeOptional(formData.get("parentEmails")),
       parentOccupation: normalizeOptional(formData.get("parentOccupation")),
-      parentAddress: normalizeOptional(formData.get("parentAddress")),
+      parentAddress: parentAddressValue,
       emergencyContact: normalizeOptional(formData.get("emergencyContact")),
       guardianName: normalizeOptional(formData.get("guardianName")),
       guardianRelationship: normalizeOptional(formData.get("guardianRelationship")),

@@ -5,6 +5,7 @@ import { prisma } from "@/lib/db";
 import { requireSession } from "@/lib/require";
 import { atLeastLevel, getEffectivePermissions } from "@/lib/permissions";
 import { updateStudentAction } from "../../actions";
+import { ParentAddressField } from "@/components/parent-address-field";
 
 function dateValue(d: Date | null | undefined) {
   if (!d) return "";
@@ -140,10 +141,7 @@ export default async function EditStudentPage({ params }: { params: Promise<{ id
                 <Label>Emergency contact</Label>
                 <Input name="emergencyContact" defaultValue={student.emergencyContact ?? ""} />
               </div>
-              <div className="md:col-span-2">
-                <Label>Parent address</Label>
-                <Textarea name="parentAddress" rows={2} defaultValue={student.parentAddress ?? ""} />
-              </div>
+              <ParentAddressField studentAddress={student.address} parentAddress={student.parentAddress} />
             </div>
           </div>
 
