@@ -8,6 +8,7 @@ import { ensureSubscriptionPlanSettings, getPlanAmountCents, getPlanEndsAt } fro
 import { ensureBaseModules, seedSchoolModulesAndRolePerms } from "@/lib/permissions";
 import { auditLog } from "@/lib/audit";
 import { sendOnboardingApprovalNotifications } from "@/lib/approval-notify";
+import { sendOnboardingRejectionEmail } from "@/lib/approval-notify";
 import { revalidatePath } from "next/cache";
 
 export type OnboardingApprovalState = {
@@ -191,7 +192,7 @@ export async function rejectOnboardingRequestAction(
 
   const request = await prisma.schoolOnboardingRequest.findUnique({
     where: { id: parsed.data.requestId },
-    select: { id: true, status: true }
+    select: { id: true, status: true, schoolName: true, adminEmail: true }
   });
   if (!request || request.status !== "PENDING") return { ok: false, message: "Request not found or already processed." };
 
@@ -208,6 +209,27 @@ export async function rejectOnboardingRequestAction(
     metadata: { note: parsed.data.note ?? "" }
   });
 
+  let rejectionEmailSent = false;
+  let rejectionEmailError: string | null = null;
+  try {
+    const sent = await sendOnboardingRejectionEmail({
+      adminEmail: request.adminEmail.toLowerCase(),
+      schoolName: request.schoolName,
+      note: parsed.data.note ?? null
+    });
+    rejectionEmailSent = sent.sent;
+  } catch (err) {
+    rejectionEmailError = err instanceof Error ? err.message : "rejection_email_failed";
+  }
+
+  await auditLog({
+    actor: { type: "PLATFORM_USER", id: session.platformUserId },
+    action: "PLATFORM_ONBOARDING_REJECTION_NOTIFICATION",
+    entityType: "SchoolOnboardingRequest",
+    entityId: request.id,
+    metadata: { rejectionEmailSent, rejectionEmailError }
+  });
+
   revalidatePath("/platform/onboarding-requests");
-  return { ok: true, message: "Request rejected." };
+  return { ok: true, message: rejectionEmailSent ? "Request rejected and email sent." : "Request rejected. Email could not be sent." };
 }

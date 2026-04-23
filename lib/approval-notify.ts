@@ -189,3 +189,64 @@ export async function sendOnboardingApprovalNotifications(args: {
 
   return result;
 }
+
+export async function sendOnboardingRejectionEmail(args: {
+  adminEmail: string;
+  schoolName: string;
+  note?: string | null;
+}) {
+  const subject = `EduHub onboarding update | ${args.schoolName}`;
+  const text = [
+    `Your school onboarding request for ${args.schoolName} was not approved at this time.`,
+    args.note ? `Reason: ${args.note}` : "",
+    "",
+    "Please update the details and submit a new request."
+  ].filter(Boolean).join("\n");
+  const html = `
+    <div style="font-family:Arial,sans-serif;line-height:1.5;color:#0f172a;max-width:620px;margin:0 auto;">
+      <h2 style="margin:0 0 12px;">Onboarding request update</h2>
+      <p style="margin:0 0 12px;">
+        Your school onboarding request for <strong>${escapeHtml(args.schoolName)}</strong> was not approved at this time.
+      </p>
+      ${
+        args.note
+          ? `<p style="margin:0 0 12px;"><strong>Reason:</strong> ${escapeHtml(args.note)}</p>`
+          : ""
+      }
+      <p style="margin:0;">Please update the details and submit a new request.</p>
+    </div>
+  `;
+
+  const zohoUser = process.env.ZOHO_SMTP_USER;
+  const zohoPass = process.env.ZOHO_SMTP_PASS;
+  const zohoHost = process.env.ZOHO_SMTP_HOST || "smtp.zoho.com";
+  const zohoPort = Number(process.env.ZOHO_SMTP_PORT || 465);
+  const zohoSecure = (process.env.ZOHO_SMTP_SECURE || "true").toLowerCase() !== "false";
+  const zohoFrom = process.env.ZOHO_FROM_EMAIL || process.env.RESEND_FROM_EMAIL || zohoUser;
+
+  if (zohoUser && zohoPass && zohoFrom) {
+    const transporter = nodemailer.createTransport({
+      host: zohoHost,
+      port: zohoPort,
+      secure: zohoSecure,
+      auth: { user: zohoUser, pass: zohoPass }
+    });
+    await transporter.sendMail({ from: zohoFrom, to: args.adminEmail, subject, text, html });
+    return { sent: true as const, provider: "zoho" as const };
+  }
+
+  const apiKey = process.env.RESEND_API_KEY;
+  const from = process.env.RESEND_FROM_EMAIL;
+  if (!apiKey || !from) return { sent: false as const, reason: "email_provider_not_configured" as const };
+
+  const response = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ from, to: [args.adminEmail], subject, text, html })
+  });
+  if (!response.ok) {
+    const body = await response.text();
+    throw new Error(`resend_failed:${response.status}:${body}`);
+  }
+  return { sent: true as const, provider: "resend" as const };
+}
