@@ -6,6 +6,7 @@ import { requireSuperAdmin } from "@/lib/platform-require";
 import { createSessionCookie } from "@/lib/session";
 import { ensureBaseModules } from "@/lib/permissions";
 import { ensureSchoolSubscriptionActive } from "@/lib/subscription";
+import { sendOnboardingApprovalNotifications } from "@/lib/approval-notify";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
@@ -44,6 +45,21 @@ export async function createAdminInviteAction(
       token,
       expiresAt
     }
+  });
+
+  const school = await prisma.school.findUnique({
+    where: { id: parsed.data.schoolId },
+    select: { name: true }
+  });
+  const schoolAppBaseUrl =
+    process.env.SCHOOL_APP_BASE_URL?.replace(/\/+$/, "") ||
+    process.env.NEXT_PUBLIC_SCHOOL_APP_BASE_URL?.replace(/\/+$/, "") ||
+    "https://schools.softlanetech.com";
+  const inviteUrl = `${schoolAppBaseUrl}/accept-invite?token=${encodeURIComponent(token)}`;
+  await sendOnboardingApprovalNotifications({
+    schoolName: school?.name ?? "School",
+    adminEmail: parsed.data.adminEmail.toLowerCase(),
+    inviteUrl
   });
 
   redirect(`/platform/schools/${parsed.data.schoolId}`);

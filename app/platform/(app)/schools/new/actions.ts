@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import { randomToken } from "@/lib/token";
 import { requireSuperAdmin } from "@/lib/platform-require";
 import { auditLog } from "@/lib/audit";
+import { sendOnboardingApprovalNotifications } from "@/lib/approval-notify";
 import { ensureSubscriptionPlanSettings, getPlanAmountCents, getPlanEndsAt } from "@/lib/subscription";
 import { redirect } from "next/navigation";
 import { z } from "zod";
@@ -75,6 +76,17 @@ export async function createSchoolInviteAction(
         token,
         expiresAt
       }
+    });
+
+    const schoolAppBaseUrl =
+      process.env.SCHOOL_APP_BASE_URL?.replace(/\/+$/, "") ||
+      process.env.NEXT_PUBLIC_SCHOOL_APP_BASE_URL?.replace(/\/+$/, "") ||
+      "https://schools.softlanetech.com";
+    const inviteUrl = `${schoolAppBaseUrl}/accept-invite?token=${encodeURIComponent(token)}`;
+    await sendOnboardingApprovalNotifications({
+      schoolName: school.name,
+      adminEmail: parsed.data.adminEmail.toLowerCase(),
+      inviteUrl
     });
 
     await auditLog({
