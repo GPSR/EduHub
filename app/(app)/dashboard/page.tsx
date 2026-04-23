@@ -2,6 +2,7 @@ import { Card, SectionHeader, Badge } from "@/components/ui";
 import { prisma } from "@/lib/db";
 import { requireSession } from "@/lib/require";
 import { atLeastLevel, getEffectivePermissions } from "@/lib/permissions";
+import { redirect } from "next/navigation";
 
 function startOfDay(d: Date) {
   const out = new Date(d);
@@ -30,6 +31,7 @@ type TrendPoint = {
 
 export default async function DashboardPage() {
   const session = await requireSession();
+  if (session.roleKey !== "ADMIN") redirect("/students");
   const [students, teachers, pendingFees, posts, school, perms] = await Promise.all([
     prisma.student.count({ where: { schoolId: session.schoolId } }),
     prisma.user.count({
@@ -52,45 +54,13 @@ export default async function DashboardPage() {
   const isActive = school?.isActive ?? false;
   const canViewAttendance = perms["ATTENDANCE"] ? atLeastLevel(perms["ATTENDANCE"], "VIEW") : false;
 
-  const isTeacherScopedRole = session.roleKey === "TEACHER" || session.roleKey === "CLASS_TEACHER";
-  let attendanceScopeLabel = "School-wide students";
-
-  let scopedStudentIds: string[] = [];
-  if (session.roleKey === "PARENT") {
-    const linked = await prisma.student.findMany({
-      where: { schoolId: session.schoolId, parents: { some: { userId: session.userId } } },
-      select: { id: true }
-    });
-    scopedStudentIds = linked.map((s) => s.id);
-    attendanceScopeLabel = "Your linked children";
-  } else if (isTeacherScopedRole) {
-    const assignments = await prisma.teacherClassAssignment.findMany({
-      where: { schoolId: session.schoolId, userId: session.userId },
-      select: { classId: true }
-    });
-    if (assignments.length > 0) {
-      const classIds = assignments.map((a) => a.classId);
-      const scoped = await prisma.student.findMany({
-        where: { schoolId: session.schoolId, classId: { in: classIds } },
-        select: { id: true }
-      });
-      scopedStudentIds = scoped.map((s) => s.id);
-      attendanceScopeLabel = `Assigned classes (${assignments.length})`;
-    } else {
-      const scoped = await prisma.student.findMany({
-        where: { schoolId: session.schoolId },
-        select: { id: true }
-      });
-      scopedStudentIds = scoped.map((s) => s.id);
-      attendanceScopeLabel = "All students (no class assignment set)";
-    }
-  } else {
-    const scoped = await prisma.student.findMany({
+  const attendanceScopeLabel = "School-wide students";
+  const scopedStudentIds = (
+    await prisma.student.findMany({
       where: { schoolId: session.schoolId },
       select: { id: true }
-    });
-    scopedStudentIds = scoped.map((s) => s.id);
-  }
+    })
+  ).map((s) => s.id);
 
   const trendDays: TrendPoint[] = [];
   const today = startOfDay(new Date());

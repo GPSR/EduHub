@@ -18,6 +18,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   ]);
 
   const canView = (moduleKey: string) => {
+    if (moduleKey === "DASHBOARD") return session.roleKey === "ADMIN";
     if (session.roleKey === "ADMIN" &&
       ["DASHBOARD","REPORTS","SETTINGS","USERS"].includes(moduleKey)) return true;
     const level = perms[moduleKey];

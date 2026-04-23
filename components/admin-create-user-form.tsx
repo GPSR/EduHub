@@ -18,6 +18,7 @@ const MODULE_ICONS: Record<string, string> = {
 };
 
 const PERM_LEVELS = [
+  { value: "NOT_REQUIRED", label: "Not required" },
   { value: "",        label: "Inherit from role" },
   { value: "VIEW",    label: "View only" },
   { value: "EDIT",    label: "Read + Write" },

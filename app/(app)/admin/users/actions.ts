@@ -57,7 +57,7 @@ export async function createUserAction(
     const moduleId = k.slice("perm_".length);
     if (!enabledModuleIds.has(moduleId)) continue;
     const level = String(v || "");
-    if (!level) continue; // inherit
+    if (!level || level === "NOT_REQUIRED") continue; // inherit / no additional access
     if (!["VIEW", "EDIT", "APPROVE", "ADMIN"].includes(level)) continue;
     permEntries.push({ moduleId, level: level as PermissionLevel });
   }
