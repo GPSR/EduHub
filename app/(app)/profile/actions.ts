@@ -4,6 +4,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { requireUser } from "@/lib/require";
 import { hashPassword, verifyPassword } from "@/lib/password";
+import { clearUserProfileImages, saveUserProfileImage } from "@/lib/uploads";
 
 export type ProfileState = { ok: boolean; message?: string };
 
@@ -157,4 +158,15 @@ export async function changePasswordAction(_prev: ProfileState, formData: FormDa
   });
 
   return { ok: true, message: "Password updated." };
+}
+
+export async function uploadProfilePhotoAction(_prev: ProfileState, formData: FormData): Promise<ProfileState> {
+  const { user } = await requireUser();
+  const file = formData.get("photo");
+  if (!(file instanceof File)) return { ok: false, message: "Please choose an image." };
+
+  await clearUserProfileImages(user.id);
+  const saved = await saveUserProfileImage(user.id, file);
+  if (!saved.ok) return { ok: false, message: saved.message };
+  return { ok: true, message: "Profile photo updated." };
 }

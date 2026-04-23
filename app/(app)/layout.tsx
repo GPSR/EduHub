@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { requireUser } from "@/lib/require";
 import { Badge } from "@/components/ui";
 import { NavLink } from "@/components/nav-link";
@@ -9,12 +10,15 @@ import { PWAInstallPrompt } from "@/components/pwa-install-prompt";
 import { PullToRefresh } from "@/components/pull-to-refresh";
 import { getEffectivePermissions, atLeastLevel } from "@/lib/permissions";
 import { prisma } from "@/lib/db";
+import { getUserProfileImageUrl } from "@/lib/uploads";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const { user, session } = await requireUser();
-  const [perms, unreadCount] = await Promise.all([
+  const [perms, unreadCount, school, userPhotoUrl] = await Promise.all([
     getEffectivePermissions({ schoolId: session.schoolId, userId: session.userId, roleId: session.roleId }),
     prisma.notification.count({ where: { schoolId: session.schoolId, userId: session.userId, readAt: null } }),
+    prisma.school.findUnique({ where: { id: session.schoolId }, select: { brandingLogoUrl: true } }),
+    getUserProfileImageUrl(user.id)
   ]);
 
   const canView = (moduleKey: string) => {
@@ -49,7 +53,17 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         <header className="header-safe sticky top-0 z-20 border-b border-white/[0.08] bg-[#060912]/90 backdrop-blur-xl">
           <div className="mx-auto max-w-[1320px] px-4 md:px-6 h-[62px] flex items-center justify-between gap-4">
             <Link href="/dashboard" className="flex items-center gap-3 group shrink-0">
-              <BrandIcon size={30} />
+              {school?.brandingLogoUrl ? (
+                <Image
+                  src={school.brandingLogoUrl}
+                  alt="School Logo"
+                  width={30}
+                  height={30}
+                  className="h-[30px] w-[30px] rounded-[8px] object-cover border border-white/[0.12]"
+                />
+              ) : (
+                <BrandIcon size={30} />
+              )}
               <span className="hidden sm:block text-[15px] font-semibold text-white/90 group-hover:text-white transition">
                 EduHub
               </span>
@@ -64,7 +78,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
                 moreItems={mobileMore}
                 unreadCount={unreadCount}
               />
-              <UserMenu userName={user.name} userEmail={user.email} />
+              <UserMenu userName={user.name} userEmail={user.email} photoUrl={userPhotoUrl ?? undefined} />
             </div>
           </div>
         </header>
@@ -81,7 +95,17 @@ export default async function AppLayout({ children }: { children: React.ReactNod
                 <div className="grid h-8 w-8 place-items-center rounded-[10px]
                                 bg-gradient-to-b from-indigo-400 to-indigo-600
                                 text-xs font-bold text-white shadow-sm shrink-0">
-                  {user.name.trim().split(/\s+/).map((p: string) => p[0]).slice(0,2).join("").toUpperCase()}
+                  {userPhotoUrl ? (
+                    <Image
+                      src={userPhotoUrl}
+                      alt={user.name}
+                      width={32}
+                      height={32}
+                      className="h-8 w-8 rounded-[10px] object-cover"
+                    />
+                  ) : (
+                    user.name.trim().split(/\s+/).map((p: string) => p[0]).slice(0,2).join("").toUpperCase()
+                  )}
                 </div>
                 <div className="min-w-0">
                   <div className="text-[13px] font-semibold text-white/90 truncate">{user.name}</div>

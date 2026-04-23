@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { clsx } from "clsx";
 
@@ -9,7 +10,7 @@ function initials(name: string) {
   return ((parts[0]?.[0] ?? "") + (parts.length > 1 ? parts[parts.length - 1]?.[0] ?? "" : "")).toUpperCase();
 }
 
-export function UserMenu({ userName, userEmail }: { userName: string; userEmail: string }) {
+export function UserMenu({ userName, userEmail, photoUrl }: { userName: string; userEmail: string; photoUrl?: string }) {
   const [open, setOpen] = useState(false);
   const panelRef = useRef<HTMLDivElement | null>(null);
   const avatar = useMemo(() => initials(userName), [userName]);
@@ -40,11 +41,21 @@ export function UserMenu({ userName, userEmail }: { userName: string; userEmail:
             : "border-white/[0.09] bg-white/[0.05] hover:bg-white/[0.09] hover:border-white/[0.14]"
         )}
       >
-        <div className="grid h-8 w-8 place-items-center rounded-[10px]
-                        bg-gradient-to-b from-indigo-400 to-indigo-600
-                        text-xs font-bold text-white shadow-sm">
-          {avatar}
-        </div>
+        {photoUrl ? (
+          <Image
+            src={photoUrl}
+            alt={userName}
+            width={32}
+            height={32}
+            className="h-8 w-8 rounded-[10px] object-cover border border-white/[0.12]"
+          />
+        ) : (
+          <div className="grid h-8 w-8 place-items-center rounded-[10px]
+                          bg-gradient-to-b from-indigo-400 to-indigo-600
+                          text-xs font-bold text-white shadow-sm">
+            {avatar}
+          </div>
+        )}
         <div className="text-left max-w-[120px]">
           <div className="text-[13px] font-semibold text-white/90 truncate leading-tight">{userName}</div>
           <div className="text-[11px] text-white/45 truncate leading-tight">{userEmail}</div>

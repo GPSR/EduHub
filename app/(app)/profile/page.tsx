@@ -2,13 +2,18 @@ import { requireUser } from "@/lib/require";
 import { prisma } from "@/lib/db";
 import { Card, Badge, SectionHeader } from "@/components/ui";
 import { ProfileSettings } from "@/components/profile-settings";
+import Image from "next/image";
+import { getUserProfileImageUrl } from "@/lib/uploads";
 
 export default async function ProfilePage() {
   const { user, session } = await requireUser();
-  const school = await prisma.school.findUnique({
-    where: { id: user.schoolId },
-    select: { name: true, slug: true },
-  });
+  const [school, profilePhotoUrl] = await Promise.all([
+    prisma.school.findUnique({
+      where: { id: user.schoolId },
+      select: { name: true, slug: true },
+    }),
+    getUserProfileImageUrl(user.id)
+  ]);
 
   const initials = user.name.trim().split(/\s+/).map((p: string) => p[0]).slice(0, 2).join("").toUpperCase();
 
@@ -19,11 +24,21 @@ export default async function ProfilePage() {
       {/* Profile hero */}
       <div className="rounded-[22px] border border-white/[0.08] bg-white/[0.04] p-6">
         <div className="flex items-center gap-5">
-          <div className="grid h-16 w-16 shrink-0 place-items-center rounded-[18px]
-                          bg-gradient-to-b from-indigo-400 to-indigo-600 text-xl font-bold text-white
-                          shadow-[0_8px_24px_-8px_rgba(99,102,241,0.6)]">
-            {initials}
-          </div>
+          {profilePhotoUrl ? (
+            <Image
+              src={profilePhotoUrl}
+              alt={user.name}
+              width={64}
+              height={64}
+              className="h-16 w-16 shrink-0 rounded-[18px] object-cover border border-white/[0.10]"
+            />
+          ) : (
+            <div className="grid h-16 w-16 shrink-0 place-items-center rounded-[18px]
+                            bg-gradient-to-b from-indigo-400 to-indigo-600 text-xl font-bold text-white
+                            shadow-[0_8px_24px_-8px_rgba(99,102,241,0.6)]">
+              {initials}
+            </div>
+          )}
           <div className="min-w-0">
             <h2 className="text-lg font-bold text-white/95 tracking-tight">{user.name}</h2>
             <p className="text-sm text-white/50 mt-0.5">{user.email}</p>

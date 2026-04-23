@@ -6,6 +6,7 @@ import { requirePermission } from "@/lib/require-permission";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { ensureBaseModules } from "@/lib/permissions";
+import { deleteUploadedImageByUrl, saveUploadedImage } from "@/lib/uploads";
 
 export type SettingsState = { ok: boolean; message?: string };
 
@@ -192,6 +193,33 @@ export async function deleteClassConfigAction(formData: FormData) {
   if (studentsCount > 0) throw new Error("Class has students and cannot be deleted.");
 
   await prisma.class.delete({ where: { id: cls.id } });
+  redirect("/admin/settings");
+}
+
+export async function uploadSchoolLogoAction(formData: FormData) {
+  const { session } = await requirePermission("SETTINGS", "ADMIN");
+  const file = formData.get("logo");
+  if (!(file instanceof File)) redirect("/admin/settings");
+
+  const school = await prisma.school.findUnique({
+    where: { id: session.schoolId },
+    select: { brandingLogoUrl: true }
+  });
+  if (!school) redirect("/admin/settings");
+
+  const saved = await saveUploadedImage({
+    file,
+    folder: `schools/${session.schoolId}`,
+    prefix: "logo"
+  });
+  if (!saved.ok) redirect("/admin/settings");
+
+  await prisma.school.update({
+    where: { id: session.schoolId },
+    data: { brandingLogoUrl: saved.url }
+  });
+
+  await deleteUploadedImageByUrl(school.brandingLogoUrl);
   redirect("/admin/settings");
 }
 

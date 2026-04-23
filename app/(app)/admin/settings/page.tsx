@@ -2,6 +2,7 @@ import { Card, Input, Label, Button, Select, Badge, SectionHeader } from "@/comp
 import { prisma } from "@/lib/db";
 import { requirePermission } from "@/lib/require-permission";
 import { IdSettingsClientForm, RenameRoleClientForm, SchoolModulesClientForm } from "@/components/admin-settings-forms";
+import Image from "next/image";
 
 export default async function AdminSettingsPage({
   searchParams,
@@ -49,6 +50,10 @@ export default async function AdminSettingsPage({
         />
       </Card>
 
+      <Card title="Branding Logo" description="Upload school logo shown in app header." accent="teal">
+        <SchoolLogoPanel logoUrl={school.brandingLogoUrl} />
+      </Card>
+
       <Card title="School Modules" description="Enable or disable modules for all roles." accent="teal">
         <SchoolModulesClientForm
           modules={schoolModules.map(m => ({ id: m.module.id, name: m.module.name, key: m.module.key, enabled: m.enabled }))}
@@ -69,6 +74,29 @@ export default async function AdminSettingsPage({
         />
       </Card>
     </div>
+  );
+}
+
+async function SchoolLogoPanel({ logoUrl }: { logoUrl?: string | null }) {
+  const { uploadSchoolLogoAction } = await import("./actions");
+  return (
+    <form action={uploadSchoolLogoAction} className="grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
+      <div className="flex items-center gap-3">
+        {logoUrl ? (
+          <Image src={logoUrl} alt="School logo" width={56} height={56} className="h-14 w-14 rounded-[12px] object-cover border border-white/[0.10]" />
+        ) : (
+          <div className="h-14 w-14 rounded-[12px] border border-white/[0.10] bg-white/[0.04] grid place-items-center text-[11px] text-white/40">No logo</div>
+        )}
+        <div className="min-w-0">
+          <Label required>Upload logo</Label>
+          <Input name="logo" type="file" accept="image/png,image/jpeg,image/webp" required />
+          <p className="mt-1 text-[11px] text-white/35">JPG/PNG/WEBP, max 3MB</p>
+        </div>
+      </div>
+      <div className="md:justify-self-end">
+        <Button type="submit">Upload logo</Button>
+      </div>
+    </form>
   );
 }
 
