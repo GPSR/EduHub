@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { CapacitorInit } from "@/components/capacitor-init";
 import { NetworkBanner } from "@/components/network-banner";
+import { ScrollPreserver } from "@/components/scroll-preserver";
 
 export const metadata: Metadata = {
   title: { default: "EduHub", template: "%s · EduHub" },
@@ -47,6 +48,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body>
         <CapacitorInit />
         <NetworkBanner />
+        <ScrollPreserver />
         {children}
       </body>
     </html>
