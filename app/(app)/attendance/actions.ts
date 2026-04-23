@@ -36,5 +36,20 @@ export async function markAttendanceAction(formData: FormData) {
     }
   });
 
+  const student = await prisma.student.findFirst({
+    where: { id: parsed.data.studentId, schoolId: session.schoolId },
+    select: { fullName: true, parents: { select: { userId: true } } }
+  });
+  if (student?.parents?.length) {
+    await prisma.notification.createMany({
+      data: student.parents.map((p) => ({
+        schoolId: session.schoolId,
+        userId: p.userId,
+        title: `Attendance updated: ${student.fullName}`,
+        body: `Status: ${parsed.data.status} on ${parsed.data.date}.\nLINK:/attendance?date=${encodeURIComponent(parsed.data.date)}`
+      }))
+    });
+  }
+
   redirect(`/attendance?date=${parsed.data.date}`);
 }

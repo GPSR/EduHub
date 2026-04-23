@@ -4,6 +4,7 @@ import { requireSession } from "@/lib/require";
 import { atLeastLevel, getEffectivePermissions } from "@/lib/permissions";
 import { requirePermission } from "@/lib/require-permission";
 import Link from "next/link";
+import { markFeedSeen } from "@/lib/feed-unread";
 
 function timeAgo(date: Date): string {
   const diff = Date.now() - date.getTime();
@@ -58,6 +59,8 @@ export default async function FeedPage({
 
   // Class names lookup
   const classById = new Map(classes.map(c => [c.id, `${c.name}${c.section ? `-${c.section}` : ""}`]));
+
+  await markFeedSeen(session.schoolId, session.userId);
 
   return (
     <div className="space-y-5 animate-fade-up">

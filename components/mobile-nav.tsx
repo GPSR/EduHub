@@ -28,7 +28,7 @@ function isActive(pathname: string, item: NavItem) {
 }
 
 export function MobileNav({
-  role, userName, userEmail, items, moreItems, unreadCount = 0,
+  role, userName, userEmail, items, moreItems, unreadCount = 0, feedUnreadCount = 0,
 }: {
   role: string;
   userName: string;
@@ -36,6 +36,7 @@ export function MobileNav({
   items: NavItem[];
   moreItems: NavItem[];
   unreadCount?: number;
+  feedUnreadCount?: number;
 }) {
   const pathname  = usePathname();
   const [open, setOpen] = useState(false);
@@ -123,6 +124,12 @@ export function MobileNav({
                         {unreadCount > 9 ? "9+" : unreadCount}
                       </span>
                     )}
+                    {item.href === "/feed" && feedUnreadCount > 0 && (
+                      <span className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-rose-500
+                                       text-[9px] font-bold text-white flex items-center justify-center">
+                        {feedUnreadCount > 9 ? "9+" : feedUnreadCount}
+                      </span>
+                    )}
                   </span>
                   <span className="text-[11px] font-medium text-center leading-tight">{item.label}</span>
                 </Link>
@@ -167,6 +174,12 @@ export function MobileNav({
                     <span className="absolute -top-1 -right-2 h-4 w-4 rounded-full bg-rose-500
                                      text-[9px] font-bold text-white flex items-center justify-center">
                       {unreadCount > 9 ? "9+" : unreadCount}
+                    </span>
+                  )}
+                  {item.href === "/feed" && feedUnreadCount > 0 && (
+                    <span className="absolute -top-1 -right-2 h-4 w-4 rounded-full bg-rose-500
+                                     text-[9px] font-bold text-white flex items-center justify-center">
+                      {feedUnreadCount > 9 ? "9+" : feedUnreadCount}
                     </span>
                   )}
                 </span>

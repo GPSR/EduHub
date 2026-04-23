@@ -5,6 +5,26 @@ import { requirePermission } from "@/lib/require-permission";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 
+async function notifyParentsForStudent(
+  schoolId: string,
+  studentId: string,
+  payload: { title: string; body?: string }
+) {
+  const links = await prisma.studentParent.findMany({
+    where: { schoolId, studentId },
+    select: { userId: true }
+  });
+  if (!links.length) return;
+  await prisma.notification.createMany({
+    data: links.map((p) => ({
+      schoolId,
+      userId: p.userId,
+      title: payload.title,
+      body: payload.body ?? null
+    }))
+  });
+}
+
 const CreateInvoiceSchema = z.object({
   studentId: z.string().min(1),
   title: z.string().min(2),
@@ -23,14 +43,25 @@ export async function createInvoiceAction(formData: FormData) {
   });
   if (!parsed.success) throw new Error("Unable to process request.");
 
+  const student = await prisma.student.findFirst({
+    where: { id: parsed.data.studentId, schoolId: session.schoolId },
+    select: { id: true, fullName: true }
+  });
+  if (!student) throw new Error("Student not found.");
+
   const invoice = await prisma.feeInvoice.create({
     data: {
       schoolId: session.schoolId,
-      studentId: parsed.data.studentId,
+      studentId: student.id,
       title: parsed.data.title,
       amountCents: Math.round(parsed.data.amount * 100),
       dueOn: parsed.data.dueOn ? new Date(parsed.data.dueOn) : null
     }
+  });
+
+  await notifyParentsForStudent(session.schoolId, student.id, {
+    title: `Fee reminder: ${invoice.title}`,
+    body: `New fee invoice created for ${student.fullName}.\nLINK:/fees/${invoice.id}`
   });
 
   redirect(`/fees/${invoice.id}`);
@@ -76,6 +107,11 @@ export async function addPaymentAction(formData: FormData) {
   await prisma.feeInvoice.update({
     where: { id: invoice.id },
     data: { status: newStatus }
+  });
+
+  await notifyParentsForStudent(session.schoolId, invoice.studentId, {
+    title: newStatus === "PAID" ? "Fee payment completed" : "Fee payment updated",
+    body: `Invoice ${invoice.title} is now ${newStatus}.\nLINK:/fees/${invoice.id}`
   });
 
   redirect(`/fees/${invoice.id}`);
