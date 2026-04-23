@@ -35,6 +35,13 @@ export default async function StudentProfilePage({ params }: { params: Promise<{
           </Link>
         </div>
       )}
+      {session.roleKey === "PARENT" && (
+        <div>
+          <Link href="/requests/student-profile">
+            <Button variant="secondary" size="sm">Request Update</Button>
+          </Link>
+        </div>
+      )}
 
       {/* Hero card */}
       <div className="rounded-[22px] border border-white/[0.08] bg-white/[0.04] p-6">

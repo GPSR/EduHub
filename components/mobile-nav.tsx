@@ -16,6 +16,7 @@ const ALL_ICONS: Record<string, string> = {
   "/academics":       "📚",
   "/notifications":   "🔔",
   "/reports":         "📊",
+  "/requests/student-profile": "📝",
   "/admin/users":     "🛡",
   "/admin/settings":  "⚙️",
   "/profile":         "👤",
