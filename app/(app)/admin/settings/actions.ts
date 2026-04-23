@@ -7,6 +7,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { ensureBaseModules } from "@/lib/permissions";
 import { deleteUploadedImageByUrl, saveUploadedImage } from "@/lib/uploads";
+import { normalizeTemplate } from "@/lib/id-card-template";
 
 export type SettingsState = { ok: boolean; message?: string };
 
@@ -220,6 +221,35 @@ export async function uploadSchoolLogoAction(formData: FormData) {
   });
 
   await deleteUploadedImageByUrl(school.brandingLogoUrl);
+  redirect("/admin/settings");
+}
+
+export async function saveIdCardTemplateAction(formData: FormData) {
+  const { session } = await requirePermission("SETTINGS", "ADMIN");
+  const template = normalizeTemplate({
+    schoolLabel: String(formData.get("schoolLabel") ?? ""),
+    headerText: String(formData.get("headerText") ?? ""),
+    footerText: String(formData.get("footerText") ?? ""),
+    background: String(formData.get("background") ?? ""),
+    accent: String(formData.get("accent") ?? ""),
+    textColor: String(formData.get("textColor") ?? ""),
+    showPhoto: Boolean(formData.get("showPhoto")),
+    showParent: Boolean(formData.get("showParent")),
+    showGuardian: Boolean(formData.get("showGuardian"))
+  });
+
+  await prisma.auditLog.create({
+    data: {
+      schoolId: session.schoolId,
+      actorType: "SCHOOL_USER",
+      actorId: session.userId,
+      action: "ID_CARD_TEMPLATE_UPDATE",
+      entityType: "School",
+      entityId: session.schoolId,
+      metadataJson: JSON.stringify(template)
+    }
+  });
+
   redirect("/admin/settings");
 }
 

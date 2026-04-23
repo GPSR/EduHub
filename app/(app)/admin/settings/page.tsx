@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { requirePermission } from "@/lib/require-permission";
 import { IdSettingsClientForm, RenameRoleClientForm, SchoolModulesClientForm } from "@/components/admin-settings-forms";
 import Image from "next/image";
+import { getSchoolIdCardTemplate } from "@/lib/id-card-template";
 
 export default async function AdminSettingsPage({
   searchParams,
@@ -11,7 +12,7 @@ export default async function AdminSettingsPage({
 }) {
   const { session } = await requirePermission("SETTINGS", "ADMIN");
   const { roleId } = await searchParams;
-  const [school, roles, schoolModules, classes] = await Promise.all([
+  const [school, roles, schoolModules, classes, idCardTemplate] = await Promise.all([
     prisma.school.findUnique({ where: { id: session.schoolId } }),
     prisma.schoolRole.findMany({
       where: { schoolId: session.schoolId },
@@ -25,7 +26,8 @@ export default async function AdminSettingsPage({
     prisma.class.findMany({
       where: { schoolId: session.schoolId },
       orderBy: [{ name: "asc" }, { section: "asc" }]
-    })
+    }),
+    getSchoolIdCardTemplate(session.schoolId)
   ]);
 
   if (!school) {
@@ -72,6 +74,10 @@ export default async function AdminSettingsPage({
         <ClassConfigPanel
           classes={classes.map((c) => ({ id: c.id, name: c.name, section: c.section }))}
         />
+      </Card>
+
+      <Card title="Virtual ID Card Template" description="Design student virtual ID card layout and fields." accent="indigo">
+        <IdCardTemplatePanel template={idCardTemplate} />
       </Card>
     </div>
   );
@@ -229,5 +235,52 @@ async function ClassConfigPanel({
         {classes.length === 0 ? <p className="text-sm text-white/50">No classes configured yet.</p> : null}
       </div>
     </div>
+  );
+}
+
+async function IdCardTemplatePanel({ template }: { template: Awaited<ReturnType<typeof getSchoolIdCardTemplate>> }) {
+  const { saveIdCardTemplateAction } = await import("./actions");
+  return (
+    <form action={saveIdCardTemplateAction} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div>
+        <Label required>School label</Label>
+        <Input name="schoolLabel" defaultValue={template.schoolLabel} required />
+      </div>
+      <div>
+        <Label required>Header text</Label>
+        <Input name="headerText" defaultValue={template.headerText} required />
+      </div>
+      <div>
+        <Label required>Footer text</Label>
+        <Input name="footerText" defaultValue={template.footerText} required />
+      </div>
+      <div>
+        <Label required>Background (CSS color/gradient)</Label>
+        <Input name="background" defaultValue={template.background} required />
+      </div>
+      <div>
+        <Label required>Accent color</Label>
+        <Input name="accent" defaultValue={template.accent} required />
+      </div>
+      <div>
+        <Label required>Text color</Label>
+        <Input name="textColor" defaultValue={template.textColor} required />
+      </div>
+      <label className="flex items-center gap-2 text-sm text-white/80">
+        <input type="checkbox" name="showPhoto" defaultChecked={template.showPhoto} className="h-4 w-4 accent-indigo-500" />
+        Show student photo/avatar
+      </label>
+      <label className="flex items-center gap-2 text-sm text-white/80">
+        <input type="checkbox" name="showParent" defaultChecked={template.showParent} className="h-4 w-4 accent-indigo-500" />
+        Show parent details
+      </label>
+      <label className="flex items-center gap-2 text-sm text-white/80 md:col-span-2">
+        <input type="checkbox" name="showGuardian" defaultChecked={template.showGuardian} className="h-4 w-4 accent-indigo-500" />
+        Show guardian details
+      </label>
+      <div className="md:col-span-2 flex justify-end">
+        <Button type="submit">Save ID card template</Button>
+      </div>
+    </form>
   );
 }

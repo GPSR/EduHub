@@ -31,16 +31,22 @@ export default async function StudentProfilePage({ params }: { params: Promise<{
         ← Students
       </Link>
       {session.roleKey !== "PARENT" && (
-        <div>
+        <div className="flex gap-2 flex-wrap">
           <Link href={`/students/${student.id}/edit`}>
             <Button variant="secondary" size="sm">Edit Student</Button>
+          </Link>
+          <Link href={`/students/${student.id}/id-card`}>
+            <Button variant="secondary" size="sm">Virtual ID Card</Button>
           </Link>
         </div>
       )}
       {session.roleKey === "PARENT" && (
-        <div>
+        <div className="flex gap-2 flex-wrap">
           <Link href={`/students/${student.id}/edit`}>
             <Button variant="secondary" size="sm">Update Parent / Guardian Details</Button>
+          </Link>
+          <Link href={`/students/${student.id}/id-card`}>
+            <Button variant="secondary" size="sm">Virtual ID Card</Button>
           </Link>
         </div>
       )}
