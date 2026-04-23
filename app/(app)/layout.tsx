@@ -18,7 +18,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     getEffectivePermissions({ schoolId: session.schoolId, userId: session.userId, roleId: session.roleId }),
     prisma.notification.count({ where: { schoolId: session.schoolId, userId: session.userId, readAt: null } }),
     prisma.school.findUnique({ where: { id: session.schoolId }, select: { brandingLogoUrl: true } }),
-    getUserProfileImageUrl(user.id)
+    getUserProfileImageUrl(session.schoolId, user.id)
   ]);
 
   const canView = (moduleKey: string) => {

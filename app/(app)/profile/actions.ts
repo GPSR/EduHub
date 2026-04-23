@@ -166,7 +166,7 @@ export async function uploadProfilePhotoAction(_prev: ProfileState, formData: Fo
   if (!(file instanceof File)) return { ok: false, message: "Please choose an image." };
 
   await clearUserProfileImages(user.id);
-  const saved = await saveUserProfileImage(user.id, file);
+  const saved = await saveUserProfileImage(user.schoolId, user.id, file);
   if (!saved.ok) return { ok: false, message: saved.message };
   return { ok: true, message: "Profile photo updated." };
 }

@@ -12,7 +12,7 @@ export default async function ProfilePage() {
       where: { id: user.schoolId },
       select: { name: true, slug: true },
     }),
-    getUserProfileImageUrl(user.id)
+    getUserProfileImageUrl(user.schoolId, user.id)
   ]);
 
   const initials = user.name.trim().split(/\s+/).map((p: string) => p[0]).slice(0, 2).join("").toUpperCase();
