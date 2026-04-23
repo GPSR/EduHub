@@ -25,11 +25,24 @@ export function PlatformUserMenu({ name, email }: { name: string; email: string 
 
   useEffect(() => {
     if (!open) return;
-    const handler = (e: MouseEvent) => {
+    const handler = (e: MouseEvent | TouchEvent) => {
       if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
     };
     document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
+    document.addEventListener("touchstart", handler);
+    return () => {
+      document.removeEventListener("mousedown", handler);
+      document.removeEventListener("touchstart", handler);
+    };
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    const original = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = original;
+    };
   }, [open]);
 
   const initials = name.trim().split(/\s+/).map(p => p[0]).slice(0,2).join("").toUpperCase();
@@ -39,19 +52,22 @@ export function PlatformUserMenu({ name, email }: { name: string; email: string 
       <button
         type="button"
         onClick={() => setOpen(v => !v)}
-        className="flex items-center gap-2.5 rounded-[12px] border border-white/[0.09] bg-white/[0.05]
-                   px-3 py-1.5 hover:bg-white/[0.09] transition-all"
+        className="inline-flex items-center gap-2 rounded-[12px] border border-white/[0.16] bg-white/[0.08]
+                   px-2.5 py-1.5 text-white/90 hover:bg-white/[0.14] transition-all"
+        aria-label="Open profile menu"
       >
         <div className="grid h-6 w-6 place-items-center rounded-[7px]
                         bg-gradient-to-b from-indigo-400 to-indigo-600 text-[10px] font-bold text-white">
           {initials}
         </div>
-        <span className="text-sm font-medium text-white/80 hidden sm:block">{name}</span>
+        <span className="text-[12px] font-semibold sm:hidden">Menu</span>
+        <span className="text-sm font-medium text-white/80 hidden sm:block truncate max-w-[9rem]">{name}</span>
+        <span className="text-white/60 text-[11px] leading-none">{open ? "▲" : "▼"}</span>
       </button>
 
       {open && (
-        <div className="fixed left-2 right-2 top-[68px] bottom-2 z-50 overflow-y-auto rounded-[20px] border border-white/[0.10]
-                        bg-[#060912]/97 backdrop-blur-2xl p-5
+        <div className="fixed left-2 right-2 top-[max(68px,calc(env(safe-area-inset-top)+56px))] bottom-[calc(5.5rem+env(safe-area-inset-bottom,0px))] z-50 overflow-y-auto rounded-[20px] border border-white/[0.10]
+                        bg-[#060912]/97 backdrop-blur-2xl p-4 sm:p-5
                         shadow-[0_20px_60px_-20px_rgba(0,0,0,0.8),0_0_0_1px_rgba(255,255,255,0.05)]
                         animate-fade-up md:absolute md:left-auto md:right-0 md:top-auto md:bottom-auto md:mt-2 md:w-[min(22rem,calc(100vw-1rem))] md:max-w-[calc(100vw-1rem)] md:max-h-[75vh] md:z-30"
              style={{ animationDuration: "0.15s" }}>

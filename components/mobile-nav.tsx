@@ -44,8 +44,9 @@ export function MobileNav({
   // Always show 4 items + "More" tab = 5 total
   const tabItems  = items.slice(0, 4);
   const showMore  = moreItems.length > 0 || items.length > 4;
+  const drawerItems = [...items.slice(4), ...moreItems];
   const initials  = userName.trim().split(/\s+/).map(p => p[0]).slice(0,2).join("").toUpperCase();
-  const moreIsActive = open || [...items.slice(4), ...moreItems].some(i => isActive(pathname, i));
+  const moreIsActive = open || drawerItems.some(i => isActive(pathname, i));
 
   return (
     <>
@@ -64,7 +65,7 @@ export function MobileNav({
             className="relative rounded-t-[28px] border-t border-white/[0.10]
                         bg-[#060912]/98 backdrop-blur-2xl
                         shadow-[0_-20px_60px_rgba(0,0,0,0.7)]
-                        animate-slide-up"
+                        animate-slide-up max-h-[min(85vh,820px)] overflow-y-auto"
           >
             {/* iOS handle */}
             <div className="mx-auto mt-3 mb-4 h-1 w-10 rounded-full bg-white/20" />
@@ -94,7 +95,7 @@ export function MobileNav({
             </div>
 
             {/* Nav grid */}
-            <div className="px-4 grid grid-cols-4 gap-2">
+            <div className="px-4 grid grid-cols-3 sm:grid-cols-4 gap-2">
               {/* Profile always first */}
               <Link href="/profile" onClick={() => setOpen(false)}
                 className={clsx(
@@ -108,7 +109,7 @@ export function MobileNav({
               </Link>
 
               {/* All items */}
-              {[...items, ...moreItems].map(item => (
+              {drawerItems.map(item => (
                 <Link key={item.href} href={item.href} onClick={() => setOpen(false)}
                   className={clsx(
                     "flex flex-col items-center gap-2 rounded-[16px] border py-4 px-1 transition",

@@ -3,9 +3,20 @@ import { requirePlatformUser } from "@/lib/platform-require";
 import { PlatformNavLink } from "@/components/platform-nav-link";
 import { PlatformUserMenu } from "@/components/platform-user-menu";
 import { BrandIcon } from "@/components/brand";
+import { PlatformMobileNav } from "@/components/platform-mobile-nav";
 
 export default async function PlatformAppLayout({ children }: { children: React.ReactNode }) {
   const { user } = await requirePlatformUser();
+  const mobileItems =
+    user.role === "SUPER_ADMIN"
+      ? [
+          { href: "/platform", label: "Home", icon: "◈" },
+          { href: "/platform/schools", label: "Schools", icon: "🏫" },
+          { href: "/platform/onboarding-requests", label: "Approvals", icon: "📋" },
+          { href: "/platform/users", label: "Users", icon: "🛡" },
+          { href: "/platform/settings", label: "Settings", icon: "⚙️" }
+        ]
+      : [{ href: "/platform", label: "Home", icon: "◈" }];
   return (
     <div className="min-h-dvh md:min-h-screen overflow-x-clip">
       <header className="sticky top-0 z-20 border-b border-white/[0.08] bg-[#060912]/88 backdrop-blur-xl pt-[max(0px,env(safe-area-inset-top))]">
@@ -44,7 +55,10 @@ export default async function PlatformAppLayout({ children }: { children: React.
           </div>
         </div>
       </header>
-      <div className="mx-auto max-w-[1320px] px-3 sm:px-4 md:px-6 py-4 md:py-6">{children}</div>
+      <div className="mx-auto max-w-[1320px] px-3 sm:px-4 md:px-6 py-4 md:py-6 pb-[calc(5.5rem+env(safe-area-inset-bottom,0px))] md:pb-6">
+        {children}
+      </div>
+      <PlatformMobileNav items={mobileItems} />
     </div>
   );
 }
