@@ -37,6 +37,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const mobileMore = [
     canView("ACADEMICS")     ? { href: "/academics",     label: "Academics",     activeStartsWith: true } : null,
     canView("NOTIFICATIONS") ? { href: "/notifications", label: "Notifications", activeStartsWith: true } : null,
+    canView("TRANSPORT")     ? { href: "/transport",     label: "Transport",     activeStartsWith: true } : null,
     canView("REPORTS")       ? { href: "/reports",       label: "Reports",       activeStartsWith: true } : null,
     canRequestProfileUpdate  ? { href: "/requests/student-profile", label: "Profile Update", activeStartsWith: true } : null,
     session.roleKey === "ADMIN" ? { href: "/admin/users",    label: "Users",    activeStartsWith: true } : null,
@@ -96,6 +97,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
               {canView("FEES")          && <NavLink href="/fees"          label="Fees"         />}
               {canView("COMMUNICATION") && <NavLink href="/feed"          label="Feed"         />}
               {canView("ATTENDANCE")    && <NavLink href="/attendance"    label="Attendance"   />}
+              {canView("TRANSPORT")     && <NavLink href="/transport"     label="Transport"    />}
               {canView("ACADEMICS")     && <NavLink href="/academics"     label="Academics"    />}
               {canView("REPORTS")       && <NavLink href="/reports"       label="Reports"      />}
               {canRequestProfileUpdate  && <NavLink href="/requests/student-profile" label="Profile Update" />}

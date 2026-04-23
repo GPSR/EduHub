@@ -161,7 +161,7 @@ export async function getEffectivePermissions({
   userId: string;
   roleId: string;
 }): Promise<Record<string, PermissionLevel>> {
-  const [schoolModules, rolePerms, userPerms] = await Promise.all([
+  const [schoolModules, rolePerms, userPerms, role] = await Promise.all([
     prisma.schoolModule.findMany({
       where: { schoolId, enabled: true },
       select: { module: { select: { key: true } } }
@@ -173,6 +173,10 @@ export async function getEffectivePermissions({
     prisma.userModulePermission.findMany({
       where: { schoolId, userId },
       select: { module: { select: { key: true } }, level: true }
+    }),
+    prisma.schoolRole.findUnique({
+      where: { id: roleId },
+      select: { key: true }
     })
   ]);
 
@@ -186,6 +190,13 @@ export async function getEffectivePermissions({
   for (const p of userPerms) {
     if (!enabled.has(p.module.key)) continue;
     map[p.module.key] = p.level; // user override wins
+  }
+
+  // Transport defaults: keep tracking visible to all school personas when module is enabled.
+  if (enabled.has("TRANSPORT") && !map.TRANSPORT) {
+    if (role?.key === "BUS_ASSISTANT") map.TRANSPORT = "EDIT";
+    else if (role?.key === "ADMIN") map.TRANSPORT = "ADMIN";
+    else map.TRANSPORT = "VIEW";
   }
 
   return map;
