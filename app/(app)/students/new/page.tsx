@@ -75,7 +75,15 @@ export default async function NewStudentPage() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
                 <Label>Gender</Label>
-                <Input name="gender" placeholder="Male / Female / Other" />
+                <select
+                  name="gender"
+                  className="w-full rounded-[13px] bg-black/25 border border-white/[0.09] px-3.5 py-2.5 text-base sm:text-sm text-white outline-none"
+                >
+                  <option value="">Select gender</option>
+                  <option value="Male">Male</option>
+                  <option value="Female">Female</option>
+                  <option value="Other">Other</option>
+                </select>
               </div>
               <div>
                 <Label>Date of birth</Label>

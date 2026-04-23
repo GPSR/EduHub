@@ -88,7 +88,16 @@ export default async function EditStudentPage({ params }: { params: Promise<{ id
               </div>
               <div>
                 <Label>Gender</Label>
-                <Input name="gender" defaultValue={student.gender ?? ""} placeholder="Male / Female / Other" />
+                <select
+                  name="gender"
+                  defaultValue={student.gender ?? ""}
+                  className="w-full rounded-[13px] bg-black/25 border border-white/[0.09] px-3.5 py-2.5 text-base sm:text-sm text-white outline-none"
+                >
+                  <option value="">Select gender</option>
+                  <option value="Male">Male</option>
+                  <option value="Female">Female</option>
+                  <option value="Other">Other</option>
+                </select>
               </div>
               <div>
                 <Label>Date of birth</Label>
