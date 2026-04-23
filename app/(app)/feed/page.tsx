@@ -2,6 +2,7 @@ import { Card, Button, Input, Label, Textarea, SectionHeader, EmptyState, Badge 
 import { prisma } from "@/lib/db";
 import { requireSession } from "@/lib/require";
 import { atLeastLevel, getEffectivePermissions } from "@/lib/permissions";
+import { requirePermission } from "@/lib/require-permission";
 import Link from "next/link";
 
 function timeAgo(date: Date): string {
@@ -19,6 +20,7 @@ function timeAgo(date: Date): string {
 export default async function FeedPage({
   searchParams,
 }: { searchParams: Promise<{ classId?: string }> }) {
+  await requirePermission("COMMUNICATION", "VIEW");
   const session = await requireSession();
   const { classId: filterClassId } = await searchParams;
   const perms   = await getEffectivePermissions({ schoolId: session.schoolId, userId: session.userId, roleId: session.roleId });

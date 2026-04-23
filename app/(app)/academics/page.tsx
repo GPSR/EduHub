@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { SectionHeader } from "@/components/ui";
+import { requirePermission } from "@/lib/require-permission";
 
 const SECTIONS = [
   {
@@ -20,7 +21,8 @@ const SECTIONS = [
   },
 ];
 
-export default function AcademicsHomePage() {
+export default async function AcademicsHomePage() {
+  await requirePermission("ACADEMICS", "VIEW");
   return (
     <div className="space-y-5 animate-fade-up">
       <SectionHeader title="Academics" subtitle="Homework and exam management" />

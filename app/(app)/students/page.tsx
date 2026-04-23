@@ -3,6 +3,7 @@ import { Card, Button, Badge, SectionHeader, EmptyState } from "@/components/ui"
 import { prisma } from "@/lib/db";
 import { requireSession } from "@/lib/require";
 import { atLeastLevel, getEffectivePermissions } from "@/lib/permissions";
+import { requirePermission } from "@/lib/require-permission";
 
 function avatarColor(name: string) {
   const colors = [
@@ -18,6 +19,7 @@ function avatarColor(name: string) {
 }
 
 export default async function StudentsPage() {
+  await requirePermission("STUDENTS", "VIEW");
   const session = await requireSession();
   const perms = await getEffectivePermissions({
     schoolId: session.schoolId,

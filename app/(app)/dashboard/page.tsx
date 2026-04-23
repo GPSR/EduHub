@@ -2,6 +2,7 @@ import { Card, SectionHeader, Badge } from "@/components/ui";
 import { prisma } from "@/lib/db";
 import { requireSession } from "@/lib/require";
 import { atLeastLevel, getEffectivePermissions } from "@/lib/permissions";
+import { requirePermission } from "@/lib/require-permission";
 import { redirect } from "next/navigation";
 
 function startOfDay(d: Date) {
@@ -30,6 +31,7 @@ type TrendPoint = {
 };
 
 export default async function DashboardPage() {
+  await requirePermission("DASHBOARD", "VIEW");
   const session = await requireSession();
   if (session.roleKey !== "ADMIN") redirect("/students");
   const [students, teachers, pendingFees, posts, school, perms] = await Promise.all([

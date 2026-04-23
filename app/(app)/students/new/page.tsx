@@ -1,8 +1,10 @@
 import Link from "next/link";
 import { Card, Input, Label, Button, SectionHeader } from "@/components/ui";
+import { requirePermission } from "@/lib/require-permission";
 import { createStudentAction } from "../actions";
 
-export default function NewStudentPage() {
+export default async function NewStudentPage() {
+  await requirePermission("STUDENTS", "EDIT");
   return (
     <div className="space-y-5 animate-fade-up">
       <Link href="/students" className="inline-flex items-center gap-1.5 text-sm text-white/40 hover:text-white/75 transition">

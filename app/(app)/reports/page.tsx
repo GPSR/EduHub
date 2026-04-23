@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Card, SectionHeader, Badge } from "@/components/ui";
 import { prisma } from "@/lib/db";
 import { requireSession } from "@/lib/require";
+import { requirePermission } from "@/lib/require-permission";
 
 function fmt(cents: number) {
   return `$${(cents / 100).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -11,6 +12,7 @@ function pct(n: number, total: number) {
 }
 
 export default async function ReportsPage() {
+  await requirePermission("REPORTS", "VIEW");
   const session = await requireSession();
   const today     = new Date(); today.setHours(0, 0, 0, 0);
   const monthStart = new Date(); monthStart.setDate(1); monthStart.setHours(0, 0, 0, 0);

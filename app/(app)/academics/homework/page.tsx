@@ -3,6 +3,7 @@ import { Card, Button, Input, Label, Textarea, Badge, SectionHeader, EmptyState 
 import { prisma } from "@/lib/db";
 import { requireSession } from "@/lib/require";
 import { atLeastLevel, getEffectivePermissions } from "@/lib/permissions";
+import { requirePermission } from "@/lib/require-permission";
 
 function timeAgo(date: Date): string {
   const diff = Date.now() - date.getTime();
@@ -25,6 +26,7 @@ function isOverdue(dueOn: Date | null): boolean {
 }
 
 export default async function HomeworkPage() {
+  await requirePermission("ACADEMICS", "VIEW");
   const session = await requireSession();
   const perms = await getEffectivePermissions({
     schoolId: session.schoolId,

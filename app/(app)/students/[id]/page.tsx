@@ -3,8 +3,10 @@ import Link from "next/link";
 import { Card, Badge, Button } from "@/components/ui";
 import { prisma } from "@/lib/db";
 import { requireSession } from "@/lib/require";
+import { requirePermission } from "@/lib/require-permission";
 
 export default async function StudentProfilePage({ params }: { params: Promise<{ id: string }> }) {
+  await requirePermission("STUDENTS", "VIEW");
   const session = await requireSession();
   const { id } = await params;
 

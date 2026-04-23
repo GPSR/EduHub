@@ -3,6 +3,7 @@ import { Card, Button, Input, Label, Textarea, Badge, SectionHeader, EmptyState 
 import { prisma } from "@/lib/db";
 import { requireSession } from "@/lib/require";
 import { atLeastLevel, getEffectivePermissions } from "@/lib/permissions";
+import { requirePermission } from "@/lib/require-permission";
 
 function scoreColor(score: number, max: number) {
   const pct = max > 0 ? (score / max) * 100 : 0;
@@ -12,6 +13,7 @@ function scoreColor(score: number, max: number) {
 }
 
 export default async function ExamResultsPage() {
+  await requirePermission("ACADEMICS", "VIEW");
   const session = await requireSession();
   const perms = await getEffectivePermissions({
     schoolId: session.schoolId,

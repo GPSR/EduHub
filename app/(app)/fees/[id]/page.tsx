@@ -4,6 +4,7 @@ import { Card, Button, Input, Label, Badge, SectionHeader, EmptyState } from "@/
 import { prisma } from "@/lib/db";
 import { requireSession } from "@/lib/require";
 import { atLeastLevel, getEffectivePermissions } from "@/lib/permissions";
+import { requirePermission } from "@/lib/require-permission";
 
 function fmt(cents: number) {
   return (cents / 100).toLocaleString("en-US", { style: "currency", currency: "USD" });
@@ -14,6 +15,7 @@ function statusTone(s: string): "success" | "danger" | "warning" | "neutral" {
 }
 
 export default async function InvoicePage({ params }: { params: Promise<{ id: string }> }) {
+  await requirePermission("FEES", "VIEW");
   const session = await requireSession();
   const { id } = await params;
   const perms = await getEffectivePermissions({ schoolId: session.schoolId, userId: session.userId, roleId: session.roleId });

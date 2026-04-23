@@ -3,6 +3,7 @@ import { Card, Button, Badge, Label, SectionHeader, EmptyState } from "@/compone
 import { prisma } from "@/lib/db";
 import { requireSession } from "@/lib/require";
 import { atLeastLevel, getEffectivePermissions } from "@/lib/permissions";
+import { requirePermission } from "@/lib/require-permission";
 
 function centsToDollars(cents: number) {
   return (cents / 100).toFixed(2);
@@ -16,6 +17,7 @@ function statusTone(status: string): "success" | "danger" | "warning" | "neutral
 }
 
 export default async function FeesPage() {
+  await requirePermission("FEES", "VIEW");
   const session = await requireSession();
   const perms = await getEffectivePermissions({
     schoolId: session.schoolId,

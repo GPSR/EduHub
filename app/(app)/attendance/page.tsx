@@ -3,6 +3,7 @@ import { Card, Button, Badge, SectionHeader, EmptyState } from "@/components/ui"
 import { prisma } from "@/lib/db";
 import { requireSession } from "@/lib/require";
 import { atLeastLevel, getEffectivePermissions } from "@/lib/permissions";
+import { requirePermission } from "@/lib/require-permission";
 
 function isoDate(d: Date) { return d.toISOString().slice(0, 10); }
 
@@ -21,6 +22,7 @@ export default async function AttendancePage({
 }: {
   searchParams: Promise<{ date?: string }>;
 }) {
+  await requirePermission("ATTENDANCE", "VIEW");
   const session = await requireSession();
   const { date: dateParam } = await searchParams;
   const date = dateParam ? new Date(dateParam) : new Date();
