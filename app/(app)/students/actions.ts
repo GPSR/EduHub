@@ -11,6 +11,7 @@ import { formatSchoolId } from "@/lib/id-sequence";
 const StudentCreateSchema = z.object({
   studentId: z.string().optional(),
   fullName: z.string().min(2),
+  classId: z.string().optional(),
   className: z.string().optional(),
   section: z.string().optional(),
   rollNumber: z.string().optional(),
@@ -19,9 +20,9 @@ const StudentCreateSchema = z.object({
 
 const StudentUpdateSchema = z.object({
   id: z.string().min(1),
-  studentId: z.string().min(1),
+  studentId: z.string().optional(),
   admissionNo: z.string().optional(),
-  fullName: z.string().min(2),
+  fullName: z.string().optional(),
   className: z.string().optional(),
   section: z.string().optional(),
   rollNumber: z.string().optional(),
@@ -52,6 +53,7 @@ export async function createStudentAction(formData: FormData) {
   const parsed = StudentCreateSchema.safeParse({
     studentId: String(formData.get("studentId") ?? "").trim() || undefined,
     fullName: formData.get("fullName"),
+    classId: String(formData.get("classId") ?? "").trim() || undefined,
     className: formData.get("className") || undefined,
     section: formData.get("section") || undefined,
     rollNumber: formData.get("rollNumber") || undefined,
@@ -60,7 +62,13 @@ export async function createStudentAction(formData: FormData) {
   if (!parsed.success) throw new Error("Unable to process request.");
 
   let classId: string | null = null;
-  if (parsed.data.className) {
+  if (parsed.data.classId) {
+    const cls = await prisma.class.findFirst({
+      where: { id: parsed.data.classId, schoolId: session.schoolId },
+      select: { id: true }
+    });
+    classId = cls?.id ?? null;
+  } else if (parsed.data.className) {
     const cls = await prisma.class.upsert({
       where: {
         schoolId_name_section: {
@@ -101,13 +109,19 @@ export async function createStudentAction(formData: FormData) {
       }
     });
 
+    let rollNumber = parsed.data.rollNumber ?? undefined;
+    if (!rollNumber && classId) {
+      const classStrength = await tx.student.count({ where: { schoolId: session.schoolId, classId } });
+      rollNumber = String(classStrength + 1);
+    }
+
     return tx.student.create({
       data: {
         schoolId: session.schoolId,
         studentId,
         fullName: parsed.data.fullName,
         admissionNo,
-        rollNumber: parsed.data.rollNumber,
+        rollNumber,
         classId
       }
     });
@@ -138,9 +152,9 @@ export async function updateStudentAction(formData: FormData) {
 
   const parsed = StudentUpdateSchema.safeParse({
     id: formData.get("id"),
-    studentId: String(formData.get("studentId") ?? "").trim(),
+    studentId: String(formData.get("studentId") ?? "").trim() || undefined,
     admissionNo: String(formData.get("admissionNo") ?? "").trim() || undefined,
-    fullName: formData.get("fullName"),
+    fullName: String(formData.get("fullName") ?? "").trim() || undefined,
     className: String(formData.get("className") ?? "").trim() || undefined,
     section: String(formData.get("section") ?? "").trim() || undefined,
     rollNumber: String(formData.get("rollNumber") ?? "").trim() || undefined,
@@ -175,44 +189,57 @@ export async function updateStudentAction(formData: FormData) {
             schoolId: session.schoolId,
             parents: { some: { userId: session.userId } }
           },
-    select: { id: true }
+    select: { id: true, studentId: true, admissionNo: true, fullName: true, classId: true, rollNumber: true }
   });
   if (!existing) redirect("/students");
 
-  let classId: string | null = null;
-  if (parsed.data.className) {
-    const cls = await prisma.class.upsert({
-      where: {
-        schoolId_name_section: {
+  let classId: string | null = existing.classId;
+  if (canEditStudents) {
+    if (parsed.data.className) {
+      const cls = await prisma.class.upsert({
+        where: {
+          schoolId_name_section: {
+            schoolId: session.schoolId,
+            name: parsed.data.className,
+            section: parsed.data.section ?? ""
+          }
+        },
+        update: {},
+        create: {
           schoolId: session.schoolId,
           name: parsed.data.className,
           section: parsed.data.section ?? ""
         }
-      },
-      update: {},
-      create: {
-        schoolId: session.schoolId,
-        name: parsed.data.className,
-        section: parsed.data.section ?? ""
-      }
+      });
+      classId = cls.id;
+    } else {
+      classId = null;
+    }
+  }
+
+  let rollNumber = canEditStudents ? (normalizeOptional(formData.get("rollNumber")) ?? undefined) : existing.rollNumber;
+  if (canEditStudents && !rollNumber && classId) {
+    const classStrength = await prisma.student.count({
+      where: { schoolId: session.schoolId, classId, id: { not: existing.id } }
     });
-    classId = cls.id;
+    rollNumber = String(classStrength + 1);
   }
 
   await prisma.student.update({
     where: { id: parsed.data.id },
     data: {
-      studentId: parsed.data.studentId,
-      admissionNo: normalizeOptional(formData.get("admissionNo")),
-      fullName: parsed.data.fullName,
-      classId,
-      rollNumber: normalizeOptional(formData.get("rollNumber")),
-      gender: normalizeOptional(formData.get("gender")),
-      dateOfBirth: parseDateInput(normalizeOptional(formData.get("dateOfBirth"))),
-      bloodGroup: normalizeOptional(formData.get("bloodGroup")),
-      address: normalizeOptional(formData.get("address")),
-      transportDetails: normalizeOptional(formData.get("transportDetails")),
-      medicalNotes: normalizeOptional(formData.get("medicalNotes")),
+      // Identity + academic fields are admin-controlled.
+      studentId: canEditStudents ? (parsed.data.studentId ?? existing.studentId) : existing.studentId,
+      admissionNo: canEditStudents ? normalizeOptional(formData.get("admissionNo")) : existing.admissionNo,
+      fullName: canEditStudents ? (parsed.data.fullName ?? existing.fullName) : existing.fullName,
+      classId: canEditStudents ? classId : existing.classId,
+      rollNumber: canEditStudents ? (rollNumber ?? null) : existing.rollNumber,
+      gender: canEditStudents ? normalizeOptional(formData.get("gender")) : undefined,
+      dateOfBirth: canEditStudents ? parseDateInput(normalizeOptional(formData.get("dateOfBirth"))) : undefined,
+      bloodGroup: canEditStudents ? normalizeOptional(formData.get("bloodGroup")) : undefined,
+      address: canEditStudents ? normalizeOptional(formData.get("address")) : undefined,
+      transportDetails: canEditStudents ? normalizeOptional(formData.get("transportDetails")) : undefined,
+      medicalNotes: canEditStudents ? normalizeOptional(formData.get("medicalNotes")) : undefined,
       fatherName: normalizeOptional(formData.get("fatherName")),
       motherName: normalizeOptional(formData.get("motherName")),
       parentMobiles: normalizeOptional(formData.get("parentMobiles")),

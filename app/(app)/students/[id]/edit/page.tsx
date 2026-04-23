@@ -39,12 +39,16 @@ export default async function EditStudentPage({ params }: { params: Promise<{ id
       <Link href={`/students/${student.id}`} className="inline-flex items-center gap-1.5 text-sm text-white/40 hover:text-white/75 transition">
         ← Back to student
       </Link>
-      <SectionHeader title="Edit Student" subtitle="Update student, parent, and guardian information" />
+      <SectionHeader
+        title={canEditStudents ? "Edit Student" : "Update Parent & Guardian Details"}
+        subtitle={canEditStudents ? "Update student, parent, and guardian information" : "Parents can update contact and guardian information"}
+      />
 
       <Card>
         <form action={updateStudentAction} className="grid grid-cols-1 md:grid-cols-2 gap-5">
           <input type="hidden" name="id" value={student.id} />
 
+          {canEditStudents ? (
           <div className="md:col-span-2">
             <p className="text-[11px] font-semibold uppercase tracking-wider text-white/35 mb-3">Identity</p>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -62,7 +66,9 @@ export default async function EditStudentPage({ params }: { params: Promise<{ id
               </div>
             </div>
           </div>
+          ) : null}
 
+          {canEditStudents ? (
           <div className="md:col-span-2 pt-3 border-t border-white/[0.07]">
             <p className="text-[11px] font-semibold uppercase tracking-wider text-white/35 mb-3">Academic & Contact</p>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -77,6 +83,7 @@ export default async function EditStudentPage({ params }: { params: Promise<{ id
               <div>
                 <Label>Roll number</Label>
                 <Input name="rollNumber" defaultValue={student.rollNumber ?? ""} />
+                <p className="mt-1 text-[11px] text-white/35">Leave empty to auto-assign by class strength.</p>
               </div>
               <div>
                 <Label>Gender</Label>
@@ -104,6 +111,7 @@ export default async function EditStudentPage({ params }: { params: Promise<{ id
               </div>
             </div>
           </div>
+          ) : null}
 
           <div className="md:col-span-2 pt-3 border-t border-white/[0.07]">
             <p className="text-[11px] font-semibold uppercase tracking-wider text-white/35 mb-3">Parent Details</p>

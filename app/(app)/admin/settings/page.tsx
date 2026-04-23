@@ -10,7 +10,7 @@ export default async function AdminSettingsPage({
 }) {
   const { session } = await requirePermission("SETTINGS", "ADMIN");
   const { roleId } = await searchParams;
-  const [school, roles, schoolModules] = await Promise.all([
+  const [school, roles, schoolModules, classes] = await Promise.all([
     prisma.school.findUnique({ where: { id: session.schoolId } }),
     prisma.schoolRole.findMany({
       where: { schoolId: session.schoolId },
@@ -21,6 +21,10 @@ export default async function AdminSettingsPage({
       include: { module: true },
       orderBy: { module: { name: "asc" } },
     }),
+    prisma.class.findMany({
+      where: { schoolId: session.schoolId },
+      orderBy: [{ name: "asc" }, { section: "asc" }]
+    })
   ]);
 
   if (!school) {
@@ -56,6 +60,12 @@ export default async function AdminSettingsPage({
           schoolId={school.id}
           roles={roles.map(r => ({ id: r.id, key: r.key, name: r.name, isSystem: r.isSystem }))}
           selectedRoleId={roleId}
+        />
+      </Card>
+
+      <Card title="Class Configuration" description="Configure classes/sections used during student admission." accent="teal">
+        <ClassConfigPanel
+          classes={classes.map((c) => ({ id: c.id, name: c.name, section: c.section }))}
         />
       </Card>
     </div>
@@ -147,6 +157,48 @@ async function RolesPanel({
           </div>
           <Button type="submit" size="md">+ Add role</Button>
         </form>
+      </div>
+    </div>
+  );
+}
+
+async function ClassConfigPanel({
+  classes
+}: {
+  classes: Array<{ id: string; name: string; section: string }>;
+}) {
+  const { createClassConfigAction, deleteClassConfigAction } = await import("./actions");
+
+  return (
+    <div className="space-y-4">
+      <form action={createClassConfigAction} className="grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
+        <div>
+          <Label required>Class name</Label>
+          <Input name="name" placeholder="Grade 1" required />
+        </div>
+        <div>
+          <Label>Section</Label>
+          <Input name="section" placeholder="A" />
+        </div>
+        <div>
+          <Button type="submit">+ Add Class</Button>
+        </div>
+      </form>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+        {classes.map((c) => (
+          <div key={c.id} className="rounded-[13px] border border-white/[0.08] bg-white/[0.03] px-3.5 py-3 flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <div className="text-[13px] font-semibold text-white/85 truncate">{c.name}{c.section ? ` - ${c.section}` : ""}</div>
+              <div className="text-[11px] text-white/35">Configured class</div>
+            </div>
+            <form action={deleteClassConfigAction}>
+              <input type="hidden" name="classId" value={c.id} />
+              <Button type="submit" variant="danger" size="sm">Delete</Button>
+            </form>
+          </div>
+        ))}
+        {classes.length === 0 ? <p className="text-sm text-white/50">No classes configured yet.</p> : null}
       </div>
     </div>
   );

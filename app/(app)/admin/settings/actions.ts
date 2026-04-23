@@ -143,6 +143,58 @@ export async function deleteRoleAction(formData: FormData) {
   redirect("/admin/settings");
 }
 
+const CreateClassSchema = z.object({
+  name: z.string().min(1).max(40),
+  section: z.string().max(20).optional()
+});
+
+export async function createClassConfigAction(formData: FormData) {
+  const { session } = await requirePermission("SETTINGS", "ADMIN");
+  const parsed = CreateClassSchema.safeParse({
+    name: String(formData.get("name") ?? "").trim(),
+    section: String(formData.get("section") ?? "").trim() || undefined
+  });
+  if (!parsed.success) throw new Error("Unable to process request.");
+
+  await prisma.class.upsert({
+    where: {
+      schoolId_name_section: {
+        schoolId: session.schoolId,
+        name: parsed.data.name,
+        section: parsed.data.section ?? ""
+      }
+    },
+    update: {},
+    create: {
+      schoolId: session.schoolId,
+      name: parsed.data.name,
+      section: parsed.data.section ?? ""
+    }
+  });
+
+  redirect("/admin/settings");
+}
+
+const DeleteClassSchema = z.object({ classId: z.string().min(1) });
+
+export async function deleteClassConfigAction(formData: FormData) {
+  const { session } = await requirePermission("SETTINGS", "ADMIN");
+  const parsed = DeleteClassSchema.safeParse({ classId: formData.get("classId") });
+  if (!parsed.success) throw new Error("Unable to process request.");
+
+  const cls = await prisma.class.findFirst({
+    where: { id: parsed.data.classId, schoolId: session.schoolId },
+    select: { id: true }
+  });
+  if (!cls) redirect("/admin/settings");
+
+  const studentsCount = await prisma.student.count({ where: { schoolId: session.schoolId, classId: cls.id } });
+  if (studentsCount > 0) throw new Error("Class has students and cannot be deleted.");
+
+  await prisma.class.delete({ where: { id: cls.id } });
+  redirect("/admin/settings");
+}
+
 export async function updateSchoolModulesAction(_prevState: SettingsState, formData: FormData) {
   const { session } = await requirePermission("SETTINGS", "ADMIN");
   await ensureBaseModules();
