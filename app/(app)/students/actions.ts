@@ -7,6 +7,7 @@ import { atLeastLevel, getEffectivePermissions } from "@/lib/permissions";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { formatSchoolId } from "@/lib/id-sequence";
+import { deleteUploadedImageByUrl, saveUploadedImage } from "@/lib/uploads";
 
 const StudentCreateSchema = z.object({
   fullName: z.string().min(2),
@@ -284,4 +285,45 @@ export async function updateStudentAction(formData: FormData) {
   });
 
   redirect(`/students/${parsed.data.id}`);
+}
+
+export async function uploadStudentPhotoAction(formData: FormData) {
+  const session = await requireSession();
+  const studentId = String(formData.get("id") ?? "").trim();
+  const file = formData.get("photo");
+  if (!studentId || !(file instanceof File)) redirect("/students");
+
+  const perms = await getEffectivePermissions({
+    schoolId: session.schoolId,
+    userId: session.userId,
+    roleId: session.roleId
+  });
+  const canEditStudents = perms["STUDENTS"] ? atLeastLevel(perms["STUDENTS"], "EDIT") : false;
+
+  const student = await prisma.student.findFirst({
+    where: canEditStudents
+      ? { id: studentId, schoolId: session.schoolId }
+      : {
+          id: studentId,
+          schoolId: session.schoolId,
+          parents: { some: { userId: session.userId } }
+        },
+    select: { id: true, photoUrl: true }
+  });
+  if (!student) redirect("/students");
+
+  const saved = await saveUploadedImage({
+    file,
+    folder: `schools/${session.schoolId}/students/${student.id}`,
+    prefix: "student-photo"
+  });
+  if (!saved.ok) redirect(`/students/${student.id}/edit`);
+
+  await prisma.student.update({
+    where: { id: student.id },
+    data: { photoUrl: saved.url }
+  });
+  await deleteUploadedImageByUrl(student.photoUrl);
+
+  redirect(`/students/${student.id}/edit`);
 }
