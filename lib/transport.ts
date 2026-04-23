@@ -1,5 +1,7 @@
 import { prisma } from "@/lib/db";
 
+const ASSIGN_PREFIX = "BUS_ASSIGN:";
+
 export type BusLiveLocation = {
   lat: number;
   lng: number;
@@ -11,6 +13,14 @@ export type BusLiveLocation = {
   byUserId?: string;
 };
 
+export type BusTripStatus = "STARTED" | "ENDED";
+
+export type StudentTransportAssignment = {
+  busId: string;
+  routeId?: string;
+  pickupPoint?: string;
+};
+
 export type BusLiveView = {
   id: string;
   name: string;
@@ -18,6 +28,9 @@ export type BusLiveView = {
   capacity: number | null;
   assignedDriverName: string | null;
   assignedDriverId: string | null;
+  routeId: string | null;
+  routeName: string | null;
+  tripStatus: BusTripStatus;
   location: BusLiveLocation | null;
 };
 
@@ -54,28 +67,96 @@ function parseLocation(metadataJson: string | null, createdAt: Date): BusLiveLoc
   }
 }
 
+function parseTripStatus(metadataJson: string | null): BusTripStatus | null {
+  if (!metadataJson) return null;
+  try {
+    const raw = JSON.parse(metadataJson) as { status?: unknown };
+    if (raw.status === "STARTED" || raw.status === "ENDED") return raw.status;
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+export function encodeStudentTransportAssignment(assign: StudentTransportAssignment): string {
+  return `${ASSIGN_PREFIX}${JSON.stringify(assign)}`;
+}
+
+export function parseStudentTransportAssignment(value: string | null | undefined): StudentTransportAssignment | null {
+  if (!value) return null;
+  const trimmed = value.trim();
+  if (!trimmed.startsWith(ASSIGN_PREFIX)) return null;
+  try {
+    const payload = JSON.parse(trimmed.slice(ASSIGN_PREFIX.length)) as {
+      busId?: unknown;
+      routeId?: unknown;
+      pickupPoint?: unknown;
+    };
+    if (typeof payload.busId !== "string" || payload.busId.length < 1) return null;
+    return {
+      busId: payload.busId,
+      routeId: typeof payload.routeId === "string" && payload.routeId.length ? payload.routeId : undefined,
+      pickupPoint: typeof payload.pickupPoint === "string" && payload.pickupPoint.length ? payload.pickupPoint : undefined
+    };
+  } catch {
+    return null;
+  }
+}
+
+export async function getParentAssignedBusIds(schoolId: string, userId: string): Promise<Set<string>> {
+  const students = await prisma.student.findMany({
+    where: { schoolId, parents: { some: { userId } } },
+    select: { transportDetails: true }
+  });
+  const ids = new Set<string>();
+  for (const s of students) {
+    const assign = parseStudentTransportAssignment(s.transportDetails);
+    if (assign?.busId) ids.add(assign.busId);
+  }
+  return ids;
+}
+
 export async function getLiveTransportForSchool(schoolId: string): Promise<BusLiveView[]> {
-  const [buses, assignments, logs] = await Promise.all([
+  const [buses, assignments, routes, locationLogs, tripLogs] = await Promise.all([
     prisma.bus.findMany({ where: { schoolId }, orderBy: { name: "asc" } }),
     prisma.busDriverAssignment.findMany({
       where: { schoolId },
       include: { user: { select: { id: true, name: true } } },
       orderBy: { assignedAt: "desc" }
     }),
+    prisma.busRoute.findMany({
+      where: { schoolId, busId: { not: null } },
+      orderBy: { updatedAt: "desc" },
+      select: { id: true, name: true, busId: true }
+    }),
     prisma.auditLog.findMany({
       where: { schoolId, action: "BUS_LOCATION_UPDATE", entityType: "Bus" },
       orderBy: { createdAt: "desc" },
       take: 1000,
       select: { entityId: true, metadataJson: true, createdAt: true }
+    }),
+    prisma.auditLog.findMany({
+      where: { schoolId, action: "BUS_TRIP_STATUS", entityType: "Bus" },
+      orderBy: { createdAt: "desc" },
+      take: 1000,
+      select: { entityId: true, metadataJson: true }
     })
   ]);
 
   const latestLocationByBusId = new Map<string, BusLiveLocation>();
-  for (const log of logs) {
+  for (const log of locationLogs) {
     if (!log.entityId || latestLocationByBusId.has(log.entityId)) continue;
     const parsed = parseLocation(log.metadataJson, log.createdAt);
     if (!parsed) continue;
     latestLocationByBusId.set(log.entityId, parsed);
+  }
+
+  const tripStatusByBusId = new Map<string, BusTripStatus>();
+  for (const log of tripLogs) {
+    if (!log.entityId || tripStatusByBusId.has(log.entityId)) continue;
+    const status = parseTripStatus(log.metadataJson);
+    if (!status) continue;
+    tripStatusByBusId.set(log.entityId, status);
   }
 
   const assignmentByBusId = new Map<string, { id: string; name: string }>();
@@ -85,8 +166,16 @@ export async function getLiveTransportForSchool(schoolId: string): Promise<BusLi
     }
   }
 
+  const routeByBusId = new Map<string, { id: string; name: string }>();
+  for (const r of routes) {
+    if (!r.busId || routeByBusId.has(r.busId)) continue;
+    routeByBusId.set(r.busId, { id: r.id, name: r.name });
+  }
+
   return buses.map((bus) => {
     const assigned = assignmentByBusId.get(bus.id);
+    const route = routeByBusId.get(bus.id);
+    const tripStatus = tripStatusByBusId.get(bus.id) ?? "ENDED";
     return {
       id: bus.id,
       name: bus.name,
@@ -94,7 +183,10 @@ export async function getLiveTransportForSchool(schoolId: string): Promise<BusLi
       capacity: bus.capacity,
       assignedDriverId: assigned?.id ?? null,
       assignedDriverName: assigned?.name ?? null,
-      location: latestLocationByBusId.get(bus.id) ?? null
+      routeId: route?.id ?? null,
+      routeName: route?.name ?? null,
+      tripStatus,
+      location: tripStatus === "STARTED" ? (latestLocationByBusId.get(bus.id) ?? null) : null
     };
   });
 }

@@ -48,9 +48,10 @@ export async function createUserAction(
 
   const enabledModuleRows = await prisma.schoolModule.findMany({
     where: { schoolId: session.schoolId, enabled: true },
-    select: { moduleId: true }
+    select: { moduleId: true, module: { select: { key: true } } }
   });
   const enabledModuleIds = new Set(enabledModuleRows.map((m) => m.moduleId));
+  const transportModuleId = enabledModuleRows.find((m) => m.module.key === "TRANSPORT")?.moduleId;
   const permEntries: Array<{ moduleId: string; level: PermissionLevel }> = [];
   for (const [k, v] of formData.entries()) {
     if (!k.startsWith("perm_")) continue;
@@ -106,9 +107,16 @@ export async function createUserAction(
     });
   }
 
-  if (permEntries.length) {
+  const finalPerms =
+    role.key === "BUS_ASSISTANT"
+      ? transportModuleId
+        ? [{ moduleId: transportModuleId, level: "EDIT" as PermissionLevel }]
+        : []
+      : permEntries;
+
+  if (finalPerms.length) {
     await prisma.userModulePermission.createMany({
-      data: permEntries.map((p) => ({
+      data: finalPerms.map((p) => ({
         schoolId: session.schoolId,
         userId: user.id,
         moduleId: p.moduleId,

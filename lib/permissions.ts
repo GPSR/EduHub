@@ -143,7 +143,6 @@ export async function seedSchoolModulesAndRolePerms(schoolId: string) {
 
   // Transport (bus assistant)
   await setRoleModuleLevel("BUS_ASSISTANT", "TRANSPORT", "EDIT");
-  await setRoleModuleLevel("BUS_ASSISTANT", "STUDENTS", "VIEW");
 
   // Correspondent: high-level view + approvals on comms
   for (const key of ["DASHBOARD", "FEES", "REPORTS"] as const) {

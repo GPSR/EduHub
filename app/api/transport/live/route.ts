@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSession } from "@/lib/session";
 import { getEffectivePermissions, atLeastLevel } from "@/lib/permissions";
-import { getLiveTransportForSchool } from "@/lib/transport";
+import { getLiveTransportForSchool, getParentAssignedBusIds } from "@/lib/transport";
 
 export async function GET() {
   const session = await getSession();
@@ -15,6 +15,10 @@ export async function GET() {
   const canView = perms.TRANSPORT ? atLeastLevel(perms.TRANSPORT, "VIEW") : false;
   if (!canView) return NextResponse.json({ ok: false, message: "Forbidden" }, { status: 403 });
 
-  const buses = await getLiveTransportForSchool(session.schoolId);
+  let buses = await getLiveTransportForSchool(session.schoolId);
+  if (session.roleKey === "PARENT") {
+    const assignedBusIds = await getParentAssignedBusIds(session.schoolId, session.userId);
+    buses = buses.filter((b) => assignedBusIds.has(b.id) && b.tripStatus === "STARTED");
+  }
   return NextResponse.json({ ok: true, buses, serverTime: new Date().toISOString() });
 }

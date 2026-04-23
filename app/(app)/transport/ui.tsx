@@ -1,10 +1,18 @@
 "use client";
 
-import { useActionState, useMemo, useState, useTransition } from "react";
-import { useEffect } from "react";
-import { Button, Card, Input, Label } from "@/components/ui";
+import { useActionState, useMemo, useState, useTransition, useEffect } from "react";
+import { Button, Card, Input, Label, Textarea } from "@/components/ui";
 import type { BusLiveView } from "@/lib/transport";
-import { createBusAction, updateBusLocationAction, type TransportState } from "./actions";
+import {
+  assignDriverAction,
+  assignStudentBusAction,
+  createBusAction,
+  createRouteAction,
+  startTripAction,
+  stopTripAction,
+  updateBusLocationAction,
+  type TransportState
+} from "./actions";
 
 const initialState: TransportState = { ok: true };
 
@@ -26,6 +34,11 @@ function formatSince(iso: string | null | undefined) {
   return `${Math.floor(hr / 24)}d ago`;
 }
 
+function ActionMsg({ state }: { state: TransportState }) {
+  if (!state.message) return null;
+  return <p className={`text-xs ${state.ok ? "text-emerald-300" : "text-rose-300"}`}>{state.message}</p>;
+}
+
 export function TransportLiveBoard({ initialBuses }: { initialBuses: BusLiveView[] }) {
   const [buses, setBuses] = useState<BusLiveView[]>(initialBuses);
 
@@ -37,7 +50,7 @@ export function TransportLiveBoard({ initialBuses }: { initialBuses: BusLiveView
         const data = await fetcher("/api/transport/live");
         if (!cancelled) setBuses(data.buses);
       } catch {
-        // Keep last successful live snapshot on polling failure.
+        // Keep last successful snapshot.
       }
     };
     run();
@@ -53,6 +66,7 @@ export function TransportLiveBoard({ initialBuses }: { initialBuses: BusLiveView
       {buses.map((bus) => {
         const loc = bus.location;
         const maps = loc ? `https://maps.google.com/?q=${loc.lat},${loc.lng}` : null;
+        const live = bus.tripStatus === "STARTED";
         return (
           <div
             key={bus.id}
@@ -62,10 +76,12 @@ export function TransportLiveBoard({ initialBuses }: { initialBuses: BusLiveView
               <div className="flex flex-wrap items-center gap-2">
                 <p className="text-[14px] font-semibold text-white/90">{bus.name}</p>
                 {bus.plateNumber ? <span className="text-[11px] text-white/40">{bus.plateNumber}</span> : null}
+                <span className={`text-[10px] rounded-full px-2 py-0.5 ${live ? "bg-emerald-500/20 text-emerald-300" : "bg-white/10 text-white/50"}`}>
+                  {live ? "Trip Live" : "Trip Not Started"}
+                </span>
               </div>
-              <p className="text-[12px] text-white/45 mt-1">
-                Driver: {bus.assignedDriverName ?? "Not assigned"}
-              </p>
+              <p className="text-[12px] text-white/45 mt-1">Driver: {bus.assignedDriverName ?? "Not assigned"}</p>
+              <p className="text-[12px] text-white/45 mt-1">Route: {bus.routeName ?? "Not assigned"}</p>
               {loc ? (
                 <p className="text-[12px] text-white/55 mt-1">
                   {loc.lat.toFixed(5)}, {loc.lng.toFixed(5)}
@@ -73,7 +89,7 @@ export function TransportLiveBoard({ initialBuses }: { initialBuses: BusLiveView
                   {typeof loc.headingDeg === "number" ? ` • ${Math.round(loc.headingDeg)}°` : ""}
                 </p>
               ) : (
-                <p className="text-[12px] text-amber-300/80 mt-1">No live location yet</p>
+                <p className="text-[12px] text-amber-300/80 mt-1">No live location available</p>
               )}
             </div>
             <div className="text-right shrink-0">
@@ -92,116 +108,207 @@ export function TransportLiveBoard({ initialBuses }: { initialBuses: BusLiveView
           </div>
         );
       })}
-      {buses.length === 0 ? <p className="text-sm text-white/50">No buses configured yet.</p> : null}
+      {buses.length === 0 ? <p className="text-sm text-white/50">No buses visible for your role.</p> : null}
     </div>
   );
 }
 
-export function TransportAdminForms({
+export function TransportOpsForms({
   buses,
-  canCreateBus
+  canAdminOps,
+  canTrackOps,
+  drivers,
+  students,
+  routes,
+  roleKey
 }: {
   buses: Array<{ id: string; name: string }>;
-  canCreateBus: boolean;
+  canAdminOps: boolean;
+  canTrackOps: boolean;
+  drivers: Array<{ id: string; name: string }>;
+  students: Array<{ id: string; fullName: string }>;
+  routes: Array<{ id: string; name: string; busId: string | null }>;
+  roleKey: string;
 }) {
   const [createState, createAct, createPending] = useActionState(createBusAction, initialState);
+  const [assignDriverState, assignDriverAct, assignDriverPending] = useActionState(assignDriverAction, initialState);
+  const [createRouteState, createRouteAct, createRoutePending] = useActionState(createRouteAction, initialState);
+  const [assignStudentState, assignStudentAct, assignStudentPending] = useActionState(assignStudentBusAction, initialState);
+  const [startState, startAct, startPending] = useActionState(startTripAction, initialState);
+  const [stopState, stopAct, stopPending] = useActionState(stopTripAction, initialState);
   const [locState, locAct, locPending] = useActionState(updateBusLocationAction, initialState);
 
   const [geo, setGeo] = useState<{ lat: string; lng: string } | null>(null);
   const [isLocating, startLocating] = useTransition();
-
-  const canTrack = useMemo(() => buses.length > 0, [buses.length]);
+  const canTrack = useMemo(() => canTrackOps && buses.length > 0, [canTrackOps, buses.length]);
 
   const detectLocation = () => {
     startLocating(() => {
       if (!navigator.geolocation) return;
       navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          setGeo({
-            lat: String(pos.coords.latitude),
-            lng: String(pos.coords.longitude)
-          });
-        },
-        () => {
-          setGeo(null);
-        },
+        (pos) => setGeo({ lat: String(pos.coords.latitude), lng: String(pos.coords.longitude) }),
+        () => setGeo(null),
         { enableHighAccuracy: true, timeout: 10000 }
       );
     });
   };
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-      {canCreateBus ? (
-        <Card title="Add Bus" accent="teal">
-          <form action={createAct} className="space-y-3">
-            <div>
-              <Label required>Bus name</Label>
-              <Input name="name" placeholder="Bus A" required />
-            </div>
-            <div>
-              <Label>Plate number</Label>
-              <Input name="plateNumber" placeholder="TN-01-AB-1234" />
-            </div>
-            <div>
-              <Label>Capacity</Label>
-              <Input name="capacity" type="number" min={1} max={500} placeholder="40" />
-            </div>
-            {createState.message ? <p className={`text-xs ${createState.ok ? "text-emerald-300" : "text-rose-300"}`}>{createState.message}</p> : null}
-            <Button type="submit" disabled={createPending}>{createPending ? "Saving..." : "Create bus"}</Button>
-          </form>
-        </Card>
+    <div className="space-y-4">
+      {canAdminOps ? (
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+          <Card title="Add Bus" accent="teal">
+            <form action={createAct} className="space-y-3">
+              <div><Label required>Bus name</Label><Input name="name" placeholder="Bus A" required /></div>
+              <div><Label>Plate number</Label><Input name="plateNumber" placeholder="TN-01-AB-1234" /></div>
+              <div><Label>Capacity</Label><Input name="capacity" type="number" min={1} max={500} placeholder="40" /></div>
+              <ActionMsg state={createState} />
+              <Button type="submit" disabled={createPending}>{createPending ? "Saving..." : "Create bus"}</Button>
+            </form>
+          </Card>
+
+          <Card title="Assign Driver to Bus" accent="indigo">
+            <form action={assignDriverAct} className="space-y-3">
+              <div>
+                <Label required>Bus</Label>
+                <select name="busId" className="w-full rounded-[13px] bg-black/25 border border-white/[0.09] px-3.5 py-2.5 text-sm text-white" required>
+                  <option value="">Select bus</option>
+                  {buses.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
+                </select>
+              </div>
+              <div>
+                <Label required>Driver (Bus Assistant)</Label>
+                <select name="userId" className="w-full rounded-[13px] bg-black/25 border border-white/[0.09] px-3.5 py-2.5 text-sm text-white" required>
+                  <option value="">Select driver</option>
+                  {drivers.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
+                </select>
+              </div>
+              <ActionMsg state={assignDriverState} />
+              <Button type="submit" disabled={assignDriverPending}>{assignDriverPending ? "Assigning..." : "Assign driver"}</Button>
+            </form>
+          </Card>
+
+          <Card title="Create Route" accent="teal">
+            <form action={createRouteAct} className="space-y-3">
+              <div>
+                <Label required>Bus</Label>
+                <select name="busId" className="w-full rounded-[13px] bg-black/25 border border-white/[0.09] px-3.5 py-2.5 text-sm text-white" required>
+                  <option value="">Select bus</option>
+                  {buses.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
+                </select>
+              </div>
+              <div><Label required>Route name</Label><Input name="name" placeholder="Morning Route A" required /></div>
+              <div><Label>Stops (one per line)</Label><Textarea name="stopsText" rows={4} placeholder={"School Gate\nMain Street\nTemple Stop"} /></div>
+              <ActionMsg state={createRouteState} />
+              <Button type="submit" disabled={createRoutePending}>{createRoutePending ? "Saving..." : "Create route"}</Button>
+            </form>
+          </Card>
+
+          <Card title="Assign Student to Bus" accent="indigo">
+            <form action={assignStudentAct} className="space-y-3">
+              <div>
+                <Label required>Student</Label>
+                <select name="studentId" className="w-full rounded-[13px] bg-black/25 border border-white/[0.09] px-3.5 py-2.5 text-sm text-white" required>
+                  <option value="">Select student</option>
+                  {students.map((s) => <option key={s.id} value={s.id}>{s.fullName}</option>)}
+                </select>
+              </div>
+              <div>
+                <Label required>Bus</Label>
+                <select name="busId" className="w-full rounded-[13px] bg-black/25 border border-white/[0.09] px-3.5 py-2.5 text-sm text-white" required>
+                  <option value="">Select bus</option>
+                  {buses.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
+                </select>
+              </div>
+              <div>
+                <Label>Route</Label>
+                <select name="routeId" className="w-full rounded-[13px] bg-black/25 border border-white/[0.09] px-3.5 py-2.5 text-sm text-white">
+                  <option value="">Select route</option>
+                  {routes.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
+                </select>
+              </div>
+              <div><Label>Pickup point</Label><Input name="pickupPoint" placeholder="Temple Stop" /></div>
+              <ActionMsg state={assignStudentState} />
+              <Button type="submit" disabled={assignStudentPending}>{assignStudentPending ? "Saving..." : "Assign student"}</Button>
+            </form>
+          </Card>
+        </div>
       ) : null}
 
-      <Card title="Update Live Location" accent="indigo">
-        <form action={locAct} className="space-y-3">
-          <div>
-            <Label required>Bus</Label>
-            <select
-              name="busId"
-              className="w-full rounded-[13px] bg-black/25 border border-white/[0.09] px-3.5 py-2.5 text-base sm:text-sm text-white outline-none"
-              required
-              disabled={!canTrack}
-            >
-              <option value="">Select bus</option>
-              {buses.map((b) => (
-                <option key={b.id} value={b.id}>{b.name}</option>
-              ))}
-            </select>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <Label required>Latitude</Label>
-              <Input name="lat" defaultValue={geo?.lat ?? ""} required />
-            </div>
-            <div>
-              <Label required>Longitude</Label>
-              <Input name="lng" defaultValue={geo?.lng ?? ""} required />
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <Label>Speed (km/h)</Label>
-              <Input name="speedKph" type="number" min={0} max={250} step="0.1" />
-            </div>
-            <div>
-              <Label>Heading (0-360)</Label>
-              <Input name="headingDeg" type="number" min={0} max={360} step="1" />
-            </div>
-          </div>
-          <div>
-            <Label>Note</Label>
-            <Input name="note" placeholder="Near Main Gate" maxLength={160} />
-          </div>
-          <div className="flex gap-2">
-            <Button type="button" variant="secondary" onClick={detectLocation} disabled={isLocating || !canTrack}>
-              {isLocating ? "Detecting..." : "Use my current location"}
-            </Button>
-            <Button type="submit" disabled={locPending || !canTrack}>{locPending ? "Updating..." : "Update live location"}</Button>
-          </div>
-          {locState.message ? <p className={`text-xs ${locState.ok ? "text-emerald-300" : "text-rose-300"}`}>{locState.message}</p> : null}
-        </form>
-      </Card>
+      {canTrackOps ? (
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+          <Card title="Trip Control" accent="emerald">
+            <form action={startAct} className="space-y-3">
+              <div>
+                <Label required>Bus</Label>
+                <select name="busId" className="w-full rounded-[13px] bg-black/25 border border-white/[0.09] px-3.5 py-2.5 text-sm text-white" required disabled={!canTrack}>
+                  <option value="">Select bus</option>
+                  {buses.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
+                </select>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div><Label>Latitude</Label><Input name="lat" defaultValue={geo?.lat ?? ""} /></div>
+                <div><Label>Longitude</Label><Input name="lng" defaultValue={geo?.lng ?? ""} /></div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div><Label>Speed (km/h)</Label><Input name="speedKph" type="number" min={0} max={250} step="0.1" /></div>
+                <div><Label>Heading (0-360)</Label><Input name="headingDeg" type="number" min={0} max={360} step="1" /></div>
+              </div>
+              <div className="flex gap-2 flex-wrap">
+                <Button type="button" variant="secondary" onClick={detectLocation} disabled={isLocating || !canTrack}>
+                  {isLocating ? "Detecting..." : "Allow GPS + Use Current"}
+                </Button>
+                <Button type="submit" disabled={startPending || !canTrack}>{startPending ? "Starting..." : "Start Trip"}</Button>
+              </div>
+              <ActionMsg state={startState} />
+            </form>
+
+            <form action={stopAct} className="space-y-3 mt-4 pt-4 border-t border-white/[0.08]">
+              <div>
+                <Label required>Bus</Label>
+                <select name="busId" className="w-full rounded-[13px] bg-black/25 border border-white/[0.09] px-3.5 py-2.5 text-sm text-white" required disabled={!canTrack}>
+                  <option value="">Select bus</option>
+                  {buses.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
+                </select>
+              </div>
+              <Button type="submit" variant="secondary" disabled={stopPending || !canTrack}>{stopPending ? "Stopping..." : "End Trip"}</Button>
+              <ActionMsg state={stopState} />
+            </form>
+          </Card>
+
+          <Card title="Update Live GPS" accent="indigo">
+            <form action={locAct} className="space-y-3">
+              <div>
+                <Label required>Bus</Label>
+                <select name="busId" className="w-full rounded-[13px] bg-black/25 border border-white/[0.09] px-3.5 py-2.5 text-sm text-white" required disabled={!canTrack}>
+                  <option value="">Select bus</option>
+                  {buses.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
+                </select>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div><Label required>Latitude</Label><Input name="lat" defaultValue={geo?.lat ?? ""} required /></div>
+                <div><Label required>Longitude</Label><Input name="lng" defaultValue={geo?.lng ?? ""} required /></div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div><Label>Speed (km/h)</Label><Input name="speedKph" type="number" min={0} max={250} step="0.1" /></div>
+                <div><Label>Heading (0-360)</Label><Input name="headingDeg" type="number" min={0} max={360} step="1" /></div>
+              </div>
+              <div><Label>Note</Label><Input name="note" placeholder="Near Central Stop" maxLength={160} /></div>
+              <div className="flex gap-2 flex-wrap">
+                <Button type="button" variant="secondary" onClick={detectLocation} disabled={isLocating || !canTrack}>
+                  {isLocating ? "Detecting..." : "Use Current Location"}
+                </Button>
+                <Button type="submit" disabled={locPending || !canTrack}>{locPending ? "Updating..." : "Update Location"}</Button>
+              </div>
+              <ActionMsg state={locState} />
+            </form>
+          </Card>
+        </div>
+      ) : null}
+
+      {!canAdminOps && !canTrackOps ? (
+        <p className="text-sm text-white/55">{roleKey === "PARENT" ? "You can view live buses assigned to your children when trip is active." : "View-only access."}</p>
+      ) : null}
     </div>
   );
 }
