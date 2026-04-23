@@ -57,7 +57,7 @@ export default async function SchoolAuditPage() {
                     {l.entityType && (
                       <>
                         <span className="text-white/20">·</span>
-                        <span>{humanizeToken(l.entityType)}{l.entityId ? ` ${l.entityId}` : ""}</span>
+                        <span>{humanizeToken(l.entityType)}{l.entityId ? ` ${shortId(l.entityId)}` : ""}</span>
                       </>
                     )}
                   </div>
@@ -102,17 +102,17 @@ function formatActor({ actorType, actorId, schoolUserById }: {
 function MetadataRow({ metadataJson }: { metadataJson: string }) {
   const parsed = safeParseMetadata(metadataJson);
   if (!parsed) return null;
-  const entries = Object.entries(parsed);
+  const entries = formatMetadataEntries(parsed);
   if (!entries.length) return null;
   return (
-    <div className="mt-2 grid grid-cols-1 gap-1.5">
+    <div className="mt-2 grid grid-cols-1 md:grid-cols-2 gap-1.5">
       {entries.map(([key, value]) => (
         <div
           key={key}
           className="rounded-[10px] border border-white/[0.10] bg-white/[0.03] px-2.5 py-1.5 text-[11px] text-white/65 leading-relaxed break-words"
         >
           <span className="text-white/40">{humanizeToken(key)}:</span>{" "}
-          <span className="break-all">{String(value)}</span>
+          <span className="break-words">{value}</span>
         </div>
       ))}
     </div>
@@ -125,4 +125,42 @@ function safeParseMetadata(json: string): Record<string, unknown> | null {
     if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return null;
     return parsed as Record<string, unknown>;
   } catch { return null; }
+}
+
+function shortId(v: string) {
+  if (v.length <= 14) return v;
+  return `${v.slice(0, 6)}...${v.slice(-4)}`;
+}
+
+function stringifyValue(value: unknown): string {
+  if (value == null) return "—";
+  if (typeof value === "boolean") return value ? "Yes" : "No";
+  if (typeof value === "number") return String(value);
+  if (typeof value === "string") return value.length > 140 ? `${value.slice(0, 140)}...` : value;
+  if (Array.isArray(value)) return value.length ? `${value.length} item(s)` : "0 item(s)";
+  return "Updated";
+}
+
+function formatMetadataEntries(parsed: Record<string, unknown>): Array<[string, string]> {
+  const out: Array<[string, string]> = [];
+  for (const [key, value] of Object.entries(parsed)) {
+    if (key === "selectedModules") {
+      const ids = String(value ?? "")
+        .split(",")
+        .map((x) => x.trim())
+        .filter(Boolean);
+      out.push([key, ids.length ? `${ids.length} module(s) selected` : "No modules selected"]);
+      continue;
+    }
+    if (key.toLowerCase().includes("password") || key.toLowerCase().includes("token")) {
+      out.push([key, "Hidden"]);
+      continue;
+    }
+    if (typeof value === "string" && /(cmo|cui)[a-z0-9]{8,}/i.test(value)) {
+      out.push([key, shortId(value)]);
+      continue;
+    }
+    out.push([key, stringifyValue(value)]);
+  }
+  return out;
 }

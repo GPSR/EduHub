@@ -11,6 +11,38 @@ function humanize(v: string) {
 function safeMeta(json: string): Record<string, unknown> | null {
   try { const p = JSON.parse(json) as unknown; return (p && typeof p === "object" && !Array.isArray(p)) ? p as Record<string, unknown> : null; } catch { return null; }
 }
+function shortId(v: string) {
+  if (v.length <= 14) return v;
+  return `${v.slice(0, 6)}...${v.slice(-4)}`;
+}
+function stringifyValue(value: unknown): string {
+  if (value == null) return "—";
+  if (typeof value === "boolean") return value ? "Yes" : "No";
+  if (typeof value === "number") return String(value);
+  if (typeof value === "string") return value.length > 140 ? `${value.slice(0, 140)}...` : value;
+  if (Array.isArray(value)) return value.length ? `${value.length} item(s)` : "0 item(s)";
+  return "Updated";
+}
+function formatMetaEntries(meta: Record<string, unknown>): Array<[string, string]> {
+  const out: Array<[string, string]> = [];
+  for (const [k, v] of Object.entries(meta)) {
+    if (k === "selectedModules") {
+      const ids = String(v ?? "").split(",").map(x => x.trim()).filter(Boolean);
+      out.push([k, ids.length ? `${ids.length} module(s) selected` : "No modules selected"]);
+      continue;
+    }
+    if (k.toLowerCase().includes("password") || k.toLowerCase().includes("token")) {
+      out.push([k, "Hidden"]);
+      continue;
+    }
+    if (typeof v === "string" && /(cmo|cui)[a-z0-9]{8,}/i.test(v)) {
+      out.push([k, shortId(v)]);
+      continue;
+    }
+    out.push([k, stringifyValue(v)]);
+  }
+  return out;
+}
 
 export default async function PlatformAuditPage() {
   await requireSuperAdmin();
@@ -58,18 +90,18 @@ export default async function PlatformAuditPage() {
                     </div>
                     <div className="mt-1 text-[12px] text-white/45 flex flex-wrap items-center gap-1.5">
                       <span>{actor(l.actorType, l.actorId)}</span>
-                      {l.schoolId && <><span className="text-white/20">·</span><span>School: {l.schoolId}</span></>}
-                      {l.entityType && <><span className="text-white/20">·</span><span>{humanize(l.entityType)}{l.entityId ? ` ${l.entityId}` : ""}</span></>}
+                      {l.schoolId && <><span className="text-white/20">·</span><span>School: {shortId(l.schoolId)}</span></>}
+                      {l.entityType && <><span className="text-white/20">·</span><span>{humanize(l.entityType)}{l.entityId ? ` ${shortId(l.entityId)}` : ""}</span></>}
                     </div>
                     {meta && Object.entries(meta).length > 0 && (
-                      <div className="mt-2 grid grid-cols-1 gap-1.5">
-                        {Object.entries(meta).map(([k, v]) => (
+                      <div className="mt-2 grid grid-cols-1 md:grid-cols-2 gap-1.5">
+                        {formatMetaEntries(meta).map(([k, v]) => (
                           <div
                             key={k}
                             className="rounded-[10px] border border-white/[0.10] bg-white/[0.03] px-2.5 py-1.5 text-[11px] text-white/65 leading-relaxed break-words"
                           >
                             <span className="text-white/40">{humanize(k)}:</span>{" "}
-                            <span className="break-all">{String(v)}</span>
+                            <span className="break-words">{v}</span>
                           </div>
                         ))}
                       </div>
