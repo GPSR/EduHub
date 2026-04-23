@@ -124,7 +124,7 @@ export function MobileNav({
                         {unreadCount > 9 ? "9+" : unreadCount}
                       </span>
                     )}
-                    {item.href === "/feed" && feedUnreadCount > 0 && (
+                    {item.href === "/feed" && feedUnreadCount > 0 && !isActive(pathname, item) && (
                       <span className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-rose-500
                                        text-[9px] font-bold text-white flex items-center justify-center">
                         {feedUnreadCount > 9 ? "9+" : feedUnreadCount}
@@ -176,7 +176,7 @@ export function MobileNav({
                       {unreadCount > 9 ? "9+" : unreadCount}
                     </span>
                   )}
-                  {item.href === "/feed" && feedUnreadCount > 0 && (
+                  {item.href === "/feed" && feedUnreadCount > 0 && !active && (
                     <span className="absolute -top-1 -right-2 h-4 w-4 rounded-full bg-rose-500
                                      text-[9px] font-bold text-white flex items-center justify-center">
                       {feedUnreadCount > 9 ? "9+" : feedUnreadCount}

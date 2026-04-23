@@ -50,7 +50,7 @@ export function NavLink({
         <span className="text-base leading-none w-5 text-center opacity-80">{emoji}</span>
         <span>{label}</span>
       </span>
-      {badgeCount && badgeCount > 0 ? (
+      {badgeCount && badgeCount > 0 && !(href === "/feed" && active) ? (
         <span className="bg-rose-500 text-white text-[10px] font-bold rounded-full min-w-[18px] h-[18px] inline-flex items-center justify-center px-1">
           {badgeCount > 99 ? "99+" : badgeCount}
         </span>
