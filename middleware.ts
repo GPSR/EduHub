@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import { jwtVerify } from "jose";
 
 const PUBLIC_ROUTES = new Set([
   "/",
@@ -10,7 +11,51 @@ const PUBLIC_ROUTES = new Set([
   "/platform/onboard"
 ]);
 
+type SchoolRoleKey =
+  | "ADMIN"
+  | "HEAD_MASTER"
+  | "PRINCIPAL"
+  | "CLASS_TEACHER"
+  | "TEACHER"
+  | "PARENT"
+  | "BUS_ASSISTANT"
+  | "CORRESPONDENT";
+
+const ROLE_RULES: Array<{ prefix: string; allow: SchoolRoleKey[] }> = [
+  { prefix: "/dashboard", allow: ["ADMIN"] },
+  { prefix: "/admin/users", allow: ["ADMIN"] },
+  { prefix: "/admin/settings", allow: ["ADMIN"] },
+  { prefix: "/admin/approvals", allow: ["ADMIN", "PRINCIPAL"] },
+  { prefix: "/admin/audit", allow: ["ADMIN", "PRINCIPAL"] },
+  { prefix: "/requests/student-profile", allow: ["PARENT"] }
+];
+
+async function getSchoolRoleFromToken(token: string): Promise<SchoolRoleKey | null> {
+  const secret = process.env.AUTH_SECRET;
+  if (!secret) return null;
+  try {
+    const { payload } = await jwtVerify(token, new TextEncoder().encode(secret));
+    const roleKey = String(payload.roleKey ?? "");
+    if (
+      roleKey === "ADMIN" ||
+      roleKey === "HEAD_MASTER" ||
+      roleKey === "PRINCIPAL" ||
+      roleKey === "CLASS_TEACHER" ||
+      roleKey === "TEACHER" ||
+      roleKey === "PARENT" ||
+      roleKey === "BUS_ASSISTANT" ||
+      roleKey === "CORRESPONDENT"
+    ) {
+      return roleKey;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 export function middleware(req: NextRequest) {
+  return (async () => {
   const { pathname } = req.nextUrl;
   const host = req.headers.get("host")?.toLowerCase() ?? "";
 
@@ -57,7 +102,17 @@ export function middleware(req: NextRequest) {
     url.searchParams.set("next", pathname);
     return NextResponse.redirect(url);
   }
+  const roleKey = await getSchoolRoleFromToken(token);
+  if (roleKey) {
+    const rule = ROLE_RULES.find((r) => pathname === r.prefix || pathname.startsWith(`${r.prefix}/`));
+    if (rule && !rule.allow.includes(roleKey)) {
+      const url = req.nextUrl.clone();
+      url.pathname = roleKey === "PARENT" ? "/students" : "/feed";
+      return NextResponse.redirect(url);
+    }
+  }
   return NextResponse.next();
+  })();
 }
 
 export const config = {
