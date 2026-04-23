@@ -15,7 +15,13 @@ const StudentCreateSchema = z.object({
   className: z.string().optional(),
   section: z.string().optional(),
   rollNumber: z.string().optional(),
-  admissionNo: z.string().optional()
+  admissionNo: z.string().optional(),
+  gender: z.string().optional(),
+  dateOfBirth: z.string().optional(),
+  bloodGroup: z.string().optional(),
+  address: z.string().optional(),
+  transportDetails: z.string().optional(),
+  medicalNotes: z.string().optional()
 });
 
 const StudentUpdateSchema = z.object({
@@ -57,7 +63,13 @@ export async function createStudentAction(formData: FormData) {
     className: formData.get("className") || undefined,
     section: formData.get("section") || undefined,
     rollNumber: formData.get("rollNumber") || undefined,
-    admissionNo: String(formData.get("admissionNo") ?? "").trim() || undefined
+    admissionNo: String(formData.get("admissionNo") ?? "").trim() || undefined,
+    gender: String(formData.get("gender") ?? "").trim() || undefined,
+    dateOfBirth: String(formData.get("dateOfBirth") ?? "").trim() || undefined,
+    bloodGroup: String(formData.get("bloodGroup") ?? "").trim() || undefined,
+    address: String(formData.get("address") ?? "").trim() || undefined,
+    transportDetails: String(formData.get("transportDetails") ?? "").trim() || undefined,
+    medicalNotes: String(formData.get("medicalNotes") ?? "").trim() || undefined
   });
   if (!parsed.success) throw new Error("Unable to process request.");
 
@@ -122,7 +134,13 @@ export async function createStudentAction(formData: FormData) {
         fullName: parsed.data.fullName,
         admissionNo,
         rollNumber,
-        classId
+        classId,
+        gender: parsed.data.gender || undefined,
+        dateOfBirth: parseDateInput(parsed.data.dateOfBirth ?? null),
+        bloodGroup: parsed.data.bloodGroup || undefined,
+        address: parsed.data.address || undefined,
+        transportDetails: parsed.data.transportDetails || undefined,
+        medicalNotes: parsed.data.medicalNotes || undefined
       }
     });
   });

@@ -69,6 +69,37 @@ export default async function NewStudentPage() {
             </div>
           </div>
 
+          {/* ── Student Details ── */}
+          <div className="md:col-span-2 pt-3 border-t border-white/[0.07]">
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-white/35 mb-3">Student Details</p>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <Label>Gender</Label>
+                <Input name="gender" placeholder="Male / Female / Other" />
+              </div>
+              <div>
+                <Label>Date of birth</Label>
+                <Input name="dateOfBirth" type="date" />
+              </div>
+              <div>
+                <Label>Blood group</Label>
+                <Input name="bloodGroup" placeholder="O+" />
+              </div>
+              <div className="md:col-span-3">
+                <Label>Address</Label>
+                <Input name="address" placeholder="Student address" />
+              </div>
+              <div>
+                <Label>Transport details</Label>
+                <Input name="transportDetails" placeholder="Bus route / pickup point" />
+              </div>
+              <div className="md:col-span-2">
+                <Label>Medical notes</Label>
+                <Input name="medicalNotes" placeholder="Allergies, medication, emergency notes" />
+              </div>
+            </div>
+          </div>
+
           {/* ── Actions ── */}
           <div className="md:col-span-2 pt-3 border-t border-white/[0.07] flex items-center justify-between">
             <Link href="/students">
