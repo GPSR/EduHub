@@ -83,7 +83,7 @@ export async function createSchoolInviteAction(
       process.env.NEXT_PUBLIC_SCHOOL_APP_BASE_URL?.replace(/\/+$/, "") ||
       "https://schools.softlanetech.com";
     const inviteUrl = `${schoolAppBaseUrl}/accept-invite?token=${encodeURIComponent(token)}`;
-    await sendOnboardingApprovalNotifications({
+    const notify = await sendOnboardingApprovalNotifications({
       schoolName: school.name,
       adminEmail: parsed.data.adminEmail.toLowerCase(),
       inviteUrl,
@@ -96,7 +96,14 @@ export async function createSchoolInviteAction(
       entityType: "School",
       entityId: school.id,
       schoolId: school.id,
-      metadata: { slug: school.slug, plan: parsed.data.plan, invitedAdminEmail: parsed.data.adminEmail }
+      metadata: {
+        slug: school.slug,
+        plan: parsed.data.plan,
+        invitedAdminEmail: parsed.data.adminEmail,
+        inviteEmailSent: notify.emailSent,
+        inviteSmsSent: notify.smsSent,
+        inviteErrors: notify.errors.slice(0, 3)
+      }
     });
 
     redirect(`/platform/schools/${school.id}`);

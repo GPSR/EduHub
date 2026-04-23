@@ -6,6 +6,7 @@ import { requireSuperAdmin } from "@/lib/platform-require";
 import { createSessionCookie } from "@/lib/session";
 import { ensureBaseModules } from "@/lib/permissions";
 import { ensureSchoolSubscriptionActive } from "@/lib/subscription";
+import { auditLog } from "@/lib/audit";
 import { sendOnboardingApprovalNotifications } from "@/lib/approval-notify";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
@@ -23,7 +24,7 @@ export async function createAdminInviteAction(
   _prev: InviteState,
   formData: FormData
 ): Promise<InviteState> {
-  await requireSuperAdmin();
+  const { session } = await requireSuperAdmin();
 
   const parsed = InviteSchema.safeParse({
     schoolId: formData.get("schoolId"),
@@ -56,11 +57,25 @@ export async function createAdminInviteAction(
     process.env.NEXT_PUBLIC_SCHOOL_APP_BASE_URL?.replace(/\/+$/, "") ||
     "https://schools.softlanetech.com";
   const inviteUrl = `${schoolAppBaseUrl}/accept-invite?token=${encodeURIComponent(token)}`;
-  await sendOnboardingApprovalNotifications({
+  const notify = await sendOnboardingApprovalNotifications({
     schoolName: school?.name ?? "School",
     adminEmail: parsed.data.adminEmail.toLowerCase(),
     inviteUrl,
     expiresAt
+  });
+
+  await auditLog({
+    actor: { type: "PLATFORM_USER", id: session.platformUserId },
+    action: "PLATFORM_SCHOOL_INVITE_GENERATED",
+    entityType: "School",
+    entityId: parsed.data.schoolId,
+    schoolId: parsed.data.schoolId,
+    metadata: {
+      adminEmail: parsed.data.adminEmail.toLowerCase(),
+      emailSent: notify.emailSent,
+      smsSent: notify.smsSent,
+      errors: notify.errors.slice(0, 3)
+    }
   });
 
   redirect(`/platform/schools/${parsed.data.schoolId}`);
