@@ -10,8 +10,8 @@ export default async function LoginPage({
 }) {
   const { schoolSlug } = await searchParams;
   return (
-    <main className="min-h-screen flex items-center justify-center p-6">
-      <div className="w-full max-w-[420px] space-y-5 animate-fade-up">
+    <main className="min-h-dvh md:min-h-screen flex items-start md:items-center justify-center px-4 sm:px-6 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))]">
+      <div className="w-full max-w-[420px] space-y-4 sm:space-y-5 animate-fade-up">
 
         {/* Back link */}
         <Link
@@ -23,7 +23,7 @@ export default async function LoginPage({
 
         {/* Brand */}
         <div className="flex justify-center">
-          <BrandLogo />
+          <BrandLogo size="sm" className="max-w-full" />
         </div>
 
         {/* Form card */}
@@ -32,7 +32,7 @@ export default async function LoginPage({
         </Card>
 
         {/* Footer links */}
-        <div className="flex items-center justify-center gap-4 text-sm text-white/45">
+        <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-sm text-white/45">
           <Link href="/onboard" className="hover:text-white/80 transition-colors">
             Create a school
           </Link>

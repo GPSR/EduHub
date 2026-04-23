@@ -50,7 +50,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   return (
     <PullToRefresh>
-      <div className="min-h-screen">
+      <div className="min-h-dvh md:min-h-screen overflow-x-clip">
         {/* ── Top header with iOS safe-area top ── */}
         <header className="header-safe sticky top-0 z-20 border-b border-white/[0.08] bg-[#060912]/90 backdrop-blur-xl">
           <div className="mx-auto max-w-[1320px] px-4 md:px-6 h-[62px] flex items-center justify-between gap-4">
@@ -87,7 +87,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         </header>
 
         {/* ── Page body ── */}
-        <div className="mx-auto max-w-[1320px] px-4 md:px-6 py-5 md:py-7
+        <div className="mx-auto max-w-[1320px] px-3 sm:px-4 md:px-6 py-4 md:py-7
                         grid grid-cols-1 md:grid-cols-[220px_1fr] gap-5 md:gap-7
                         pb-[calc(5.5rem+env(safe-area-inset-bottom,0px))] md:pb-8">
 

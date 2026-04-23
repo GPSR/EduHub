@@ -9,13 +9,13 @@ export default async function AcceptInvitePage({
 }) {
   const { token } = await searchParams;
   return (
-    <main className="min-h-screen flex items-center justify-center p-6">
-      <div className="w-full max-w-md space-y-5 animate-fade-up">
+    <main className="min-h-dvh md:min-h-screen flex items-start md:items-center justify-center px-4 sm:px-6 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))]">
+      <div className="w-full max-w-md space-y-4 sm:space-y-5 animate-fade-up">
         <Link href="/" className="inline-flex items-center gap-1.5 text-sm text-white/40 hover:text-white/75 transition">
           ← Back to home
         </Link>
         <div className="flex justify-center">
-          <BrandLogo />
+          <BrandLogo size="sm" className="max-w-full" />
         </div>
         <div className="text-center">
           <h1 className="text-2xl font-bold tracking-tight text-white/95">Accept your invite</h1>

@@ -6,11 +6,11 @@ import { HomeShell } from "@/components/home-shell";
 export default async function HomePage() {
   const session = await getSession();
   return (
-    <main className="min-h-screen flex items-center justify-center p-6">
+    <main className="min-h-dvh md:min-h-screen flex items-start md:items-center justify-center px-4 sm:px-6 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))]">
       <div className="w-full max-w-4xl">
 
         {/* Hero */}
-        <header className="text-center mb-12 animate-fade-up">
+        <header className="text-center mb-8 sm:mb-12 animate-fade-up">
           <div className="flex justify-center mb-6">
             <BrandIcon size={96} />
           </div>

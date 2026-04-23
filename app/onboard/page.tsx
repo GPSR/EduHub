@@ -5,8 +5,8 @@ import { BrandIcon } from "@/components/brand";
 
 export default function OnboardPage() {
   return (
-    <main className="min-h-screen flex items-center justify-center p-6">
-      <div className="w-full max-w-2xl space-y-5 animate-fade-up">
+    <main className="min-h-dvh md:min-h-screen flex items-start md:items-center justify-center px-4 sm:px-6 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))]">
+      <div className="w-full max-w-2xl space-y-4 sm:space-y-5 animate-fade-up">
         <Link href="/" className="inline-flex items-center gap-1.5 text-sm text-white/45 hover:text-white/80 transition-colors">
           ← Back to home
         </Link>

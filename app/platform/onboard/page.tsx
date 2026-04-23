@@ -12,8 +12,8 @@ export default async function PlatformOnboardPage() {
   if (existing) redirect("/platform/login");
 
   return (
-    <main className="min-h-screen flex items-center justify-center p-6">
-      <div className="w-full max-w-md space-y-4">
+    <main className="min-h-dvh md:min-h-screen flex items-start md:items-center justify-center px-4 sm:px-6 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))]">
+      <div className="w-full max-w-md space-y-4 animate-fade-up">
         <Link href="/platform/login" className="text-sm text-white/70 hover:text-white">
           ← Back to platform login
         </Link>

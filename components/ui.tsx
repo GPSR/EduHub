@@ -27,7 +27,7 @@ export function Card({
     <div
       className={clsx(
         "relative rounded-[22px] border border-white/[0.08] bg-white/[0.04]",
-        "backdrop-blur-sm p-6 transition-all duration-200",
+        "backdrop-blur-sm p-4 sm:p-6 transition-all duration-200",
         "hover:border-white/[0.13] hover:bg-white/[0.055]",
         "shadow-[0_1px_3px_rgba(0,0,0,0.5),0_8px_32px_-8px_rgba(0,0,0,0.55)]",
         accent && [

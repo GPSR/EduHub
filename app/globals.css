@@ -49,6 +49,7 @@ html {
   /* Prevent font inflation on iOS */
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
+  overflow-x: clip;
 }
 
 body {
@@ -72,6 +73,7 @@ body {
 
   /* Native tap highlight removal */
   -webkit-tap-highlight-color: transparent;
+  overflow-x: clip;
 }
 
 /* Prevent callout on long-press (iOS) */

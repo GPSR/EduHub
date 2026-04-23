@@ -20,7 +20,7 @@ export default function OfflinePage() {
   }, []);
 
   return (
-    <main className="min-h-screen flex items-center justify-center px-6 bg-[#060912]">
+    <main className="min-h-dvh md:min-h-screen flex items-center justify-center px-4 sm:px-6 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))] bg-[#060912]">
       <div className="max-w-sm w-full text-center space-y-6 animate-fade-up">
         {/* Icon */}
         <div className="flex justify-center">
