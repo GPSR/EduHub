@@ -7,7 +7,7 @@ import { createUserAction, type CreateUserState } from "@/app/(app)/admin/users/
 const initialState: CreateUserState = { ok: true };
 
 type ClassOption   = { id: string; label: string };
-type StudentOption = { id: string; fullName: string };
+type StudentOption = { id: string; fullName: string; classId: string | null };
 type RoleOption    = { id: string; key: string; name: string };
 type ModuleOption  = { id: string; key: string; name: string };
 
@@ -33,7 +33,12 @@ export function AdminCreateUserForm({ roles, modules, classes, students }: {
   const [state, action, pending] = useActionState(createUserAction, initialState);
   const defaultRoleId = roles.find(r => r.key === "TEACHER")?.id ?? roles[0]?.id ?? "";
   const [schoolRoleId, setSchoolRoleId] = useState<string>(defaultRoleId);
+  const [parentClassId, setParentClassId] = useState<string>("");
   const roleKey = useMemo(() => roles.find(r => r.id === schoolRoleId)?.key ?? "", [roles, schoolRoleId]);
+  const parentStudents = useMemo(
+    () => (parentClassId ? students.filter((s) => s.classId === parentClassId) : students),
+    [students, parentClassId]
+  );
 
   const isTeacher      = roleKey === "TEACHER" || roleKey === "CLASS_TEACHER";
   const isClassTeacher = roleKey === "CLASS_TEACHER";
@@ -105,6 +110,18 @@ export function AdminCreateUserForm({ roles, modules, classes, students }: {
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
+              <Label>Class</Label>
+              <select
+                name="parentClassId"
+                value={parentClassId}
+                onChange={(e) => setParentClassId(e.target.value)}
+                className="w-full rounded-[13px] bg-black/25 border border-white/[0.09] px-3.5 py-2.5 text-sm text-white outline-none focus:border-indigo-400/50 transition-all"
+              >
+                <option value="">All classes</option>
+                {classes.map(c => <option key={c.id} value={c.id}>{c.label}</option>)}
+              </select>
+            </div>
+            <div>
               <Label>Link to student</Label>
               <select
                 name="linkStudentId"
@@ -112,8 +129,11 @@ export function AdminCreateUserForm({ roles, modules, classes, students }: {
                 className="w-full rounded-[13px] bg-black/25 border border-white/[0.09] px-3.5 py-2.5 text-sm text-white outline-none focus:border-indigo-400/50 transition-all"
               >
                 <option value="">(none)</option>
-                {students.map(s => <option key={s.id} value={s.id}>{s.fullName}</option>)}
+                {parentStudents.map(s => <option key={s.id} value={s.id}>{s.fullName}</option>)}
               </select>
+              <p className="mt-1 text-[11px] text-white/35">
+                Choose class first to narrow student list.
+              </p>
             </div>
             <div>
               <Label>Relation</Label>

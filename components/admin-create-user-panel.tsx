@@ -5,7 +5,7 @@ import { Card, Button } from "@/components/ui";
 import { AdminCreateUserForm } from "@/components/admin-create-user-form";
 
 type ClassOption   = { id: string; label: string };
-type StudentOption = { id: string; fullName: string };
+type StudentOption = { id: string; fullName: string; classId: string | null };
 type RoleOption    = { id: string; key: string; name: string };
 type ModuleOption  = { id: string; key: string; name: string };
 

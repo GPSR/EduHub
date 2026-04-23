@@ -25,7 +25,11 @@ export default async function AdminUsersPage() {
       take: 200,
       include: { schoolRole: true },
     }),
-    prisma.student.findMany({ where: { schoolId: session.schoolId }, orderBy: { fullName: "asc" } }),
+    prisma.student.findMany({
+      where: { schoolId: session.schoolId },
+      orderBy: { fullName: "asc" },
+      include: { class: true }
+    }),
     prisma.class.findMany({ where: { schoolId: session.schoolId }, orderBy: [{ name: "asc" }, { section: "asc" }] }),
     prisma.schoolRole.findMany({ where: { schoolId: session.schoolId }, orderBy: [{ isSystem: "desc" }, { name: "asc" }] }),
   ]);
@@ -104,7 +108,7 @@ export default async function AdminUsersPage() {
       <AdminCreateUserPanel
         roles={roles.map(r => ({ id: r.id, key: r.key, name: r.name }))}
         modules={modules.map(m => ({ id: m.module.id, key: m.module.key, name: m.module.name }))}
-        students={students.map(s => ({ id: s.id, fullName: s.fullName }))}
+        students={students.map(s => ({ id: s.id, fullName: s.fullName, classId: s.classId ?? null }))}
         classes={classes.map(c => ({ id: c.id, label: `${c.name}${c.section ? `-${c.section}` : ""}` }))}
       />
     </div>
