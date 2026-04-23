@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useMemo, useState, useTransition, useEffect } from "react";
+import { useActionState, useMemo, useState, useTransition, useEffect, useRef } from "react";
 import { Button, Card, Input, Label, Textarea } from "@/components/ui";
 import type { BusLiveView } from "@/lib/transport";
 import {
@@ -54,7 +54,7 @@ export function TransportLiveBoard({ initialBuses }: { initialBuses: BusLiveView
       }
     };
     run();
-    timer = setInterval(run, 15000);
+    timer = setInterval(run, 5000);
     return () => {
       cancelled = true;
       if (timer) clearInterval(timer);
@@ -141,6 +141,10 @@ export function TransportOpsForms({
   const [geo, setGeo] = useState<{ lat: string; lng: string } | null>(null);
   const [isLocating, startLocating] = useTransition();
   const canTrack = useMemo(() => canTrackOps && buses.length > 0, [canTrackOps, buses.length]);
+  const [streamBusId, setStreamBusId] = useState("");
+  const [streaming, setStreaming] = useState(false);
+  const [streamMsg, setStreamMsg] = useState<string>("");
+  const watchIdRef = useRef<number | null>(null);
 
   const detectLocation = () => {
     startLocating(() => {
@@ -152,6 +156,73 @@ export function TransportOpsForms({
       );
     });
   };
+
+  const stopStreaming = () => {
+    if (watchIdRef.current !== null && navigator.geolocation) {
+      navigator.geolocation.clearWatch(watchIdRef.current);
+      watchIdRef.current = null;
+    }
+    setStreaming(false);
+    setStreamMsg("Live GPS streaming stopped.");
+  };
+
+  const startStreaming = () => {
+    if (!navigator.geolocation) {
+      setStreamMsg("GPS not supported on this device/browser.");
+      return;
+    }
+    if (!streamBusId) {
+      setStreamMsg("Select bus before starting live stream.");
+      return;
+    }
+    if (watchIdRef.current !== null) navigator.geolocation.clearWatch(watchIdRef.current);
+
+    watchIdRef.current = navigator.geolocation.watchPosition(
+      async (pos) => {
+        const speedMps = typeof pos.coords.speed === "number" && Number.isFinite(pos.coords.speed) ? pos.coords.speed : null;
+        const speedKph = speedMps == null ? undefined : Math.max(0, speedMps * 3.6);
+        const heading = typeof pos.coords.heading === "number" && Number.isFinite(pos.coords.heading) ? pos.coords.heading : undefined;
+
+        try {
+          const res = await fetch("/api/transport/ping", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              busId: streamBusId,
+              lat: pos.coords.latitude,
+              lng: pos.coords.longitude,
+              speedKph,
+              headingDeg: heading
+            })
+          });
+          const data = (await res.json()) as { ok?: boolean; message?: string };
+          if (!res.ok || !data.ok) {
+            setStreamMsg(data.message || "Unable to send GPS ping.");
+            setStreaming(false);
+            return;
+          }
+          setStreaming(true);
+          setStreamMsg(`Streaming live... Last ping ${new Date().toLocaleTimeString()}`);
+        } catch {
+          setStreamMsg("Network issue while sending GPS ping.");
+        }
+      },
+      () => {
+        setStreamMsg("Unable to read GPS. Allow location permission.");
+        setStreaming(false);
+      },
+      { enableHighAccuracy: true, maximumAge: 5000, timeout: 10000 }
+    );
+    setStreamMsg("Starting GPS stream...");
+  };
+
+  useEffect(() => {
+    return () => {
+      if (watchIdRef.current !== null && navigator.geolocation) {
+        navigator.geolocation.clearWatch(watchIdRef.current);
+      }
+    };
+  }, []);
 
   return (
     <div className="space-y-4">
@@ -302,6 +373,35 @@ export function TransportOpsForms({
               </div>
               <ActionMsg state={locState} />
             </form>
+          </Card>
+
+          <Card title="Auto Live GPS Streaming" accent="teal">
+            <div className="space-y-3">
+              <div>
+                <Label required>Bus</Label>
+                <select
+                  value={streamBusId}
+                  onChange={(e) => setStreamBusId(e.target.value)}
+                  className="w-full rounded-[13px] bg-black/25 border border-white/[0.09] px-3.5 py-2.5 text-sm text-white"
+                  disabled={!canTrack}
+                >
+                  <option value="">Select bus</option>
+                  {buses.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
+                </select>
+              </div>
+              <p className="text-[12px] text-white/55">
+                For drivers: keep this enabled after trip starts. GPS updates send continuously while bus moves.
+              </p>
+              <div className="flex gap-2 flex-wrap">
+                <Button type="button" onClick={startStreaming} disabled={!canTrack || streaming}>
+                  {streaming ? "Streaming Active" : "Start Live Streaming"}
+                </Button>
+                <Button type="button" variant="secondary" onClick={stopStreaming} disabled={!streaming}>
+                  Stop Streaming
+                </Button>
+              </div>
+              {streamMsg ? <p className={`text-xs ${streaming ? "text-emerald-300" : "text-white/55"}`}>{streamMsg}</p> : null}
+            </div>
           </Card>
         </div>
       ) : null}
