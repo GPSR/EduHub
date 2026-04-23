@@ -91,7 +91,20 @@ export default async function NewStudentPage() {
               </div>
               <div>
                 <Label>Blood group</Label>
-                <Input name="bloodGroup" placeholder="O+" />
+                <select
+                  name="bloodGroup"
+                  className="w-full rounded-[13px] bg-black/25 border border-white/[0.09] px-3.5 py-2.5 text-base sm:text-sm text-white outline-none"
+                >
+                  <option value="">Select blood group</option>
+                  <option value="A+">A+</option>
+                  <option value="A-">A-</option>
+                  <option value="B+">B+</option>
+                  <option value="B-">B-</option>
+                  <option value="AB+">AB+</option>
+                  <option value="AB-">AB-</option>
+                  <option value="O+">O+</option>
+                  <option value="O-">O-</option>
+                </select>
               </div>
               <div className="md:col-span-3">
                 <Label>Address</Label>
