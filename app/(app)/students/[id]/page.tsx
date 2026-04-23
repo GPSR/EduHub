@@ -53,7 +53,7 @@ export default async function StudentProfilePage({ params }: { params: Promise<{
 
       {/* Hero card */}
       <div className="rounded-[22px] border border-white/[0.08] bg-white/[0.04] p-6">
-        <div className="flex items-center gap-4">
+        <div className="flex items-start sm:items-center gap-3 sm:gap-4">
           <div className="grid h-16 w-16 shrink-0 place-items-center rounded-[18px]
                           bg-gradient-to-b from-indigo-400 to-indigo-600 text-xl font-bold text-white shadow-lg">
             {initials}
@@ -70,7 +70,7 @@ export default async function StudentProfilePage({ params }: { params: Promise<{
       </div>
 
       {/* Details grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-5">
         <Card title="Academic Details" accent="indigo">
           <div className="grid grid-cols-1 gap-3">
             <Field label="Admission Number" value={student.admissionNo ?? "—"} />

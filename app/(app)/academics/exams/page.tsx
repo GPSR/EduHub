@@ -63,7 +63,7 @@ export default async function ExamResultsPage() {
               return (
                 <div
                   key={r.id}
-                  className={`px-4 py-4 hover:bg-white/[0.03] transition
+                  className={`px-3.5 sm:px-4 py-3.5 sm:py-4 hover:bg-white/[0.03] transition
                                ${i === 0 ? "rounded-t-[16px]" : ""}
                                ${i === results.length - 1 ? "rounded-b-[16px]" : ""}`}
                 >
@@ -103,7 +103,7 @@ async function CreateResultCard({ students }: { students: { id: string; fullName
   const { createExamResultAction } = await import("./actions");
   return (
     <Card title="Add Exam Result" accent="teal">
-      <form action={createExamResultAction} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <form action={createExamResultAction} className="grid grid-cols-1 gap-3 sm:gap-4">
         <div className="md:col-span-2">
           <Label required>Student</Label>
           <select

@@ -77,7 +77,7 @@ export default async function HomeworkPage() {
             return (
               <div
                 key={h.id}
-                className={`rounded-[20px] border p-5 transition-all duration-200 hover:bg-white/[0.055]
+                className={`rounded-[18px] sm:rounded-[20px] border p-4 sm:p-5 transition-all duration-200 hover:bg-white/[0.055]
                              animate-fade-up
                              ${overdue
                                ? "border-rose-500/20 bg-rose-500/[0.04]"
@@ -124,7 +124,7 @@ async function CreateHomeworkCard({ students }: { students: { id: string; fullNa
   const { createHomeworkAction } = await import("./actions");
   return (
     <Card title="Post Homework" accent="indigo">
-      <form action={createHomeworkAction} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <form action={createHomeworkAction} className="grid grid-cols-1 gap-3 sm:gap-4">
         <div className="md:col-span-2">
           <Label required>Student</Label>
           <select

@@ -15,7 +15,7 @@ function FormMessage({ state }: { state: SettingsState }) {
   if (!state.message) return null;
   return (
     <div className={[
-      "md:col-span-2 flex items-start gap-2.5 rounded-[12px] border p-3.5 text-sm",
+      "sm:col-span-2 flex items-start gap-2.5 rounded-[12px] border p-3.5 text-sm",
       state.ok
         ? "border-emerald-500/25 bg-emerald-500/10 text-emerald-200"
         : "border-rose-500/25 bg-rose-500/10 text-rose-200",
@@ -37,7 +37,7 @@ export function IdSettingsClientForm(props: {
   const [state, action, pending] = useActionState(updateIdSettingsAction, initial);
 
   return (
-    <form action={action} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <form action={action} className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
       <div>
         <Label required>Student ID format</Label>
         <Input name="studentIdFormat" defaultValue={props.studentIdFormat} placeholder="STU-{YYYY}-{SEQ}" required />
@@ -65,7 +65,7 @@ export function IdSettingsClientForm(props: {
 
       <FormMessage state={state} />
 
-      <div className="md:col-span-2 flex justify-end">
+      <div className="sm:col-span-2 flex justify-end">
         <Button type="submit" disabled={pending}>
           {pending ? (
             <span className="flex items-center gap-2">

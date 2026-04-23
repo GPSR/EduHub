@@ -3,91 +3,97 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { clsx } from "clsx";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 type NavItem = { href: string; label: string; activeStartsWith?: boolean };
 
-const ALL_ICONS: Record<string, string> = {
-  "/dashboard":       "◈",
-  "/students":        "👥",
-  "/fees":            "💳",
-  "/feed":            "📢",
-  "/attendance":      "✅",
-  "/academics":       "📚",
-  "/notifications":   "🔔",
-  "/reports":         "📊",
+const ICONS: Record<string, string> = {
+  "/dashboard":                "◈",
+  "/students":                 "👥",
+  "/fees":                     "💳",
+  "/feed":                     "📢",
+  "/attendance":               "✅",
+  "/academics":                "📚",
+  "/notifications":            "🔔",
+  "/transport":                "🚌",
+  "/reports":                  "📊",
+  "/admin/users":              "🛡",
+  "/admin/settings":           "⚙️",
+  "/profile":                  "👤",
   "/requests/student-profile": "📝",
-  "/admin/users":     "🛡",
-  "/admin/settings":  "⚙️",
-  "/profile":         "👤",
 };
 
 function isActive(pathname: string, item: NavItem) {
-  if (item.activeStartsWith) return pathname === item.href || pathname.startsWith(item.href + "/");
-  return pathname === item.href;
+  return item.activeStartsWith
+    ? pathname === item.href || pathname.startsWith(item.href + "/")
+    : pathname === item.href;
 }
 
 export function MobileNav({
-  role, userName, userEmail, items, moreItems, unreadCount = 0, feedUnreadCount = 0,
+  userName, userEmail, items, moreItems, unreadCount = 0, feedUnreadCount = 0,
 }: {
-  role: string;
-  userName: string;
-  userEmail: string;
-  items: NavItem[];
-  moreItems: NavItem[];
-  unreadCount?: number;
-  feedUnreadCount?: number;
+  role: string; userName: string; userEmail: string;
+  items: NavItem[]; moreItems: NavItem[];
+  unreadCount?: number; feedUnreadCount?: number;
 }) {
-  const pathname  = usePathname();
+  const pathname = usePathname();
   const [open, setOpen] = useState(false);
 
-  // Always show 4 items + "More" tab = 5 total
-  const tabItems  = items.slice(0, 4);
-  const showMore  = moreItems.length > 0 || items.length > 4;
-  const drawerItems = [...items.slice(4), ...moreItems];
-  const initials  = userName.trim().split(/\s+/).map(p => p[0]).slice(0,2).join("").toUpperCase();
-  const moreIsActive = open || drawerItems.some(i => isActive(pathname, i));
+  // Close drawer on navigation
+  useEffect(() => { setOpen(false); }, [pathname]);
+
+  // Lock body scroll when drawer open
+  useEffect(() => {
+    if (open) document.body.style.overflow = "hidden";
+    else       document.body.style.overflow = "";
+    return () => { document.body.style.overflow = ""; };
+  }, [open]);
+
+  const tabItems   = items.slice(0, 4);
+  const allMore    = [...items.slice(4), ...moreItems];
+  const moreActive = !open && allMore.some(i => isActive(pathname, i));
+  const initials   = userName.trim().split(/\s+/).map(p => p[0]).slice(0,2).join("").toUpperCase();
+
+  function getBadge(href: string) {
+    if (href === "/notifications" && unreadCount > 0) return unreadCount;
+    if (href === "/feed" && feedUnreadCount > 0) return feedUnreadCount;
+    return 0;
+  }
 
   return (
     <>
-      {/* ── Hamburger (hidden — only bottom tab bar used) ── */}
-
-      {/* ── Bottom sheet drawer ── */}
+      {/* ── Bottom sheet drawer ──────────────────── */}
       {open && (
-        <div className="md:hidden fixed inset-0 z-50 flex flex-col justify-end">
+        <div className="md:hidden fixed inset-0 z-[60] flex flex-col justify-end">
+          {/* Backdrop */}
           <button
-            type="button"
-            aria-label="Close menu"
+            aria-label="Close"
             onClick={() => setOpen(false)}
-            className="absolute inset-0 bg-black/75 backdrop-blur-sm"
+            className="absolute inset-0 bg-black/70 backdrop-blur-sm no-tap-scale"
           />
-          <div
-            className="relative rounded-t-[28px] border-t border-white/[0.10]
-                        bg-[#060912]/98 backdrop-blur-2xl
-                        shadow-[0_-20px_60px_rgba(0,0,0,0.7)]
-                        animate-slide-up max-h-[min(85vh,820px)] overflow-y-auto"
-          >
-            {/* iOS handle */}
-            <div className="mx-auto mt-3 mb-4 h-1 w-10 rounded-full bg-white/20" />
 
-            {/* User header */}
-            <div className="flex items-center justify-between px-5 mb-5">
-              <div className="flex items-center gap-3">
-                <div className="grid h-11 w-11 place-items-center rounded-[13px]
-                                bg-gradient-to-b from-indigo-400 to-indigo-600
-                                text-sm font-bold text-white shadow-sm">
-                  {initials}
-                </div>
-                <div>
-                  <div className="text-[15px] font-semibold text-white/95">{userName}</div>
-                  <div className="text-[12px] text-white/45">{userEmail}</div>
-                </div>
+          {/* Sheet */}
+          <div className="relative animate-slide-up rounded-t-[28px] border-t border-white/10
+                          bg-[#070b16]/97 backdrop-blur-2xl overflow-hidden
+                          shadow-[0_-24px_60px_rgba(0,0,0,0.7)]"
+            style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}>
+
+            {/* Handle */}
+            <div className="mx-auto mt-3 mb-1 h-1 w-10 rounded-full bg-white/20" />
+
+            {/* User row */}
+            <div className="flex items-center gap-3 px-5 py-4 border-b border-white/[0.07]">
+              <div className="h-11 w-11 shrink-0 rounded-[13px] bg-gradient-to-b from-indigo-400 to-indigo-600
+                              flex items-center justify-center text-sm font-bold text-white shadow">
+                {initials}
               </div>
-              <button
-                onClick={() => setOpen(false)}
-                className="rounded-[10px] border border-white/[0.09] bg-white/[0.05]
-                           p-2 text-white/50 hover:text-white hover:bg-white/[0.10] transition"
-              >
+              <div className="flex-1 min-w-0">
+                <p className="text-[15px] font-semibold text-white/95 truncate">{userName}</p>
+                <p className="text-[12px] text-white/45 truncate">{userEmail}</p>
+              </div>
+              <button onClick={() => setOpen(false)}
+                className="p-2 rounded-[10px] bg-white/[0.06] border border-white/[0.08]
+                           text-white/40 hover:text-white/80 active:bg-white/[0.12] transition">
                 <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
                   <path d="M2 2l10 10M12 2L2 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
                 </svg>
@@ -95,54 +101,51 @@ export function MobileNav({
             </div>
 
             {/* Nav grid */}
-            <div className="px-4 grid grid-cols-3 sm:grid-cols-4 gap-2">
-              {/* Profile always first */}
-              <Link href="/profile" onClick={() => setOpen(false)}
+            <div className="px-4 py-4 grid grid-cols-4 gap-2">
+              {/* Profile */}
+              <Link href="/profile"
                 className={clsx(
-                  "flex flex-col items-center gap-2 rounded-[16px] border py-4 px-2 transition col-span-4",
+                  "col-span-4 flex items-center gap-3 rounded-[14px] border px-4 py-3.5 transition",
                   pathname.startsWith("/profile")
-                    ? "border-indigo-400/30 bg-indigo-500/[0.15] text-white"
-                    : "border-white/[0.08] bg-white/[0.03] text-white/60 active:bg-white/[0.10]"
+                    ? "border-indigo-400/30 bg-indigo-500/15 text-white"
+                    : "border-white/[0.07] bg-white/[0.03] text-white/65 active:bg-white/[0.10]"
                 )}>
                 <span className="text-xl">👤</span>
-                <span className="text-[12px] font-semibold">Profile & Settings</span>
+                <span className="text-[14px] font-semibold">Profile & Settings</span>
               </Link>
 
-              {/* All items */}
-              {drawerItems.map(item => (
-                <Link key={item.href} href={item.href} onClick={() => setOpen(false)}
-                  className={clsx(
-                    "flex flex-col items-center gap-2 rounded-[16px] border py-4 px-1 transition",
-                    isActive(pathname, item)
-                      ? "border-indigo-400/30 bg-indigo-500/[0.15] text-white"
-                      : "border-white/[0.08] bg-white/[0.03] text-white/60 active:bg-white/[0.10]"
-                  )}>
-                  <span className="text-xl relative">
-                    {ALL_ICONS[item.href] ?? "•"}
-                    {item.href === "/notifications" && unreadCount > 0 && (
-                      <span className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-rose-500
-                                       text-[9px] font-bold text-white flex items-center justify-center">
-                        {unreadCount > 9 ? "9+" : unreadCount}
-                      </span>
-                    )}
-                    {item.href === "/feed" && feedUnreadCount > 0 && !isActive(pathname, item) && (
-                      <span className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-rose-500
-                                       text-[9px] font-bold text-white flex items-center justify-center">
-                        {feedUnreadCount > 9 ? "9+" : feedUnreadCount}
-                      </span>
-                    )}
-                  </span>
-                  <span className="text-[11px] font-medium text-center leading-tight">{item.label}</span>
-                </Link>
-              ))}
+              {/* All nav items */}
+              {[...items, ...moreItems].map(item => {
+                const badge = getBadge(item.href);
+                return (
+                  <Link key={item.href} href={item.href}
+                    className={clsx(
+                      "flex flex-col items-center gap-2 rounded-[14px] border py-4 px-1 transition relative",
+                      isActive(pathname, item)
+                        ? "border-indigo-400/25 bg-indigo-500/[0.14] text-white"
+                        : "border-white/[0.07] bg-white/[0.03] text-white/55 active:bg-white/[0.10]"
+                    )}>
+                    <span className="text-[22px] leading-none relative">
+                      {ICONS[item.href] ?? "•"}
+                      {badge > 0 && (
+                        <span className="absolute -top-1.5 -right-2 min-w-[16px] h-[16px] rounded-full
+                                         bg-rose-500 text-[9px] font-bold text-white flex items-center justify-center px-1">
+                          {badge > 9 ? "9+" : badge}
+                        </span>
+                      )}
+                    </span>
+                    <span className="text-[11px] font-medium text-center leading-tight">{item.label}</span>
+                  </Link>
+                );
+              })}
             </div>
 
             {/* Sign out */}
-            <div className="px-4 mt-4 pb-[max(1.5rem,env(safe-area-inset-bottom,1.5rem))]">
+            <div className="px-4 pb-4">
               <form action="/logout" method="post">
-                <button className="w-full rounded-[14px] border border-rose-500/25 bg-rose-500/[0.10]
-                                    py-3.5 text-sm font-semibold text-rose-300
-                                    hover:bg-rose-500/[0.20] active:bg-rose-500/[0.25] transition">
+                <button className="w-full h-[50px] rounded-[14px] border border-rose-500/25
+                                    bg-rose-500/[0.10] text-sm font-semibold text-rose-300
+                                    active:bg-rose-500/[0.22] transition">
                   Sign out
                 </button>
               </form>
@@ -151,69 +154,57 @@ export function MobileNav({
         </div>
       )}
 
-      {/* ── Bottom tab bar ── */}
-      <nav
-        className="md:hidden fixed bottom-0 left-0 right-0 z-40
-                   border-t border-white/[0.08] bg-[#060912]/95 backdrop-blur-2xl"
-        style={{ paddingBottom: "max(0.5rem, env(safe-area-inset-bottom, 0.5rem))" }}
-      >
-        <div
-          className="mx-auto max-w-lg pt-2 grid gap-0.5 px-1"
-          style={{ gridTemplateColumns: `repeat(${tabItems.length + (showMore ? 1 : 0)}, 1fr)` }}
-        >
+      {/* ── Bottom tab bar ───────────────────────── */}
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40
+                      border-t border-white/[0.08] bg-[#060912]/96 backdrop-blur-2xl">
+        <div className="grid pt-2"
+          style={{
+            gridTemplateColumns: `repeat(${tabItems.length + 1}, 1fr)`,
+            paddingBottom: "max(0.6rem, env(safe-area-inset-bottom, 0.6rem))",
+          }}>
+
           {tabItems.map(item => {
             const active = isActive(pathname, item);
+            const badge  = getBadge(item.href);
             return (
               <Link key={item.href} href={item.href}
                 className={clsx(
-                  "flex flex-col items-center gap-0.5 rounded-[12px] py-2 px-1 transition-all",
-                  active ? "bg-indigo-500/[0.18] text-white" : "text-white/40 active:text-white/70 active:bg-white/[0.06]"
+                  "flex flex-col items-center gap-0.5 py-1.5 px-1 mx-0.5 rounded-[10px] transition-all",
+                  active ? "text-white" : "text-white/38 active:text-white/75"
                 )}>
-                <span className="text-[20px] leading-none relative">
-                  {ALL_ICONS[item.href] ?? "•"}
-                  {item.href === "/notifications" && unreadCount > 0 && (
-                    <span className="absolute -top-1 -right-2 h-4 w-4 rounded-full bg-rose-500
-                                     text-[9px] font-bold text-white flex items-center justify-center">
-                      {unreadCount > 9 ? "9+" : unreadCount}
-                    </span>
-                  )}
-                  {item.href === "/feed" && feedUnreadCount > 0 && !active && (
-                    <span className="absolute -top-1 -right-2 h-4 w-4 rounded-full bg-rose-500
-                                     text-[9px] font-bold text-white flex items-center justify-center">
-                      {feedUnreadCount > 9 ? "9+" : feedUnreadCount}
+                {/* Active pill indicator */}
+                {active && (
+                  <span className="absolute h-0.5 w-6 rounded-full bg-indigo-400 -top-0.5 left-1/2 -translate-x-1/2" />
+                )}
+                <span className="relative text-[21px] leading-none">
+                  {ICONS[item.href] ?? "•"}
+                  {badge > 0 && (
+                    <span className="absolute -top-1.5 -right-2 min-w-[15px] h-[15px] rounded-full
+                                     bg-rose-500 text-[9px] font-bold text-white flex items-center justify-center px-0.5">
+                      {badge > 9 ? "9+" : badge}
                     </span>
                   )}
                 </span>
                 <span className={clsx(
-                  "text-[10px] font-semibold truncate max-w-full",
-                  active ? "text-white" : "text-white/40"
-                )}>
-                  {item.label}
-                </span>
+                  "text-[10px] font-semibold truncate w-full text-center",
+                  active ? "text-white" : "text-white/38"
+                )}>{item.label}</span>
               </Link>
             );
           })}
 
-          {/* More tab */}
-          {showMore && (
-            <button
-              type="button"
-              onClick={() => setOpen(v => !v)}
-              className={clsx(
-                "flex flex-col items-center gap-0.5 rounded-[12px] py-2 px-1 transition-all",
-                moreIsActive ? "bg-indigo-500/[0.18] text-white" : "text-white/40 active:text-white/70 active:bg-white/[0.06]"
-              )}>
-              <span className="text-[20px] leading-none">
-                {moreIsActive && !open ? "●" : "⋯"}
-              </span>
-              <span className={clsx(
-                "text-[10px] font-semibold",
-                moreIsActive ? "text-white" : "text-white/40"
-              )}>
-                More
-              </span>
-            </button>
-          )}
+          {/* More button */}
+          <button onClick={() => setOpen(v => !v)}
+            className={clsx(
+              "flex flex-col items-center gap-0.5 py-1.5 px-1 mx-0.5 rounded-[10px] transition-all",
+              (open || moreActive) ? "text-white" : "text-white/38 active:text-white/75"
+            )}>
+            <span className="text-[21px] leading-none">{open ? "✕" : moreActive ? "●" : "⋯"}</span>
+            <span className={clsx(
+              "text-[10px] font-semibold",
+              (open || moreActive) ? "text-white" : "text-white/38"
+            )}>More</span>
+          </button>
         </div>
       </nav>
     </>

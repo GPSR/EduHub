@@ -10,7 +10,7 @@ function FormMessage({ state }: { state: ProfileState }) {
   if (!state.message) return null;
   return (
     <div className={[
-      "md:col-span-2 flex items-start gap-2.5 rounded-[12px] border p-3.5 text-sm",
+      "sm:col-span-2 flex items-start gap-2.5 rounded-[12px] border p-3.5 text-sm",
       state.ok
         ? "border-emerald-500/25 bg-emerald-500/10 text-emerald-200"
         : "border-rose-500/25 bg-rose-500/10 text-rose-200",
@@ -50,7 +50,7 @@ export function ProfileSettings({
   return (
     <div className="space-y-5">
       <Card title="Profile Photo" description="Upload JPG, PNG or WEBP (max 3MB)" accent="teal">
-        <form action={photoAction} className="grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
+        <form action={photoAction} className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 items-end">
           <div>
             <Label required>Choose photo</Label>
             <Input name="photo" type="file" accept="image/png,image/jpeg,image/webp" required />
@@ -66,7 +66,7 @@ export function ProfileSettings({
 
       {/* ── Personal info ── */}
       <Card title="Personal Information" description="Update your profile and contact details" accent="indigo">
-        <form action={profileAction} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <form action={profileAction} className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
           <div>
             <Label required>First name</Label>
             <Input name="firstName" defaultValue={firstName ?? ""} required />
@@ -91,7 +91,7 @@ export function ProfileSettings({
           </div>
 
           {/* Divider */}
-          <div className="md:col-span-2 h-px bg-white/[0.07]" />
+          <div className="sm:col-span-2 h-px bg-white/[0.07]" />
 
           <div>
             <Label>Phone number</Label>
@@ -109,7 +109,7 @@ export function ProfileSettings({
             <Label>Postal code</Label>
             <Input name="postalCode" defaultValue={postalCode ?? ""} />
           </div>
-          <div className="md:col-span-2">
+          <div className="sm:col-span-2">
             <Label>Address</Label>
             <Input name="address" defaultValue={address ?? ""} />
           </div>
@@ -121,13 +121,13 @@ export function ProfileSettings({
             <Label>State / Province</Label>
             <Input name="state" defaultValue={stateVal ?? ""} />
           </div>
-          <div className="md:col-span-2">
+          <div className="sm:col-span-2">
             <Label>Country</Label>
             <Input name="country" defaultValue={country ?? ""} />
           </div>
 
           {/* Divider */}
-          <div className="md:col-span-2 h-px bg-white/[0.07]" />
+          <div className="sm:col-span-2 h-px bg-white/[0.07]" />
 
           <div>
             <Label>Emergency contact name</Label>
@@ -137,14 +137,14 @@ export function ProfileSettings({
             <Label>Emergency contact phone</Label>
             <Input name="emergencyContactPhone" defaultValue={emergencyContactPhone ?? ""} />
           </div>
-          <div className="md:col-span-2">
+          <div className="sm:col-span-2">
             <Label>Additional notes</Label>
             <Textarea name="notes" defaultValue={notes ?? ""} rows={3} placeholder="Any additional details…" />
           </div>
 
           <FormMessage state={profileState} />
 
-          <div className="md:col-span-2 flex justify-end">
+          <div className="sm:col-span-2 flex justify-end">
             <Button type="submit" disabled={profilePending}>
               {profilePending ? (
                 <span className="flex items-center gap-2">
@@ -159,8 +159,8 @@ export function ProfileSettings({
 
       {/* ── Password ── */}
       <Card title="Change Password" description="Use a strong password with at least 8 characters" accent="rose">
-        <form action={pwAction} className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="md:col-span-2">
+        <form action={pwAction} className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+          <div className="sm:col-span-2">
             <Label required>Current password</Label>
             <Input name="currentPassword" type="password" required autoComplete="current-password" />
           </div>
@@ -175,7 +175,7 @@ export function ProfileSettings({
 
           <FormMessage state={pwState} />
 
-          <div className="md:col-span-2 flex justify-end">
+          <div className="sm:col-span-2 flex justify-end">
             <Button type="submit" disabled={pwPending}>
               {pwPending ? (
                 <span className="flex items-center gap-2">

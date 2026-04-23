@@ -140,7 +140,7 @@ async function RolesPanel({
   return (
     <div className="space-y-5">
       {/* Role list */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+      <div className="grid grid-cols-2 gap-2">
         {roles.map(r => (
           <a
             key={r.id}
@@ -196,7 +196,7 @@ async function RolesPanel({
       {/* Add role */}
       <div className="border-t border-white/[0.07] pt-4">
         <p className="text-[12px] font-medium text-white/45 mb-3">Create new role</p>
-        <form action={createRoleAction} className="flex items-end gap-3">
+        <form action={createRoleAction} className="flex flex-col sm:flex-row sm:items-end gap-3">
           <div className="flex-1">
             <Label>Role name</Label>
             <Input name="name" placeholder="e.g. Librarian" required />

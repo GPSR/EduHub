@@ -51,7 +51,7 @@ export default async function AdminUsersPage() {
             return (
               <div
                 key={u.id}
-                className={`flex flex-wrap items-center gap-4 px-4 py-4
+                className={`flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-3 px-3.5 sm:px-4 py-4
                              ${i === 0 ? "rounded-t-[16px]" : ""}
                              ${i === users.length - 1 ? "rounded-b-[16px]" : ""}
                              ${!u.isActive ? "opacity-60" : ""}`}
@@ -75,7 +75,7 @@ export default async function AdminUsersPage() {
 
                 {/* Actions */}
                 {u.schoolRole.key !== "ADMIN" && u.id !== session.userId && (
-                  <div className="flex flex-wrap items-center gap-2 shrink-0">
+                  <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto sm:shrink-0">
                     <form action={updateUserRoleAction} className="flex items-center gap-2">
                       <input type="hidden" name="userId" value={u.id} />
                       <Select name="schoolRoleId" defaultValue={u.schoolRoleId} className="text-sm py-1.5 !mt-0">

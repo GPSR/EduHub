@@ -137,7 +137,7 @@ export default async function ReportsPage() {
       <SectionHeader title="Reports" subtitle="Analytics and insights across your school" />
 
       {/* ── Top metrics ── */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 gap-3">
         {[
           { icon: "👥", label: "Students",      value: totalStudents,  color: "indigo"  },
           { icon: "📚", label: "Teachers",      value: totalTeachers,  color: "teal"    },
@@ -254,7 +254,7 @@ export default async function ReportsPage() {
         </div>
       </Card>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-5">
         {/* ── Class-wise strength ── */}
         <Card title="Class-wise Strength" accent="violet">
           {classData.length === 0 ? (

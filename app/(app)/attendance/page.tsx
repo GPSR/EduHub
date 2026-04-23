@@ -91,7 +91,7 @@ export default async function AttendancePage({
       <DateHeader date={date} isToday={isToday} />
 
       {/* Summary */}
-      <div className="grid grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
         {[
           { label: "Total",   value: students.length, color: "text-white/80" },
           { label: "Marked",  value: markedCount,     color: "text-white/80" },
@@ -137,12 +137,12 @@ function DateHeader({ date, isToday }: { date: Date; isToday: boolean }) {
   const today = isoDate(new Date());
 
   return (
-    <div className="flex items-center justify-between gap-4">
+    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
       <SectionHeader
         title="Daily Attendance"
         subtitle={`${date.toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}${isToday ? " · Today" : ""}`}
       />
-      <div className="flex items-center gap-2 shrink-0">
+      <div className="flex flex-wrap items-center gap-2">
         <Link href={`/attendance?date=${isoDate(prev)}`}>
           <Button variant="secondary" size="sm">←</Button>
         </Link>
@@ -178,7 +178,7 @@ async function AttendanceRow({
   const cfg = statusConfig(current);
 
   return (
-    <div className={`flex items-center gap-4 px-4 py-3.5 hover:bg-white/[0.03] transition-colors
+    <div className={`flex flex-wrap sm:flex-nowrap items-start sm:items-center gap-2 sm:gap-4 px-3.5 sm:px-4 py-3.5 hover:bg-white/[0.03] transition-colors
                      ${isFirst ? "rounded-t-[16px]" : ""}
                      ${isLast  ? "rounded-b-[16px]" : ""}`}>
       <div className="flex-1 min-w-0">
@@ -187,7 +187,7 @@ async function AttendanceRow({
           <Badge tone={cfg.tone}>{cfg.emoji} {cfg.label}</Badge>
         </div>
       </div>
-      <form action={markAttendanceAction} className="flex items-center gap-2 shrink-0">
+      <form action={markAttendanceAction} className="flex items-center gap-2 w-full sm:w-auto sm:shrink-0 mt-2 sm:mt-0">
         <input type="hidden" name="date" value={date} />
         <input type="hidden" name="studentId" value={studentId} />
         <select

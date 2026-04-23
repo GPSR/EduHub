@@ -42,7 +42,7 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
 
       {/* Invoice hero */}
       <div className="rounded-[22px] border border-white/[0.08] bg-white/[0.04] p-6">
-        <div className="flex items-start justify-between gap-4 flex-wrap">
+        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
           <div>
             <h1 className="text-xl font-bold text-white/95 tracking-tight">{invoice.title}</h1>
             <p className="text-sm text-white/50 mt-1">{invoice.student.fullName}</p>
@@ -54,7 +54,7 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
             </div>
           </div>
           <div className="text-right">
-            <p className="text-3xl font-bold text-white/95 tabular-nums">{fmt(invoice.amountCents)}</p>
+            <p className="text-2xl sm:text-3xl font-bold text-white/95 tabular-nums">{fmt(invoice.amountCents)}</p>
             <p className="text-sm text-white/45 mt-0.5">Total amount</p>
           </div>
         </div>
@@ -74,7 +74,7 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
         </div>
 
         {/* Summary row */}
-        <div className="mt-5 grid grid-cols-3 gap-4 border-t border-white/[0.07] pt-5">
+        <div className="mt-5 grid grid-cols-3 gap-2 sm:gap-4 border-t border-white/[0.07] pt-5">
           <div>
             <p className="text-[11px] uppercase tracking-wider text-white/35 font-medium">Invoiced</p>
             <p className="text-[18px] font-bold text-white/85 mt-1 tabular-nums">{fmt(invoice.amountCents)}</p>
@@ -134,7 +134,7 @@ async function AddPaymentCard({ invoiceId, defaultAmount }: { invoiceId: string;
   const { addPaymentAction } = await import("../actions");
   return (
     <Card title="Record Payment" accent="indigo">
-      <form action={addPaymentAction} className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <form action={addPaymentAction} className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
         <input type="hidden" name="invoiceId" value={invoiceId} />
         <div>
           <Label required>Amount ($)</Label>

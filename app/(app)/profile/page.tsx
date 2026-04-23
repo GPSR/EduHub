@@ -23,7 +23,7 @@ export default async function ProfilePage() {
 
       {/* Profile hero */}
       <div className="rounded-[22px] border border-white/[0.08] bg-white/[0.04] p-6">
-        <div className="flex items-center gap-5">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-5">
           {profilePhotoUrl ? (
             <Image
               src={profilePhotoUrl}
@@ -33,14 +33,14 @@ export default async function ProfilePage() {
               className="h-16 w-16 shrink-0 rounded-[18px] object-cover border border-white/[0.10]"
             />
           ) : (
-            <div className="grid h-16 w-16 shrink-0 place-items-center rounded-[18px]
+            <div className="grid h-14 w-14 sm:h-16 sm:w-16 shrink-0 place-items-center rounded-[16px] sm:rounded-[18px]
                             bg-gradient-to-b from-indigo-400 to-indigo-600 text-xl font-bold text-white
                             shadow-[0_8px_24px_-8px_rgba(99,102,241,0.6)]">
               {initials}
             </div>
           )}
           <div className="min-w-0">
-            <h2 className="text-lg font-bold text-white/95 tracking-tight">{user.name}</h2>
+            <h2 className="text-base sm:text-lg font-bold text-white/95 tracking-tight">{user.name}</h2>
             <p className="text-sm text-white/50 mt-0.5">{user.email}</p>
             <div className="mt-2 flex items-center gap-2 flex-wrap">
               <Badge tone="info">{session.roleKey}</Badge>

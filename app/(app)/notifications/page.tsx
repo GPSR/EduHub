@@ -35,7 +35,7 @@ export default async function NotificationsPage() {
 
   return (
     <div className="space-y-5 animate-fade-up">
-      <div className="flex items-start justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
         <SectionHeader
           title="Notifications"
           subtitle={unread > 0 ? `${unread} unread notification${unread !== 1 ? "s" : ""}` : "All caught up"}
@@ -55,7 +55,7 @@ export default async function NotificationsPage() {
             {normalized.map((n, i) => (
               <div
                 key={n.id}
-                className={`flex items-start gap-4 px-4 py-4 transition-colors
+                className={`flex items-start gap-3 px-3.5 sm:px-4 py-3.5 transition-colors
                              ${!n.readAt ? "bg-indigo-500/[0.04]" : "hover:bg-white/[0.02]"}
                              ${i === 0 ? "rounded-t-[16px]" : ""}
                              ${i === notifications.length - 1 ? "rounded-b-[16px]" : ""}`}

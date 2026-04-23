@@ -104,7 +104,7 @@ export default async function FeedPage({
             const authorName   = authorById.get(p.authorId) ?? "School";
             return (
               <div key={p.id}
-                className={`rounded-[20px] border p-5 transition-all duration-200 hover:bg-white/[0.055] animate-fade-up
+                className={`rounded-[18px] sm:rounded-[20px] border p-4 sm:p-5 transition-all duration-200 hover:bg-white/[0.055] animate-fade-up
                              ${isClassPost ? "border-violet-500/20 bg-violet-500/[0.04]" : "border-white/[0.08] bg-white/[0.04]"}`}
                 style={{ animationDelay: `${i * 40}ms` }}>
 
@@ -141,7 +141,7 @@ async function CreatePostCard({ classes }: { classes: { id: string; name: string
   return (
     <Card title="New Announcement" description="Share with the whole school or a specific class" accent="indigo">
       <form action={createPostAction} className="space-y-4">
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 gap-3">
           <div>
             <Label required>Title</Label>
             <Input name="title" placeholder="Holiday Notice, Exam Schedule…" required />

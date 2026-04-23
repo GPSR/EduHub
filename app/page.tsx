@@ -10,11 +10,11 @@ export default async function HomePage() {
       <div className="w-full max-w-4xl">
 
         {/* Hero */}
-        <header className="text-center mb-8 sm:mb-12 animate-fade-up">
+        <header className="text-center mb-8 sm:mb-8 sm:mb-12 animate-fade-up">
           <div className="flex justify-center mb-6">
             <BrandIcon size={96} />
           </div>
-          <h1 className="text-4xl sm:text-5xl font-extrabold tracking-tight text-white/95 leading-[1.1]">
+          <h1 className="text-3xl sm:text-4xl md:text-5xl font-extrabold tracking-tight text-white/95 leading-[1.1]">
             Edu<span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-violet-400">Hub</span>
           </h1>
           <p className="mt-4 text-base sm:text-lg text-white/55 max-w-md mx-auto leading-relaxed">

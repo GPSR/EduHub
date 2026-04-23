@@ -44,7 +44,7 @@ export default async function StudentsPage() {
 
   return (
     <div className="space-y-5 animate-fade-up">
-      <div className="flex items-start justify-between gap-4">
+      <div className="flex items-start justify-between gap-3">
         <SectionHeader
           title="Students"
           subtitle={`${students.length} student${students.length !== 1 ? "s" : ""} enrolled`}
@@ -68,7 +68,7 @@ export default async function StudentsPage() {
                 <Link
                   key={s.id}
                   href={`/students/${s.id}`}
-                  className={`flex items-center gap-4 px-4 py-3.5 hover:bg-white/[0.04] transition-colors
+                  className={`flex items-center gap-3 px-3.5 sm:px-4 py-3.5 hover:bg-white/[0.04] transition-colors
                               ${i === 0 ? "rounded-t-[14px]" : ""}
                               ${i === students.length - 1 ? "rounded-b-[14px]" : ""}`}
                 >
@@ -79,8 +79,8 @@ export default async function StudentsPage() {
                   </div>
                   {/* Info */}
                   <div className="flex-1 min-w-0">
-                    <div className="text-[14px] font-semibold text-white/90 truncate">{s.fullName}</div>
-                    <div className="text-[12px] text-white/45 flex items-center gap-2 mt-0.5 flex-wrap">
+                    <div className="text-[14px] font-semibold text-white/90 truncate max-w-[160px] sm:max-w-none">{s.fullName}</div>
+                    <div className="text-[11px] sm:text-[12px] text-white/45 flex items-center gap-1.5 sm:gap-2 mt-0.5 flex-wrap">
                       <span>ID: {s.studentId}</span>
                       {s.rollNumber && <span>• Roll: {s.rollNumber}</span>}
                       {className && <span>• {className}</span>}

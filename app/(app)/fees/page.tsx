@@ -61,8 +61,8 @@ export default async function FeesPage() {
           { label: "Collected",      value: `$${centsToDollars(paidCents)}`,  color: "text-emerald-300" },
           { label: "Pending",        value: pendingCount,                     color: pendingCount > 0 ? "text-amber-300" : "text-white/85" },
         ].map(s => (
-          <div key={s.label} className="rounded-[16px] border border-white/[0.07] bg-white/[0.03] px-4 py-3.5 text-center">
-            <div className={`text-lg font-bold ${s.color}`}>{s.value}</div>
+          <div key={s.label} className="rounded-[14px] border border-white/[0.07] bg-white/[0.03] px-2.5 sm:px-4 py-3 sm:py-3.5 text-center">
+            <div className={`text-base sm:text-lg font-bold ${s.color}`}>{s.value}</div>
             <div className="text-[11px] text-white/40 mt-1 font-medium uppercase tracking-wider">{s.label}</div>
           </div>
         ))}
@@ -78,13 +78,13 @@ export default async function FeesPage() {
               <Link
                 key={inv.id}
                 href={`/fees/${inv.id}`}
-                className={`flex items-center gap-4 px-4 py-4 hover:bg-white/[0.04] transition-colors
+                className={`flex items-start sm:items-center gap-3 px-3.5 sm:px-4 py-3.5 sm:py-4 hover:bg-white/[0.04] transition-colors
                             ${i === 0 ? "rounded-t-[14px]" : ""}
                             ${i === invoices.length - 1 ? "rounded-b-[14px]" : ""}`}
               >
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-[14px] font-semibold text-white/90">{inv.title}</span>
+                    <span className="text-[13px] sm:text-[14px] font-semibold text-white/90 line-clamp-1">{inv.title}</span>
                     <Badge tone={statusTone(inv.status)}>{inv.status}</Badge>
                   </div>
                   <div className="text-[12px] text-white/45 mt-1">
@@ -92,7 +92,7 @@ export default async function FeesPage() {
                   </div>
                 </div>
                 <div className="text-right shrink-0">
-                  <div className="text-[15px] font-bold text-white/85">${centsToDollars(inv.amountCents)}</div>
+                  <div className="text-[14px] sm:text-[15px] font-bold text-white/85 shrink-0">${centsToDollars(inv.amountCents)}</div>
                   {inv.dueOn && (
                     <div className="text-[11px] text-white/35 mt-0.5">
                       Due {inv.dueOn.toDateString()}

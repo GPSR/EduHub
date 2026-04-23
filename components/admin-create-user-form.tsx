@@ -48,7 +48,7 @@ export function AdminCreateUserForm({ roles, modules, classes, students }: {
     <form action={action} className="space-y-6">
 
       {/* ── Basic info ── */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
         <div>
           <Label required>Full name</Label>
           <Input name="name" placeholder="Jane Smith" required />
@@ -108,7 +108,7 @@ export function AdminCreateUserForm({ roles, modules, classes, students }: {
             <p className="text-[13px] font-semibold text-white/85">Parent Linking</p>
             <Badge tone="neutral">Optional</Badge>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
             <div>
               <Label>Class</Label>
               <select

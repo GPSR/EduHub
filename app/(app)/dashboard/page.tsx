@@ -156,7 +156,7 @@ export default async function DashboardPage() {
         </Card>
 
         <Card title="Quick Access" accent="teal">
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
             {[
               { href: "/students",   icon: "👥", label: "Students"   },
               { href: "/fees",       icon: "💳", label: "Fees"       },
@@ -188,7 +188,7 @@ export default async function DashboardPage() {
           <p className="text-sm text-white/50">No students are currently in your attendance scope.</p>
         ) : (
           <div className="space-y-4">
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2 sm:gap-3">
               <Metric label="In Scope" value={scopedStudentIds.length} tone="text-white/85" href="/students" />
               <Metric label="Marked Today" value={todayPoint.marked} tone="text-indigo-300" href="/attendance" />
               <Metric label="Present" value={todayPoint.present} tone="text-emerald-300" href="/attendance" />
@@ -197,7 +197,7 @@ export default async function DashboardPage() {
             </div>
 
             <div className="rounded-[16px] border border-white/[0.07] bg-black/20 p-4">
-              <div className="flex items-end gap-1 h-36">
+              <div className="flex items-end gap-0.5 sm:gap-1 h-24 sm:h-36">
                 {trendDays.map((d) => {
                   const coverage = scopedStudentIds.length ? Math.round((d.marked / scopedStudentIds.length) * 100) : 0;
                   const presentRate = scopedStudentIds.length ? Math.round((d.present / scopedStudentIds.length) * 100) : 0;
@@ -234,7 +234,7 @@ function Metric({ label, value, tone, href }: { label: string; value: number; to
       href={href}
       className="block rounded-[12px] border border-white/[0.07] bg-white/[0.03] px-3 py-3 text-center hover:bg-white/[0.07] hover:border-white/[0.12] transition-all duration-150"
     >
-      <div className={`text-xl font-bold ${tone}`}>{value.toLocaleString()}</div>
+      <div className={`text-lg sm:text-xl font-bold ${tone}`}>{value.toLocaleString()}</div>
       <div className="mt-0.5 text-[11px] text-white/35 font-medium uppercase tracking-wider">{label}</div>
     </Link>
   );
@@ -261,14 +261,14 @@ function StatCard({
   return (
     <Link
       href={href}
-      className={`block animate-fade-up ${delay} rounded-[18px] border border-white/[0.08] bg-white/[0.04]
-                  p-5 hover:bg-white/[0.06] hover:border-white/[0.14] transition-all duration-200
+      className={`block animate-fade-up ${delay} rounded-[16px] sm:rounded-[18px] border border-white/[0.08] bg-white/[0.04]
+                  p-3.5 sm:p-5 hover:bg-white/[0.06] hover:border-white/[0.14] transition-all duration-200
                   shadow-[0_1px_3px_rgba(0,0,0,0.4)]`}
     >
-      <div className={`mb-3 inline-flex items-center justify-center w-10 h-10 rounded-[11px] ${colorMap.bg} ${colorMap.border} border`}>
+      <div className={`mb-2 sm:mb-3 inline-flex items-center justify-center w-9 h-9 sm:w-10 sm:h-10 rounded-[10px] sm:rounded-[11px] ${colorMap.bg} ${colorMap.border} border`}>
         <span className="text-lg leading-none">{icon}</span>
       </div>
-      <div className="text-2xl font-bold text-white/95 tracking-tight">{value.toLocaleString()}</div>
+      <div className="text-xl sm:text-2xl font-bold text-white/95 tracking-tight">{value.toLocaleString()}</div>
       <div className="mt-1 text-[12px] font-medium text-white/45 uppercase tracking-wider">{label}</div>
     </Link>
   );
