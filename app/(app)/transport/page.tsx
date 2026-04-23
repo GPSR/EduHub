@@ -4,8 +4,13 @@ import { getLiveTransportForSchool, getParentAssignedBusIds } from "@/lib/transp
 import { prisma } from "@/lib/db";
 import { TransportLiveBoard, TransportOpsForms } from "./ui";
 
-export default async function TransportPage() {
+export default async function TransportPage({
+  searchParams
+}: {
+  searchParams: Promise<{ busId?: string }>;
+}) {
   const { session, level } = await requirePermission("TRANSPORT", "VIEW");
+  const { busId } = await searchParams;
 
   const [allLiveBuses, scopedBuses, drivers, students, routes] = await Promise.all([
     getLiveTransportForSchool(session.schoolId),
@@ -36,8 +41,13 @@ export default async function TransportPage() {
 
   let liveBuses = allLiveBuses;
   if (session.roleKey === "PARENT") {
-    const assignedBusIds = await getParentAssignedBusIds(session.schoolId, session.userId);
+    const assignedBusIds = await getParentAssignedBusIds(session.schoolId, session.userId, {
+      onlyUndroppedActiveTrip: true
+    });
     liveBuses = allLiveBuses.filter((b) => assignedBusIds.has(b.id) && b.tripStatus === "STARTED");
+  }
+  if (busId) {
+    liveBuses = liveBuses.filter((b) => b.id === busId);
   }
 
   const lastUpdatedAt = liveBuses

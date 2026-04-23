@@ -5,6 +5,7 @@ import { requireSession } from "@/lib/require";
 import { requirePermission } from "@/lib/require-permission";
 import { prisma } from "@/lib/db";
 import { getSchoolIdCardTemplate } from "@/lib/id-card-template";
+import { getSchoolProfile } from "@/lib/school-profile";
 
 function initials(name: string) {
   return name
@@ -21,7 +22,7 @@ export default async function StudentVirtualIdCardPage({ params }: { params: Pro
   const session = await requireSession();
   const { id } = await params;
 
-  const [student, school, template] = await Promise.all([
+  const [student, school, template, schoolProfile] = await Promise.all([
     prisma.student.findFirst({
       where:
         session.roleKey === "PARENT"
@@ -30,12 +31,16 @@ export default async function StudentVirtualIdCardPage({ params }: { params: Pro
       include: { class: true }
     }),
     prisma.school.findUnique({ where: { id: session.schoolId }, select: { name: true, brandingLogoUrl: true } }),
-    getSchoolIdCardTemplate(session.schoolId)
+    getSchoolIdCardTemplate(session.schoolId),
+    getSchoolProfile(session.schoolId)
   ]);
 
   if (!student || !school) return notFound();
 
   const classLabel = student.class ? `${student.class.name}${student.class.section ? `-${student.class.section}` : ""}` : "—";
+
+  const showSchoolLabel = template.schoolLabel.trim().toLowerCase() !== school.name.trim().toLowerCase();
+  const footerText = schoolProfile.address || template.footerText;
 
   return (
     <div className="space-y-5 animate-fade-up">
@@ -52,7 +57,9 @@ export default async function StudentVirtualIdCardPage({ params }: { params: Pro
               <div className="h-12 w-12 rounded-[10px] grid place-items-center text-xs font-bold text-white/90 border border-white/25">{initials(school.name)}</div>
             )}
             <div className="min-w-0">
-              <p className="text-[12px] uppercase tracking-wider" style={{ color: template.accent }}>{template.schoolLabel}</p>
+              {showSchoolLabel ? (
+                <p className="text-[12px] uppercase tracking-wider" style={{ color: template.accent }}>{template.schoolLabel}</p>
+              ) : null}
               <p className="text-[15px] font-semibold truncate" style={{ color: template.textColor }}>{school.name}</p>
             </div>
           </div>
@@ -79,6 +86,7 @@ export default async function StudentVirtualIdCardPage({ params }: { params: Pro
             <Field label="Class" value={classLabel} color={template.textColor} />
             <Field label="Roll No" value={student.rollNumber ?? "—"} color={template.textColor} />
             <Field label="DOB" value={student.dateOfBirth ? student.dateOfBirth.toISOString().slice(0, 10) : "—"} color={template.textColor} />
+            {template.showParent ? <Field label="Parent Name" value={student.fatherName ?? "—"} color={template.textColor} /> : null}
             {template.showParent ? <Field label="Parent Mobile" value={student.parentMobiles ?? "—"} color={template.textColor} /> : null}
             {template.showParent ? <Field label="Parent Email" value={student.parentEmails ?? "—"} color={template.textColor} /> : null}
             {template.showGuardian ? <Field label="Guardian" value={student.guardianName ?? "—"} color={template.textColor} /> : null}
@@ -87,7 +95,7 @@ export default async function StudentVirtualIdCardPage({ params }: { params: Pro
         </div>
 
         <div className="pt-4 mt-4 border-t text-[11px]" style={{ borderColor: "rgba(255,255,255,0.18)", color: template.textColor }}>
-          {template.footerText}
+          {footerText || "—"}
         </div>
       </div>
     </div>

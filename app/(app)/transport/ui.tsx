@@ -8,6 +8,7 @@ import {
   assignStudentBusAction,
   createBusAction,
   createRouteAction,
+  markStudentDropAction,
   startTripAction,
   stopTripAction,
   updateBusLocationAction,
@@ -137,6 +138,7 @@ export function TransportOpsForms({
   const [startState, startAct, startPending] = useActionState(startTripAction, initialState);
   const [stopState, stopAct, stopPending] = useActionState(stopTripAction, initialState);
   const [locState, locAct, locPending] = useActionState(updateBusLocationAction, initialState);
+  const [dropState, dropAct, dropPending] = useActionState(markStudentDropAction, initialState);
 
   const [geo, setGeo] = useState<{ lat: string; lng: string } | null>(null);
   const [isLocating, startLocating] = useTransition();
@@ -402,6 +404,38 @@ export function TransportOpsForms({
               </div>
               {streamMsg ? <p className={`text-xs ${streaming ? "text-emerald-300" : "text-white/55"}`}>{streamMsg}</p> : null}
             </div>
+          </Card>
+
+          <Card title="Student Drop Update" accent="emerald">
+            <form action={dropAct} className="space-y-3">
+              <div>
+                <Label required>Bus</Label>
+                <select name="busId" className="w-full rounded-[13px] bg-black/25 border border-white/[0.09] px-3.5 py-2.5 text-sm text-white" required disabled={!canTrack}>
+                  <option value="">Select bus</option>
+                  {buses.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
+                </select>
+              </div>
+              <div>
+                <Label required>Student</Label>
+                <select name="studentId" className="w-full rounded-[13px] bg-black/25 border border-white/[0.09] px-3.5 py-2.5 text-sm text-white" required disabled={!canTrack}>
+                  <option value="">Select student</option>
+                  {students.map((s) => <option key={s.id} value={s.id}>{s.fullName}</option>)}
+                </select>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div><Label>Drop Latitude</Label><Input name="lat" defaultValue={geo?.lat ?? ""} /></div>
+                <div><Label>Drop Longitude</Label><Input name="lng" defaultValue={geo?.lng ?? ""} /></div>
+              </div>
+              <div className="flex gap-2 flex-wrap">
+                <Button type="button" variant="secondary" onClick={detectLocation} disabled={isLocating || !canTrack}>
+                  {isLocating ? "Detecting..." : "Use Current Location"}
+                </Button>
+                <Button type="submit" disabled={dropPending || !canTrack}>
+                  {dropPending ? "Saving..." : "Mark Student Dropped"}
+                </Button>
+              </div>
+              <ActionMsg state={dropState} />
+            </form>
           </Card>
         </div>
       ) : null}

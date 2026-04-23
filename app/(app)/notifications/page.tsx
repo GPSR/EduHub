@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { requireSession } from "@/lib/require";
 import { requirePermission } from "@/lib/require-permission";
 import { markAllReadAction, markNotificationReadAction } from "./actions";
+import Link from "next/link";
 
 function timeAgo(date: Date): string {
   const diff = Date.now() - date.getTime();
@@ -24,6 +25,13 @@ export default async function NotificationsPage() {
   });
 
   const unread = notifications.filter(n => !n.readAt).length;
+  const normalized = notifications.map((n) => {
+    const body = n.body ?? "";
+    const match = body.match(/(?:^|\n)LINK:(\/[^\s]+)/);
+    const deepLink = match?.[1] ?? null;
+    const cleanBody = match ? body.replace(match[0], "").trim() : body;
+    return { ...n, deepLink, cleanBody };
+  });
 
   return (
     <div className="space-y-5 animate-fade-up">
@@ -44,7 +52,7 @@ export default async function NotificationsPage() {
           <EmptyState icon="🔔" title="No notifications" description="You're all caught up! New alerts will appear here." />
         ) : (
           <div className="divide-y divide-white/[0.06]">
-            {notifications.map((n, i) => (
+            {normalized.map((n, i) => (
               <div
                 key={n.id}
                 className={`flex items-start gap-4 px-4 py-4 transition-colors
@@ -67,8 +75,16 @@ export default async function NotificationsPage() {
                     <span className="text-[14px] font-semibold text-white/90">{n.title}</span>
                     {!n.readAt && <Badge tone="info">New</Badge>}
                   </div>
-                  {n.body && <p className="text-sm text-white/60 leading-relaxed">{n.body}</p>}
+                  {n.cleanBody ? <p className="text-sm text-white/60 leading-relaxed whitespace-pre-line">{n.cleanBody}</p> : null}
                   <p className="mt-2 text-[11px] text-white/30">{timeAgo(n.createdAt)}</p>
+                  {n.deepLink ? (
+                    <Link
+                      href={n.deepLink}
+                      className="mt-2 inline-flex rounded-[10px] border border-white/[0.12] px-2.5 py-1.5 text-[11px] text-white/75 hover:bg-white/[0.06]"
+                    >
+                      Open live tracking
+                    </Link>
+                  ) : null}
                 </div>
 
                 {/* Mark read action */}

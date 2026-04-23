@@ -3,13 +3,40 @@ import { Card, Input, Label, Button, SectionHeader } from "@/components/ui";
 import { requirePermission } from "@/lib/require-permission";
 import { prisma } from "@/lib/db";
 import { createStudentAction } from "../actions";
+import { getSchoolStudentDemographicsConfig } from "@/lib/student-demographics";
+import { formatSchoolId } from "@/lib/id-sequence";
 
 export default async function NewStudentPage() {
   const { session } = await requirePermission("STUDENTS", "EDIT");
-  const classes = await prisma.class.findMany({
-    where: { schoolId: session.schoolId },
-    orderBy: [{ name: "asc" }, { section: "asc" }],
-    select: { id: true, name: true, section: true }
+  const [school, classes, demographicsConfig] = await Promise.all([
+    prisma.school.findUnique({
+      where: { id: session.schoolId },
+      select: {
+        idSequencePad: true,
+        studentIdFormat: true,
+        studentIdNext: true,
+        admissionNoFormat: true,
+        admissionNoNext: true
+      }
+    }),
+    prisma.class.findMany({
+      where: { schoolId: session.schoolId },
+      orderBy: [{ name: "asc" }, { section: "asc" }],
+      select: { id: true, name: true, section: true }
+    }),
+    getSchoolStudentDemographicsConfig(session.schoolId)
+  ]);
+  if (!school) throw new Error("Unable to load school settings.");
+
+  const nextStudentId = formatSchoolId({
+    school,
+    format: school.studentIdFormat,
+    seq: school.studentIdNext
+  });
+  const nextAdmissionNo = formatSchoolId({
+    school,
+    format: school.admissionNoFormat,
+    seq: school.admissionNoNext
   });
   return (
     <div className="space-y-5 animate-fade-up">
@@ -27,13 +54,13 @@ export default async function NewStudentPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <Label>Student ID</Label>
-                <Input name="studentId" placeholder="Auto-generated" />
-                <p className="mt-1 text-[11px] text-white/35">Leave empty to auto-generate.</p>
+                <Input value={nextStudentId} disabled className="bg-white/[0.08] text-white/50 border-white/[0.08]" />
+                <p className="mt-1 text-[11px] text-white/35">Auto-generated from Settings format.</p>
               </div>
               <div>
                 <Label>Admission number</Label>
-                <Input name="admissionNo" placeholder="Auto-generated" />
-                <p className="mt-1 text-[11px] text-white/35">Leave empty to auto-generate.</p>
+                <Input value={nextAdmissionNo} disabled className="bg-white/[0.08] text-white/50 border-white/[0.08]" />
+                <p className="mt-1 text-[11px] text-white/35">Auto-generated from Settings format.</p>
               </div>
               <div className="md:col-span-2">
                 <Label required>Full name</Label>
@@ -63,8 +90,8 @@ export default async function NewStudentPage() {
               </div>
               <div>
                 <Label>Roll number</Label>
-                <Input name="rollNumber" placeholder="12" />
-                <p className="mt-1 text-[11px] text-white/35">Leave empty to auto-assign by class strength.</p>
+                <Input value="Auto-generated on save" disabled className="bg-white/[0.08] text-white/50 border-white/[0.08]" />
+                <p className="mt-1 text-[11px] text-white/35">Auto-generated from selected class strength.</p>
               </div>
             </div>
           </div>
@@ -80,9 +107,9 @@ export default async function NewStudentPage() {
                   className="w-full rounded-[13px] bg-black/25 border border-white/[0.09] px-3.5 py-2.5 text-base sm:text-sm text-white outline-none"
                 >
                   <option value="">Select gender</option>
-                  <option value="Male">Male</option>
-                  <option value="Female">Female</option>
-                  <option value="Other">Other</option>
+                  {demographicsConfig.genders.map((gender) => (
+                    <option key={gender} value={gender}>{gender}</option>
+                  ))}
                 </select>
               </div>
               <div>
@@ -96,14 +123,9 @@ export default async function NewStudentPage() {
                   className="w-full rounded-[13px] bg-black/25 border border-white/[0.09] px-3.5 py-2.5 text-base sm:text-sm text-white outline-none"
                 >
                   <option value="">Select blood group</option>
-                  <option value="A+">A+</option>
-                  <option value="A-">A-</option>
-                  <option value="B+">B+</option>
-                  <option value="B-">B-</option>
-                  <option value="AB+">AB+</option>
-                  <option value="AB-">AB-</option>
-                  <option value="O+">O+</option>
-                  <option value="O-">O-</option>
+                  {demographicsConfig.bloodGroups.map((group) => (
+                    <option key={group} value={group}>{group}</option>
+                  ))}
                 </select>
               </div>
               <div className="md:col-span-3">
@@ -117,6 +139,21 @@ export default async function NewStudentPage() {
               <div className="md:col-span-2">
                 <Label>Medical notes</Label>
                 <Input name="medicalNotes" placeholder="Allergies, medication, emergency notes" />
+              </div>
+            </div>
+          </div>
+
+          {/* ── Parent Details ── */}
+          <div className="md:col-span-2 pt-3 border-t border-white/[0.07]">
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-white/35 mb-3">Parent Details</p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Label>Parent name</Label>
+                <Input name="parentName" placeholder="e.g. John Smith" />
+              </div>
+              <div>
+                <Label>Parent mobile</Label>
+                <Input name="parentMobile" placeholder="+1 555 123 4567" />
               </div>
             </div>
           </div>

@@ -89,7 +89,37 @@ async function notifyParentsOnTripStart(schoolId: string, busId: string, busName
       schoolId,
       userId,
       title: `Bus trip started: ${busName}`,
-      body: "Live tracking is now available in Transport."
+      body: `Live tracking is now available.\nLINK:/transport?busId=${encodeURIComponent(busId)}`
+    }))
+  });
+}
+
+async function notifyParentsOnStudentDrop(args: {
+  schoolId: string;
+  busId: string;
+  busName: string;
+  studentId: string;
+  studentName: string;
+  lat?: number;
+  lng?: number;
+}) {
+  const student = await prisma.student.findFirst({
+    where: { id: args.studentId, schoolId: args.schoolId },
+    select: { parents: { select: { userId: true } } }
+  });
+  if (!student?.parents?.length) return;
+  const mapUrl =
+    typeof args.lat === "number" && typeof args.lng === "number"
+      ? `https://maps.google.com/?q=${args.lat},${args.lng}`
+      : null;
+  await prisma.notification.createMany({
+    data: student.parents.map((p) => ({
+      schoolId: args.schoolId,
+      userId: p.userId,
+      title: `Drop completed: ${args.studentName}`,
+      body: mapUrl
+        ? `${args.busName} marked drop at location.\n${mapUrl}\nLINK:/transport?busId=${encodeURIComponent(args.busId)}`
+        : `${args.busName} marked drop completed.\nLINK:/transport?busId=${encodeURIComponent(args.busId)}`
     }))
   });
 }
@@ -236,6 +266,7 @@ export async function startTripAction(_prev: TransportState, formData: FormData)
   const bus = await ensureBusAllowed(session.schoolId, parsed.data.busId, session.userId, session.roleKey);
   if (!bus) return { ok: false, message: "Bus not found or not assigned to you." };
 
+  const tripToken = `${Date.now()}-${session.userId.slice(0, 8)}`;
   await prisma.auditLog.create({
     data: {
       schoolId: session.schoolId,
@@ -244,7 +275,7 @@ export async function startTripAction(_prev: TransportState, formData: FormData)
       action: "BUS_TRIP_STATUS",
       entityType: "Bus",
       entityId: parsed.data.busId,
-      metadataJson: JSON.stringify({ status: "STARTED", at: new Date().toISOString() })
+      metadataJson: JSON.stringify({ status: "STARTED", tripToken, at: new Date().toISOString() })
     }
   });
 
@@ -274,6 +305,136 @@ export async function startTripAction(_prev: TransportState, formData: FormData)
 
   revalidatePath("/transport");
   return { ok: true, message: "Trip started. Parents can now track live." };
+}
+
+const DropStudentSchema = z.object({
+  busId: z.string().min(1),
+  studentId: z.string().min(1),
+  lat: z.coerce.number().min(-90).max(90).optional(),
+  lng: z.coerce.number().min(-180).max(180).optional()
+});
+
+export async function markStudentDropAction(_prev: TransportState, formData: FormData): Promise<TransportState> {
+  const { session } = await requirePermission("TRANSPORT", "EDIT");
+
+  const parsed = DropStudentSchema.safeParse({
+    busId: formData.get("busId"),
+    studentId: formData.get("studentId"),
+    lat: String(formData.get("lat") ?? "").trim() ? formData.get("lat") : undefined,
+    lng: String(formData.get("lng") ?? "").trim() ? formData.get("lng") : undefined
+  });
+  if (!parsed.success) return { ok: false, message: "Invalid drop details." };
+
+  const bus = await ensureBusAllowed(session.schoolId, parsed.data.busId, session.userId, session.roleKey);
+  if (!bus) return { ok: false, message: "Bus not found or not assigned to you." };
+
+  const student = await prisma.student.findFirst({
+    where: { id: parsed.data.studentId, schoolId: session.schoolId },
+    select: { id: true, fullName: true, transportDetails: true }
+  });
+  if (!student) return { ok: false, message: "Student not found." };
+  if (!student.transportDetails?.includes(`\"busId\":\"${parsed.data.busId}\"`)) {
+    return { ok: false, message: "Student is not assigned to selected bus." };
+  }
+
+  const latestTrip = await prisma.auditLog.findFirst({
+    where: { schoolId: session.schoolId, action: "BUS_TRIP_STATUS", entityType: "Bus", entityId: parsed.data.busId },
+    orderBy: { createdAt: "desc" },
+    select: { metadataJson: true }
+  });
+  let tripToken: string | null = null;
+  if (latestTrip?.metadataJson) {
+    try {
+      const meta = JSON.parse(latestTrip.metadataJson) as { status?: unknown; tripToken?: unknown };
+      if (meta.status === "STARTED" && typeof meta.tripToken === "string" && meta.tripToken) tripToken = meta.tripToken;
+    } catch {
+      tripToken = null;
+    }
+  }
+  if (!tripToken) return { ok: false, message: "No active trip found for selected bus." };
+
+  await prisma.auditLog.create({
+    data: {
+      schoolId: session.schoolId,
+      actorType: "SCHOOL_USER",
+      actorId: session.userId,
+      action: "BUS_STUDENT_DROP",
+      entityType: "Bus",
+      entityId: parsed.data.busId,
+      metadataJson: JSON.stringify({
+        studentId: student.id,
+        tripToken,
+        lat: parsed.data.lat,
+        lng: parsed.data.lng,
+        at: new Date().toISOString(),
+        byUserId: session.userId
+      })
+    }
+  });
+
+  await notifyParentsOnStudentDrop({
+    schoolId: session.schoolId,
+    busId: parsed.data.busId,
+    busName: bus.name,
+    studentId: student.id,
+    studentName: student.fullName,
+    lat: parsed.data.lat,
+    lng: parsed.data.lng
+  });
+
+  const assignedStudents = await prisma.student.findMany({
+    where: {
+      schoolId: session.schoolId,
+      transportDetails: { startsWith: "BUS_ASSIGN:" }
+    },
+    select: { id: true, transportDetails: true }
+  });
+  const assignedIds = assignedStudents
+    .filter((s) => s.transportDetails?.includes(`\"busId\":\"${parsed.data.busId}\"`))
+    .map((s) => s.id);
+
+  if (assignedIds.length > 0) {
+    const dropLogs = await prisma.auditLog.findMany({
+      where: {
+        schoolId: session.schoolId,
+        action: "BUS_STUDENT_DROP",
+        entityType: "Bus",
+        entityId: parsed.data.busId
+      },
+      orderBy: { createdAt: "desc" },
+      select: { metadataJson: true }
+    });
+    const dropped = new Set<string>();
+    for (const log of dropLogs) {
+      if (!log.metadataJson) continue;
+      try {
+        const meta = JSON.parse(log.metadataJson) as { studentId?: unknown; tripToken?: unknown };
+        if (meta.tripToken !== tripToken || typeof meta.studentId !== "string") continue;
+        dropped.add(meta.studentId);
+      } catch {
+        continue;
+      }
+    }
+    const remaining = assignedIds.filter((id) => !dropped.has(id));
+    if (remaining.length === 0) {
+      await prisma.auditLog.create({
+        data: {
+          schoolId: session.schoolId,
+          actorType: "SCHOOL_USER",
+          actorId: session.userId,
+          action: "BUS_TRIP_STATUS",
+          entityType: "Bus",
+          entityId: parsed.data.busId,
+          metadataJson: JSON.stringify({ status: "ENDED", tripToken, at: new Date().toISOString(), reason: "all_students_dropped" })
+        }
+      });
+      revalidatePath("/transport");
+      return { ok: true, message: "Student drop marked. All assigned students dropped; trip auto-ended." };
+    }
+  }
+
+  revalidatePath("/transport");
+  return { ok: true, message: "Student drop marked and parents notified." };
 }
 
 export async function stopTripAction(_prev: TransportState, formData: FormData): Promise<TransportState> {

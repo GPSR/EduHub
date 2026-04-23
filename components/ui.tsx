@@ -86,6 +86,7 @@ export function Input(props: React.InputHTMLAttributes<HTMLInputElement>) {
         "transition-all duration-150",
         "hover:border-white/[0.15]",
         "focus:border-indigo-400/50 focus:bg-black/30 focus:ring-4 focus:ring-indigo-500/12",
+        "disabled:bg-white/[0.08] disabled:text-white/50 disabled:border-white/[0.08] disabled:cursor-not-allowed disabled:hover:border-white/[0.08]",
         props.className
       )}
     />

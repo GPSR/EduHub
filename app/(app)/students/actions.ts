@@ -9,17 +9,16 @@ import { z } from "zod";
 import { formatSchoolId } from "@/lib/id-sequence";
 
 const StudentCreateSchema = z.object({
-  studentId: z.string().optional(),
   fullName: z.string().min(2),
   classId: z.string().optional(),
   className: z.string().optional(),
   section: z.string().optional(),
-  rollNumber: z.string().optional(),
-  admissionNo: z.string().optional(),
   gender: z.string().optional(),
   dateOfBirth: z.string().optional(),
   bloodGroup: z.string().optional(),
   address: z.string().optional(),
+  parentName: z.string().optional(),
+  parentMobile: z.string().optional(),
   transportDetails: z.string().optional(),
   medicalNotes: z.string().optional()
 });
@@ -57,17 +56,16 @@ export async function createStudentAction(formData: FormData) {
   const { session } = await requirePermission("STUDENTS", "EDIT");
 
   const parsed = StudentCreateSchema.safeParse({
-    studentId: String(formData.get("studentId") ?? "").trim() || undefined,
     fullName: formData.get("fullName"),
     classId: String(formData.get("classId") ?? "").trim() || undefined,
     className: formData.get("className") || undefined,
     section: formData.get("section") || undefined,
-    rollNumber: formData.get("rollNumber") || undefined,
-    admissionNo: String(formData.get("admissionNo") ?? "").trim() || undefined,
     gender: String(formData.get("gender") ?? "").trim() || undefined,
     dateOfBirth: String(formData.get("dateOfBirth") ?? "").trim() || undefined,
     bloodGroup: String(formData.get("bloodGroup") ?? "").trim() || undefined,
     address: String(formData.get("address") ?? "").trim() || undefined,
+    parentName: String(formData.get("parentName") ?? "").trim() || undefined,
+    parentMobile: String(formData.get("parentMobile") ?? "").trim() || undefined,
     transportDetails: String(formData.get("transportDetails") ?? "").trim() || undefined,
     medicalNotes: String(formData.get("medicalNotes") ?? "").trim() || undefined
   });
@@ -103,26 +101,19 @@ export async function createStudentAction(formData: FormData) {
     const school = await tx.school.findUnique({ where: { id: session.schoolId } });
     if (!school) throw new Error("Unable to process request.");
 
-    const needsStudentId = !parsed.data.studentId;
-    const needsAdmission = !parsed.data.admissionNo;
-
-    const studentId = parsed.data.studentId
-      ? parsed.data.studentId
-      : formatSchoolId({ school, format: school.studentIdFormat, seq: school.studentIdNext });
-    const admissionNo = parsed.data.admissionNo
-      ? parsed.data.admissionNo
-      : formatSchoolId({ school, format: school.admissionNoFormat, seq: school.admissionNoNext });
+    const studentId = formatSchoolId({ school, format: school.studentIdFormat, seq: school.studentIdNext });
+    const admissionNo = formatSchoolId({ school, format: school.admissionNoFormat, seq: school.admissionNoNext });
 
     await tx.school.update({
       where: { id: school.id },
       data: {
-        studentIdNext: needsStudentId ? { increment: 1 } : undefined,
-        admissionNoNext: needsAdmission ? { increment: 1 } : undefined
+        studentIdNext: { increment: 1 },
+        admissionNoNext: { increment: 1 }
       }
     });
 
-    let rollNumber = parsed.data.rollNumber ?? undefined;
-    if (!rollNumber && classId) {
+    let rollNumber: string | undefined;
+    if (classId) {
       const classStrength = await tx.student.count({ where: { schoolId: session.schoolId, classId } });
       rollNumber = String(classStrength + 1);
     }
@@ -139,6 +130,8 @@ export async function createStudentAction(formData: FormData) {
         dateOfBirth: parseDateInput(parsed.data.dateOfBirth ?? null),
         bloodGroup: parsed.data.bloodGroup || undefined,
         address: parsed.data.address || undefined,
+        fatherName: parsed.data.parentName || undefined,
+        parentMobiles: parsed.data.parentMobile || undefined,
         transportDetails: parsed.data.transportDetails || undefined,
         medicalNotes: parsed.data.medicalNotes || undefined
       }
@@ -244,7 +237,7 @@ export async function updateStudentAction(formData: FormData) {
     }
   }
 
-  let rollNumber = canEditStudents ? (normalizeOptional(formData.get("rollNumber")) ?? undefined) : existing.rollNumber;
+  let rollNumber = existing.rollNumber ?? undefined;
   if (canEditStudents && !rollNumber && classId) {
     const classStrength = await prisma.student.count({
       where: { schoolId: session.schoolId, classId, id: { not: existing.id } }
@@ -263,8 +256,8 @@ export async function updateStudentAction(formData: FormData) {
     where: { id: parsed.data.id },
     data: {
       // Identity + academic fields are admin-controlled.
-      studentId: canEditStudents ? (parsed.data.studentId ?? existing.studentId) : existing.studentId,
-      admissionNo: canEditStudents ? normalizeOptional(formData.get("admissionNo")) : existing.admissionNo,
+      studentId: existing.studentId,
+      admissionNo: existing.admissionNo,
       fullName: canEditStudents ? (parsed.data.fullName ?? existing.fullName) : existing.fullName,
       classId: canEditStudents ? classId : existing.classId,
       rollNumber: canEditStudents ? (rollNumber ?? null) : existing.rollNumber,

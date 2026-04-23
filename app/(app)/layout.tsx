@@ -17,7 +17,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const [perms, unreadCount, school, userPhotoUrl] = await Promise.all([
     getEffectivePermissions({ schoolId: session.schoolId, userId: session.userId, roleId: session.roleId }),
     prisma.notification.count({ where: { schoolId: session.schoolId, userId: session.userId, readAt: null } }),
-    prisma.school.findUnique({ where: { id: session.schoolId }, select: { brandingLogoUrl: true } }),
+    prisma.school.findUnique({ where: { id: session.schoolId }, select: { brandingLogoUrl: true, name: true } }),
     getUserProfileImageUrl(session.schoolId, user.id)
   ]);
 
@@ -65,7 +65,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
                 <BrandIcon size={30} />
               )}
               <span className="hidden sm:block text-[15px] font-semibold text-white/90 group-hover:text-white transition">
-                EduHub
+                {school?.brandingLogoUrl ? (school?.name ?? "School") : "EduHub"}
               </span>
             </Link>
             <div className="flex items-center gap-2">

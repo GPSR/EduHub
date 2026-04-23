@@ -4,6 +4,7 @@ import { requireSession } from "@/lib/require";
 import { atLeastLevel, getEffectivePermissions } from "@/lib/permissions";
 import { requirePermission } from "@/lib/require-permission";
 import { redirect } from "next/navigation";
+import Link from "next/link";
 
 function startOfDay(d: Date) {
   const out = new Date(d);
@@ -115,19 +116,19 @@ export default async function DashboardPage() {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
           icon="👥" label="Students" value={students}
-          color="indigo" delay="stagger-1"
+          color="indigo" delay="stagger-1" href="/students"
         />
         <StatCard
           icon="🏫" label="Teachers" value={teachers}
-          color="teal" delay="stagger-2"
+          color="teal" delay="stagger-2" href="/admin/users"
         />
         <StatCard
           icon="💳" label="Pending Fees" value={pendingFees}
-          color={pendingFees > 0 ? "amber" : "emerald"} delay="stagger-3"
+          color={pendingFees > 0 ? "amber" : "emerald"} delay="stagger-3" href="/fees"
         />
         <StatCard
           icon="📢" label="Feed Posts" value={posts}
-          color="violet" delay="stagger-4"
+          color="violet" delay="stagger-4" href="/feed"
         />
       </div>
 
@@ -135,21 +136,21 @@ export default async function DashboardPage() {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <Card title="School" accent="indigo">
           <div className="space-y-3">
-            <div>
+            <Link href="/admin/settings" className="block rounded-[10px] px-2 py-1.5 -mx-2 hover:bg-white/[0.05] transition-colors">
               <p className="text-xs text-white/40 font-medium uppercase tracking-wider mb-1">Name</p>
               <p className="text-[15px] font-semibold text-white/90">{school?.name ?? "—"}</p>
-            </div>
+            </Link>
             <div className="flex items-center gap-3">
-              <div>
+              <Link href="/admin/settings" className="block rounded-[10px] px-2 py-1.5 -mx-2 hover:bg-white/[0.05] transition-colors">
                 <p className="text-xs text-white/40 font-medium uppercase tracking-wider mb-1">Plan</p>
                 <Badge tone={plan === "TRIAL" ? "warning" : "success"}>{plan}</Badge>
-              </div>
-              <div>
+              </Link>
+              <Link href="/admin/settings" className="block rounded-[10px] px-2 py-1.5 -mx-2 hover:bg-white/[0.05] transition-colors">
                 <p className="text-xs text-white/40 font-medium uppercase tracking-wider mb-1">Status</p>
                 <Badge tone={isActive ? "success" : "danger"} dot>
                   {isActive ? "Active" : "Inactive"}
                 </Badge>
-              </div>
+              </Link>
             </div>
           </div>
         </Card>
@@ -188,11 +189,11 @@ export default async function DashboardPage() {
         ) : (
           <div className="space-y-4">
             <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-              <Metric label="In Scope" value={scopedStudentIds.length} tone="text-white/85" />
-              <Metric label="Marked Today" value={todayPoint.marked} tone="text-indigo-300" />
-              <Metric label="Present" value={todayPoint.present} tone="text-emerald-300" />
-              <Metric label="Absent" value={todayPoint.absent} tone="text-rose-300" />
-              <Metric label="Late / Leave" value={todayPoint.late + todayPoint.leave} tone="text-amber-300" />
+              <Metric label="In Scope" value={scopedStudentIds.length} tone="text-white/85" href="/students" />
+              <Metric label="Marked Today" value={todayPoint.marked} tone="text-indigo-300" href="/attendance" />
+              <Metric label="Present" value={todayPoint.present} tone="text-emerald-300" href="/attendance" />
+              <Metric label="Absent" value={todayPoint.absent} tone="text-rose-300" href="/attendance" />
+              <Metric label="Late / Leave" value={todayPoint.late + todayPoint.leave} tone="text-amber-300" href="/attendance" />
             </div>
 
             <div className="rounded-[16px] border border-white/[0.07] bg-black/20 p-4">
@@ -227,23 +228,27 @@ export default async function DashboardPage() {
   );
 }
 
-function Metric({ label, value, tone }: { label: string; value: number; tone: string }) {
+function Metric({ label, value, tone, href }: { label: string; value: number; tone: string; href: string }) {
   return (
-    <div className="rounded-[12px] border border-white/[0.07] bg-white/[0.03] px-3 py-3 text-center">
+    <Link
+      href={href}
+      className="block rounded-[12px] border border-white/[0.07] bg-white/[0.03] px-3 py-3 text-center hover:bg-white/[0.07] hover:border-white/[0.12] transition-all duration-150"
+    >
       <div className={`text-xl font-bold ${tone}`}>{value.toLocaleString()}</div>
       <div className="mt-0.5 text-[11px] text-white/35 font-medium uppercase tracking-wider">{label}</div>
-    </div>
+    </Link>
   );
 }
 
 function StatCard({
-  icon, label, value, color, delay
+  icon, label, value, color, delay, href
 }: {
   icon: string;
   label: string;
   value: number;
   color: "indigo" | "teal" | "amber" | "emerald" | "violet";
   delay: string;
+  href: string;
 }) {
   const colorMap = {
     indigo:  { bg: "bg-indigo-500/10",  text: "text-indigo-400",  border: "border-indigo-500/20" },
@@ -254,14 +259,17 @@ function StatCard({
   }[color];
 
   return (
-    <div className={`animate-fade-up ${delay} rounded-[18px] border border-white/[0.08] bg-white/[0.04]
-                     p-5 hover:bg-white/[0.06] transition-all duration-200
-                     shadow-[0_1px_3px_rgba(0,0,0,0.4)]`}>
+    <Link
+      href={href}
+      className={`block animate-fade-up ${delay} rounded-[18px] border border-white/[0.08] bg-white/[0.04]
+                  p-5 hover:bg-white/[0.06] hover:border-white/[0.14] transition-all duration-200
+                  shadow-[0_1px_3px_rgba(0,0,0,0.4)]`}
+    >
       <div className={`mb-3 inline-flex items-center justify-center w-10 h-10 rounded-[11px] ${colorMap.bg} ${colorMap.border} border`}>
         <span className="text-lg leading-none">{icon}</span>
       </div>
       <div className="text-2xl font-bold text-white/95 tracking-tight">{value.toLocaleString()}</div>
       <div className="mt-1 text-[12px] font-medium text-white/45 uppercase tracking-wider">{label}</div>
-    </div>
+    </Link>
   );
 }

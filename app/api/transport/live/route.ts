@@ -17,7 +17,9 @@ export async function GET() {
 
   let buses = await getLiveTransportForSchool(session.schoolId);
   if (session.roleKey === "PARENT") {
-    const assignedBusIds = await getParentAssignedBusIds(session.schoolId, session.userId);
+    const assignedBusIds = await getParentAssignedBusIds(session.schoolId, session.userId, {
+      onlyUndroppedActiveTrip: true
+    });
     buses = buses.filter((b) => assignedBusIds.has(b.id) && b.tripStatus === "STARTED");
   }
   return NextResponse.json({ ok: true, buses, serverTime: new Date().toISOString() });

@@ -8,6 +8,11 @@ import { redirect } from "next/navigation";
 import { ensureBaseModules } from "@/lib/permissions";
 import { deleteUploadedImageByUrl, saveUploadedImage } from "@/lib/uploads";
 import { normalizeTemplate } from "@/lib/id-card-template";
+import {
+  getSchoolStudentDemographicsConfig,
+  normalizeStudentDemographicsConfig
+} from "@/lib/student-demographics";
+import { getSchoolProfile, normalizeSchoolProfile } from "@/lib/school-profile";
 
 export type SettingsState = { ok: boolean; message?: string };
 
@@ -285,6 +290,75 @@ export async function updateSchoolModulesAction(_prevState: SettingsState, formD
 
   revalidatePath("/admin/settings");
   return { ok: true, message: "Saved." } satisfies SettingsState;
+}
+
+const DemographicsConfigSchema = z.object({
+  genders: z.string().max(1000).optional().default(""),
+  bloodGroups: z.string().max(1000).optional().default("")
+});
+
+export async function updateStudentDemographicsConfigAction(formData: FormData) {
+  const { session } = await requirePermission("SETTINGS", "ADMIN");
+  const parsed = DemographicsConfigSchema.safeParse({
+    genders: String(formData.get("genders") ?? ""),
+    bloodGroups: String(formData.get("bloodGroups") ?? "")
+  });
+  if (!parsed.success) throw new Error("Unable to process request.");
+
+  const current = await getSchoolStudentDemographicsConfig(session.schoolId);
+  const next = normalizeStudentDemographicsConfig({
+    genders: parsed.data.genders,
+    bloodGroups: parsed.data.bloodGroups
+  });
+  if (JSON.stringify(current) === JSON.stringify(next)) redirect("/admin/settings");
+
+  await prisma.auditLog.create({
+    data: {
+      schoolId: session.schoolId,
+      actorType: "SCHOOL_USER",
+      actorId: session.userId,
+      action: "STUDENT_DEMOGRAPHICS_CONFIG_UPDATE",
+      entityType: "School",
+      entityId: session.schoolId,
+      metadataJson: JSON.stringify(next)
+    }
+  });
+
+  revalidatePath("/admin/settings");
+  revalidatePath("/students/new");
+  redirect("/admin/settings");
+}
+
+const SchoolProfileSchema = z.object({
+  address: z.string().max(300).optional().default("")
+});
+
+export async function updateSchoolProfileAction(formData: FormData) {
+  const { session } = await requirePermission("SETTINGS", "ADMIN");
+  const parsed = SchoolProfileSchema.safeParse({
+    address: String(formData.get("address") ?? "")
+  });
+  if (!parsed.success) throw new Error("Unable to process request.");
+
+  const current = await getSchoolProfile(session.schoolId);
+  const next = normalizeSchoolProfile({ address: parsed.data.address });
+  if (JSON.stringify(current) === JSON.stringify(next)) redirect("/admin/settings");
+
+  await prisma.auditLog.create({
+    data: {
+      schoolId: session.schoolId,
+      actorType: "SCHOOL_USER",
+      actorId: session.userId,
+      action: "SCHOOL_PROFILE_UPDATE",
+      entityType: "School",
+      entityId: session.schoolId,
+      metadataJson: JSON.stringify(next)
+    }
+  });
+
+  revalidatePath("/admin/settings");
+  revalidatePath("/students");
+  redirect("/admin/settings");
 }
 
 // Role-module permission editing intentionally omitted (role list CRUD only).

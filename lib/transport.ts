@@ -78,6 +78,20 @@ function parseTripStatus(metadataJson: string | null): BusTripStatus | null {
   }
 }
 
+function parseTripMeta(metadataJson: string | null): { status: BusTripStatus; tripToken?: string } | null {
+  if (!metadataJson) return null;
+  try {
+    const raw = JSON.parse(metadataJson) as { status?: unknown; tripToken?: unknown };
+    if (raw.status !== "STARTED" && raw.status !== "ENDED") return null;
+    return {
+      status: raw.status,
+      tripToken: typeof raw.tripToken === "string" && raw.tripToken ? raw.tripToken : undefined
+    };
+  } catch {
+    return null;
+  }
+}
+
 export function encodeStudentTransportAssignment(assign: StudentTransportAssignment): string {
   return `${ASSIGN_PREFIX}${JSON.stringify(assign)}`;
 }
@@ -103,17 +117,72 @@ export function parseStudentTransportAssignment(value: string | null | undefined
   }
 }
 
-export async function getParentAssignedBusIds(schoolId: string, userId: string): Promise<Set<string>> {
+export async function getParentAssignedBusIds(
+  schoolId: string,
+  userId: string,
+  opts?: { onlyUndroppedActiveTrip?: boolean }
+): Promise<Set<string>> {
   const students = await prisma.student.findMany({
     where: { schoolId, parents: { some: { userId } } },
-    select: { transportDetails: true }
+    select: { id: true, transportDetails: true }
   });
-  const ids = new Set<string>();
+  const byBusId = new Map<string, Set<string>>();
   for (const s of students) {
     const assign = parseStudentTransportAssignment(s.transportDetails);
-    if (assign?.busId) ids.add(assign.busId);
+    if (!assign?.busId) continue;
+    if (!byBusId.has(assign.busId)) byBusId.set(assign.busId, new Set());
+    byBusId.get(assign.busId)?.add(s.id);
   }
-  return ids;
+
+  if (!opts?.onlyUndroppedActiveTrip) return new Set(byBusId.keys());
+
+  const busIds = Array.from(byBusId.keys());
+  if (busIds.length === 0) return new Set<string>();
+
+  const tripLogs = await prisma.auditLog.findMany({
+    where: { schoolId, action: "BUS_TRIP_STATUS", entityType: "Bus", entityId: { in: busIds } },
+    orderBy: { createdAt: "desc" },
+    select: { entityId: true, metadataJson: true }
+  });
+
+  const activeTripByBus = new Map<string, string>();
+  for (const log of tripLogs) {
+    if (!log.entityId || activeTripByBus.has(log.entityId)) continue;
+    const meta = parseTripMeta(log.metadataJson);
+    if (!meta || meta.status !== "STARTED" || !meta.tripToken) continue;
+    activeTripByBus.set(log.entityId, meta.tripToken);
+  }
+
+  const dropLogs = await prisma.auditLog.findMany({
+    where: { schoolId, action: "BUS_STUDENT_DROP", entityType: "Bus", entityId: { in: busIds } },
+    orderBy: { createdAt: "desc" },
+    select: { entityId: true, metadataJson: true }
+  });
+
+  const droppedByBusAndTrip = new Map<string, Set<string>>();
+  for (const log of dropLogs) {
+    if (!log.entityId || !log.metadataJson) continue;
+    try {
+      const parsed = JSON.parse(log.metadataJson) as { studentId?: unknown; tripToken?: unknown };
+      if (typeof parsed.studentId !== "string" || !parsed.studentId) continue;
+      if (typeof parsed.tripToken !== "string" || !parsed.tripToken) continue;
+      const key = `${log.entityId}::${parsed.tripToken}`;
+      if (!droppedByBusAndTrip.has(key)) droppedByBusAndTrip.set(key, new Set());
+      droppedByBusAndTrip.get(key)?.add(parsed.studentId);
+    } catch {
+      continue;
+    }
+  }
+
+  const visible = new Set<string>();
+  for (const [busId, studentIds] of byBusId) {
+    const tripToken = activeTripByBus.get(busId);
+    if (!tripToken) continue;
+    const dropped = droppedByBusAndTrip.get(`${busId}::${tripToken}`) ?? new Set<string>();
+    const hasUndropped = Array.from(studentIds).some((id) => !dropped.has(id));
+    if (hasUndropped) visible.add(busId);
+  }
+  return visible;
 }
 
 export async function getLiveTransportForSchool(schoolId: string): Promise<BusLiveView[]> {

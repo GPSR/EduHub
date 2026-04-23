@@ -1,9 +1,11 @@
-import { Card, Input, Label, Button, Select, Badge, SectionHeader } from "@/components/ui";
+import { Card, Input, Label, Button, Select, Badge, SectionHeader, Textarea } from "@/components/ui";
 import { prisma } from "@/lib/db";
 import { requirePermission } from "@/lib/require-permission";
 import { IdSettingsClientForm, RenameRoleClientForm, SchoolModulesClientForm } from "@/components/admin-settings-forms";
 import Image from "next/image";
 import { getSchoolIdCardTemplate } from "@/lib/id-card-template";
+import { getSchoolStudentDemographicsConfig, type StudentDemographicsConfig } from "@/lib/student-demographics";
+import { getSchoolProfile, type SchoolProfile } from "@/lib/school-profile";
 
 export default async function AdminSettingsPage({
   searchParams,
@@ -12,7 +14,7 @@ export default async function AdminSettingsPage({
 }) {
   const { session } = await requirePermission("SETTINGS", "ADMIN");
   const { roleId } = await searchParams;
-  const [school, roles, schoolModules, classes, idCardTemplate] = await Promise.all([
+  const [school, roles, schoolModules, classes, idCardTemplate, demographicsConfig, schoolProfile] = await Promise.all([
     prisma.school.findUnique({ where: { id: session.schoolId } }),
     prisma.schoolRole.findMany({
       where: { schoolId: session.schoolId },
@@ -27,7 +29,9 @@ export default async function AdminSettingsPage({
       where: { schoolId: session.schoolId },
       orderBy: [{ name: "asc" }, { section: "asc" }]
     }),
-    getSchoolIdCardTemplate(session.schoolId)
+    getSchoolIdCardTemplate(session.schoolId),
+    getSchoolStudentDemographicsConfig(session.schoolId),
+    getSchoolProfile(session.schoolId)
   ]);
 
   if (!school) {
@@ -56,6 +60,10 @@ export default async function AdminSettingsPage({
         <SchoolLogoPanel logoUrl={school.brandingLogoUrl} />
       </Card>
 
+      <Card title="School Profile" description="Update school address shown in student virtual ID cards." accent="teal">
+        <SchoolProfilePanel profile={schoolProfile} />
+      </Card>
+
       <Card title="School Modules" description="Enable or disable modules for all roles." accent="teal">
         <SchoolModulesClientForm
           modules={schoolModules.map(m => ({ id: m.module.id, name: m.module.name, key: m.module.key, enabled: m.enabled }))}
@@ -74,6 +82,10 @@ export default async function AdminSettingsPage({
         <ClassConfigPanel
           classes={classes.map((c) => ({ id: c.id, name: c.name, section: c.section }))}
         />
+      </Card>
+
+      <Card title="Student Demographics" description="Configure Gender and Blood Group dropdown options used in admissions." accent="teal">
+        <StudentDemographicsConfigPanel config={demographicsConfig} />
       </Card>
 
       <Card title="Virtual ID Card Template" description="Design student virtual ID card layout and fields." accent="indigo">
@@ -251,8 +263,9 @@ async function IdCardTemplatePanel({ template }: { template: Awaited<ReturnType<
         <Input name="headerText" defaultValue={template.headerText} required />
       </div>
       <div>
-        <Label required>Footer text</Label>
-        <Input name="footerText" defaultValue={template.footerText} required />
+        <Label>Footer fallback text</Label>
+        <Input name="footerText" defaultValue={template.footerText} />
+        <p className="mt-1 text-[11px] text-white/35">Used only when School Profile address is empty.</p>
       </div>
       <div>
         <Label required>Background (CSS color/gradient)</Label>
@@ -280,6 +293,57 @@ async function IdCardTemplatePanel({ template }: { template: Awaited<ReturnType<
       </label>
       <div className="md:col-span-2 flex justify-end">
         <Button type="submit">Save ID card template</Button>
+      </div>
+    </form>
+  );
+}
+
+async function SchoolProfilePanel({ profile }: { profile: SchoolProfile }) {
+  const { updateSchoolProfileAction } = await import("./actions");
+  return (
+    <form action={updateSchoolProfileAction} className="grid grid-cols-1 gap-4">
+      <div>
+        <Label>School address</Label>
+        <Textarea
+          name="address"
+          rows={3}
+          defaultValue={profile.address}
+          placeholder="Full school address to show on virtual ID card footer"
+        />
+      </div>
+      <div className="flex justify-end">
+        <Button type="submit">Save school profile</Button>
+      </div>
+    </form>
+  );
+}
+
+async function StudentDemographicsConfigPanel({ config }: { config: StudentDemographicsConfig }) {
+  const { updateStudentDemographicsConfigAction } = await import("./actions");
+  return (
+    <form action={updateStudentDemographicsConfigAction} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div>
+        <Label required>Gender options</Label>
+        <Textarea
+          name="genders"
+          rows={6}
+          defaultValue={config.genders.join("\n")}
+          placeholder={"Male\nFemale\nOther"}
+        />
+        <p className="mt-1 text-[11px] text-white/35">One option per line (or comma-separated).</p>
+      </div>
+      <div>
+        <Label required>Blood group options</Label>
+        <Textarea
+          name="bloodGroups"
+          rows={6}
+          defaultValue={config.bloodGroups.join("\n")}
+          placeholder={"A+\nA-\nB+\nB-\nAB+\nAB-\nO+\nO-"}
+        />
+        <p className="mt-1 text-[11px] text-white/35">One option per line (or comma-separated).</p>
+      </div>
+      <div className="md:col-span-2 flex justify-end">
+        <Button type="submit">Save demographic options</Button>
       </div>
     </form>
   );
