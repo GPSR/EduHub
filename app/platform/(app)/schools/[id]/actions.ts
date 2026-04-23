@@ -59,7 +59,8 @@ export async function createAdminInviteAction(
   await sendOnboardingApprovalNotifications({
     schoolName: school?.name ?? "School",
     adminEmail: parsed.data.adminEmail.toLowerCase(),
-    inviteUrl
+    inviteUrl,
+    expiresAt
   });
 
   redirect(`/platform/schools/${parsed.data.schoolId}`);

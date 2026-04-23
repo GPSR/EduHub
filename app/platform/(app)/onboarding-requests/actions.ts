@@ -135,7 +135,8 @@ export async function approveOnboardingRequestAction(
     schoolName: request.schoolName,
     adminEmail: request.adminEmail.toLowerCase(),
     adminPhone: request.adminPhone,
-    inviteUrl
+    inviteUrl,
+    expiresAt
   });
 
   await auditLog({

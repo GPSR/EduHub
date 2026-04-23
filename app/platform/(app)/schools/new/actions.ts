@@ -86,7 +86,8 @@ export async function createSchoolInviteAction(
     await sendOnboardingApprovalNotifications({
       schoolName: school.name,
       adminEmail: parsed.data.adminEmail.toLowerCase(),
-      inviteUrl
+      inviteUrl,
+      expiresAt
     });
 
     await auditLog({

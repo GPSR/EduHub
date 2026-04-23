@@ -6,10 +6,62 @@ export type InviteNotifyResult = {
   errors: string[];
 };
 
+function escapeHtml(input: string) {
+  return input
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll("\"", "&quot;")
+    .replaceAll("'", "&#39;");
+}
+
+function buildInviteEmail(args: { schoolName: string; inviteUrl: string; expiresAt?: Date }) {
+  const schoolName = escapeHtml(args.schoolName);
+  const inviteUrl = escapeHtml(args.inviteUrl);
+  const expiresText = args.expiresAt
+    ? new Intl.DateTimeFormat("en-US", {
+        month: "short",
+        day: "2-digit",
+        year: "numeric",
+        hour: "numeric",
+        minute: "2-digit"
+      }).format(args.expiresAt)
+    : "soon";
+
+  const text = [
+    `Your school onboarding has been approved for ${args.schoolName}.`,
+    "",
+    "Create your admin account using this secure link:",
+    args.inviteUrl,
+    "",
+    `This invite expires on ${expiresText}.`,
+    "If you did not request this, ignore this email."
+  ].join("\n");
+
+  const html = `
+  <div style="font-family:Arial,sans-serif;line-height:1.5;color:#0f172a;max-width:620px;margin:0 auto;">
+    <h2 style="margin:0 0 12px;">EduHub onboarding approved</h2>
+    <p style="margin:0 0 12px;">Your school onboarding has been approved for <strong>${schoolName}</strong>.</p>
+    <p style="margin:0 0 16px;">Use the secure link below to create your admin account:</p>
+    <p style="margin:0 0 20px;">
+      <a href="${inviteUrl}" style="display:inline-block;background:#1d4ed8;color:#fff;text-decoration:none;padding:10px 16px;border-radius:8px;font-weight:600;">
+        Activate Admin Account
+      </a>
+    </p>
+    <p style="margin:0 0 8px;font-size:13px;color:#334155;">Or copy this URL:</p>
+    <p style="margin:0 0 16px;font-size:13px;word-break:break-all;color:#1e3a8a;">${inviteUrl}</p>
+    <p style="margin:0 0 4px;font-size:13px;color:#334155;">This invite expires on <strong>${escapeHtml(expiresText)}</strong>.</p>
+    <p style="margin:0;font-size:12px;color:#64748b;">If you did not request this, you can ignore this email.</p>
+  </div>`;
+
+  return { text, html };
+}
+
 async function sendApprovalEmail(args: {
   to: string;
   schoolName: string;
   inviteUrl: string;
+  expiresAt?: Date;
 }) {
   const zohoUser = process.env.ZOHO_SMTP_USER;
   const zohoPass = process.env.ZOHO_SMTP_PASS;
@@ -17,6 +69,11 @@ async function sendApprovalEmail(args: {
   const zohoPort = Number(process.env.ZOHO_SMTP_PORT || 465);
   const zohoSecure = (process.env.ZOHO_SMTP_SECURE || "true").toLowerCase() !== "false";
   const zohoFrom = process.env.ZOHO_FROM_EMAIL || process.env.RESEND_FROM_EMAIL || zohoUser;
+  const content = buildInviteEmail({
+    schoolName: args.schoolName,
+    inviteUrl: args.inviteUrl,
+    expiresAt: args.expiresAt
+  });
 
   if (zohoUser && zohoPass && zohoFrom) {
     const transporter = nodemailer.createTransport({
@@ -32,15 +89,9 @@ async function sendApprovalEmail(args: {
     await transporter.sendMail({
       from: zohoFrom,
       to: args.to,
-      subject: `EduHub onboarding approved - ${args.schoolName}`,
-      text: [
-        `Your school onboarding has been approved for ${args.schoolName}.`,
-        "",
-        "Use this link to create your admin account:",
-        args.inviteUrl,
-        "",
-        "This invite may expire soon."
-      ].join("\n")
+      subject: `EduHub onboarding approved | ${args.schoolName}`,
+      text: content.text,
+      html: content.html
     });
 
     return { sent: true } as const;
@@ -61,15 +112,9 @@ async function sendApprovalEmail(args: {
     body: JSON.stringify({
       from,
       to: [args.to],
-      subject: `EduHub onboarding approved - ${args.schoolName}`,
-      text: [
-        `Your school onboarding has been approved for ${args.schoolName}.`,
-        "",
-        "Use this link to create your admin account:",
-        args.inviteUrl,
-        "",
-        "This invite may expire soon."
-      ].join("\n")
+      subject: `EduHub onboarding approved | ${args.schoolName}`,
+      text: content.text,
+      html: content.html
     })
   });
 
@@ -119,6 +164,7 @@ export async function sendOnboardingApprovalNotifications(args: {
   adminEmail: string;
   adminPhone?: string | null;
   inviteUrl: string;
+  expiresAt?: Date;
 }): Promise<InviteNotifyResult> {
   const result: InviteNotifyResult = { emailSent: false, smsSent: false, errors: [] };
 
@@ -126,7 +172,8 @@ export async function sendOnboardingApprovalNotifications(args: {
     const email = await sendApprovalEmail({
       to: args.adminEmail,
       schoolName: args.schoolName,
-      inviteUrl: args.inviteUrl
+      inviteUrl: args.inviteUrl,
+      expiresAt: args.expiresAt
     });
     result.emailSent = email.sent;
   } catch (err) {
