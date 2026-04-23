@@ -45,17 +45,31 @@ export async function onboardAction(_prev: OnboardState, formData: FormData): Pr
     });
     if (pending) return { ok: false, message: "A pending request already exists for this school slug." };
 
-    await prisma.schoolOnboardingRequest.create({
-      data: {
-        schoolName: parsed.data.schoolName,
-        schoolSlug: slug,
-        adminName: parsed.data.adminName,
-        adminEmail: email,
-        adminPhoneCountryCode: parsed.data.adminPhoneCountryCode,
-        adminPhone: fullPhone,
-        status: "PENDING"
-      }
-    });
+    try {
+      await prisma.schoolOnboardingRequest.create({
+        data: {
+          schoolName: parsed.data.schoolName,
+          schoolSlug: slug,
+          adminName: parsed.data.adminName,
+          adminEmail: email,
+          adminPhoneCountryCode: parsed.data.adminPhoneCountryCode,
+          adminPhone: fullPhone,
+          status: "PENDING"
+        }
+      });
+    } catch {
+      // Backward compatibility for environments where new phone columns
+      // are not migrated yet.
+      await prisma.schoolOnboardingRequest.create({
+        data: {
+          schoolName: parsed.data.schoolName,
+          schoolSlug: slug,
+          adminName: parsed.data.adminName,
+          adminEmail: email,
+          status: "PENDING"
+        }
+      });
+    }
     return { ok: true, message: "Request submitted. Super admin approval is required before onboarding." };
   } catch (e) {
     console.error(e);

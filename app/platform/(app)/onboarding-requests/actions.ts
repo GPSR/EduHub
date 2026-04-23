@@ -36,7 +36,14 @@ export async function approveOnboardingRequestAction(
   if (!parsed.success) return { ok: false, message: "Invalid request." };
 
   const request = await prisma.schoolOnboardingRequest.findUnique({
-    where: { id: parsed.data.requestId }
+    where: { id: parsed.data.requestId },
+    select: {
+      id: true,
+      status: true,
+      schoolName: true,
+      schoolSlug: true,
+      adminEmail: true
+    }
   });
   if (!request || request.status !== "PENDING") return { ok: false, message: "Request not found or already processed." };
   await ensureBaseModules();
@@ -134,7 +141,7 @@ export async function approveOnboardingRequestAction(
   const notify = await sendOnboardingApprovalNotifications({
     schoolName: request.schoolName,
     adminEmail: request.adminEmail.toLowerCase(),
-    adminPhone: request.adminPhone,
+    adminPhone: undefined,
     inviteUrl,
     expiresAt
   });
@@ -161,7 +168,7 @@ export async function approveOnboardingRequestAction(
     } Share options are below.`,
     inviteUrl,
     adminEmail: request.adminEmail.toLowerCase(),
-    adminPhone: request.adminPhone ?? undefined,
+    adminPhone: undefined,
     schoolName: request.schoolName
   };
 }
@@ -182,7 +189,10 @@ export async function rejectOnboardingRequestAction(
   });
   if (!parsed.success) return { ok: false, message: "Invalid request." };
 
-  const request = await prisma.schoolOnboardingRequest.findUnique({ where: { id: parsed.data.requestId } });
+  const request = await prisma.schoolOnboardingRequest.findUnique({
+    where: { id: parsed.data.requestId },
+    select: { id: true, status: true }
+  });
   if (!request || request.status !== "PENDING") return { ok: false, message: "Request not found or already processed." };
 
   await prisma.schoolOnboardingRequest.update({

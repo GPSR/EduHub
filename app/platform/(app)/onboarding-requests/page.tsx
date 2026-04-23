@@ -9,7 +9,20 @@ export default async function PlatformOnboardingRequestsPage() {
   await ensureBaseModules();
 
   const [requests, modules, schoolModules] = await Promise.all([
-    prisma.schoolOnboardingRequest.findMany({ orderBy: [{ status: "asc" }, { createdAt: "desc" }], take: 200 }),
+    prisma.schoolOnboardingRequest.findMany({
+      orderBy: [{ status: "asc" }, { createdAt: "desc" }],
+      take: 200,
+      select: {
+        id: true,
+        schoolName: true,
+        schoolSlug: true,
+        adminName: true,
+        adminEmail: true,
+        status: true,
+        note: true,
+        createdAt: true
+      }
+    }),
     prisma.module.findMany({ orderBy: { name: "asc" } }),
     prisma.schoolModule.findMany({ where: { enabled: true }, select: { moduleId: true } }),
   ]);
@@ -47,12 +60,6 @@ export default async function PlatformOnboardingRequestsPage() {
                     <span>Slug: <code className="text-white/60">{r.schoolSlug}</code></span>
                     <span className="text-white/20">·</span>
                     <span>Admin: {r.adminName} ({r.adminEmail})</span>
-                    {r.adminPhone && (
-                      <>
-                        <span className="text-white/20">·</span>
-                        <span>Phone: {r.adminPhone}</span>
-                      </>
-                    )}
                     <span className="text-white/20">·</span>
                     <span>Submitted {r.createdAt.toLocaleDateString()}</span>
                   </div>
@@ -84,7 +91,6 @@ export default async function PlatformOnboardingRequestsPage() {
                     <span>Slug: <code className="text-white/55">{r.schoolSlug}</code></span>
                     <span>·</span>
                     <span>{r.adminEmail}</span>
-                    {r.adminPhone && <><span>·</span><span>{r.adminPhone}</span></>}
                     {r.note && <><span>·</span><span className="italic">{r.note}</span></>}
                   </div>
                 </div>
