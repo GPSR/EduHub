@@ -39,8 +39,8 @@ export default async function StudentProfilePage({ params }: { params: Promise<{
       )}
       {session.roleKey === "PARENT" && (
         <div>
-          <Link href="/requests/student-profile">
-            <Button variant="secondary" size="sm">Request Update</Button>
+          <Link href={`/students/${student.id}/edit`}>
+            <Button variant="secondary" size="sm">Edit Details</Button>
           </Link>
         </div>
       )}

@@ -24,7 +24,6 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     const level = perms[moduleKey];
     return level ? atLeastLevel(level, "VIEW") : false;
   };
-  const canRequestProfileUpdate = session.roleKey === "PARENT";
 
   const mobileItems = [
     canView("DASHBOARD")     ? { href: "/dashboard",  label: "Home"       }                          : null,
@@ -39,7 +38,6 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     canView("NOTIFICATIONS") ? { href: "/notifications", label: "Notifications", activeStartsWith: true } : null,
     canView("TRANSPORT")     ? { href: "/transport",     label: "Transport",     activeStartsWith: true } : null,
     canView("REPORTS")       ? { href: "/reports",       label: "Reports",       activeStartsWith: true } : null,
-    canRequestProfileUpdate  ? { href: "/requests/student-profile", label: "Profile Update", activeStartsWith: true } : null,
     session.roleKey === "ADMIN" ? { href: "/admin/users",    label: "Users",    activeStartsWith: true } : null,
     session.roleKey === "ADMIN" ? { href: "/admin/settings", label: "Settings", activeStartsWith: true } : null,
   ].filter(Boolean) as { href: string; label: string; activeStartsWith?: boolean }[];
@@ -100,7 +98,6 @@ export default async function AppLayout({ children }: { children: React.ReactNod
               {canView("TRANSPORT")     && <NavLink href="/transport"     label="Transport"    />}
               {canView("ACADEMICS")     && <NavLink href="/academics"     label="Academics"    />}
               {canView("REPORTS")       && <NavLink href="/reports"       label="Reports"      />}
-              {canRequestProfileUpdate  && <NavLink href="/requests/student-profile" label="Profile Update" />}
               {canView("NOTIFICATIONS") && (
                 <div className="relative">
                   <NavLink href="/notifications" label="Notifications" />

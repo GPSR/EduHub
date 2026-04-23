@@ -2,7 +2,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Button, Card, Input, Label, SectionHeader, Textarea } from "@/components/ui";
 import { prisma } from "@/lib/db";
-import { requirePermission } from "@/lib/require-permission";
+import { requireSession } from "@/lib/require";
+import { atLeastLevel, getEffectivePermissions } from "@/lib/permissions";
 import { updateStudentAction } from "../../actions";
 
 function dateValue(d: Date | null | undefined) {
@@ -11,11 +12,24 @@ function dateValue(d: Date | null | undefined) {
 }
 
 export default async function EditStudentPage({ params }: { params: Promise<{ id: string }> }) {
-  const { session } = await requirePermission("STUDENTS", "EDIT");
+  const session = await requireSession();
+  const perms = await getEffectivePermissions({
+    schoolId: session.schoolId,
+    userId: session.userId,
+    roleId: session.roleId
+  });
+  const canEditStudents = perms["STUDENTS"] ? atLeastLevel(perms["STUDENTS"], "EDIT") : false;
   const { id } = await params;
 
   const student = await prisma.student.findFirst({
-    where: { id, schoolId: session.schoolId },
+    where:
+      canEditStudents
+        ? { id, schoolId: session.schoolId }
+        : {
+            id,
+            schoolId: session.schoolId,
+            parents: { some: { userId: session.userId } }
+          },
     include: { class: true }
   });
   if (!student) return notFound();

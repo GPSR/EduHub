@@ -2,6 +2,8 @@
 
 import { prisma } from "@/lib/db";
 import { requirePermission } from "@/lib/require-permission";
+import { requireSession } from "@/lib/require";
+import { atLeastLevel, getEffectivePermissions } from "@/lib/permissions";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { formatSchoolId } from "@/lib/id-sequence";
@@ -126,7 +128,13 @@ function parseDateInput(value: string | null) {
 }
 
 export async function updateStudentAction(formData: FormData) {
-  const { session } = await requirePermission("STUDENTS", "EDIT");
+  const session = await requireSession();
+  const perms = await getEffectivePermissions({
+    schoolId: session.schoolId,
+    userId: session.userId,
+    roleId: session.roleId
+  });
+  const canEditStudents = perms["STUDENTS"] ? atLeastLevel(perms["STUDENTS"], "EDIT") : false;
 
   const parsed = StudentUpdateSchema.safeParse({
     id: formData.get("id"),
@@ -159,7 +167,14 @@ export async function updateStudentAction(formData: FormData) {
   if (!parsed.success) throw new Error("Unable to update student.");
 
   const existing = await prisma.student.findFirst({
-    where: { id: parsed.data.id, schoolId: session.schoolId },
+    where:
+      canEditStudents
+        ? { id: parsed.data.id, schoolId: session.schoolId }
+        : {
+            id: parsed.data.id,
+            schoolId: session.schoolId,
+            parents: { some: { userId: session.userId } }
+          },
     select: { id: true }
   });
   if (!existing) redirect("/students");
