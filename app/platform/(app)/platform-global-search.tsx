@@ -13,6 +13,7 @@ type UserSuggestion = {
   id: string;
   name: string;
   email: string;
+  schoolId: string;
 };
 
 type SuggestionItem = {
@@ -20,6 +21,7 @@ type SuggestionItem = {
   value: string;
   title: string;
   subtitle: string;
+  href: string;
   kind: "school" | "user";
 };
 
@@ -64,6 +66,7 @@ export function PlatformGlobalSearch({
         value: s.name,
         title: s.name,
         subtitle: s.slug,
+        href: `/platform/schools/${s.id}`,
         kind: "school" as const
       }));
 
@@ -75,6 +78,7 @@ export function PlatformGlobalSearch({
         value: u.email,
         title: u.name,
         subtitle: u.email,
+        href: `/platform/schools/${u.schoolId}#school-admin-${u.id}`,
         kind: "user" as const
       }));
 
@@ -89,7 +93,7 @@ export function PlatformGlobalSearch({
 
   return (
     <div className="space-y-2" ref={boxRef}>
-      <label className="text-[12px] font-medium text-white/70">Global Search (schools + users)</label>
+      <label className="text-[12px] font-medium text-white/70">Global Search (schools + school admins)</label>
       <div className="relative">
         <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-white/45" aria-hidden="true">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
@@ -100,7 +104,7 @@ export function PlatformGlobalSearch({
           name="q"
           value={query}
           autoComplete="off"
-          placeholder="Search schools or users and press Enter"
+          placeholder="Search schools or school admins"
           onFocus={() => setOpen(true)}
           onChange={(e) => {
             setQuery(e.target.value);
@@ -126,7 +130,8 @@ export function PlatformGlobalSearch({
                   onMouseDown={(e) => e.preventDefault()}
                   onClick={() => {
                     setQuery(item.value);
-                    submitSearch(item.value);
+                    router.push(item.href);
+                    setOpen(false);
                   }}
                   className="w-full flex items-center justify-between gap-3 px-3.5 py-2.5 text-left text-sm hover:bg-white/[0.06] transition border-b last:border-b-0 border-white/[0.06]"
                 >

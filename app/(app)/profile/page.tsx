@@ -1,6 +1,6 @@
 import { requireUser } from "@/lib/require";
 import { prisma } from "@/lib/db";
-import { Card, Badge, SectionHeader } from "@/components/ui";
+import { Badge, SectionHeader } from "@/components/ui";
 import { ProfileSettings } from "@/components/profile-settings";
 import { getUserProfileImageUrl } from "@/lib/uploads";
 import { ProfileAvatarUploader } from "@/components/profile-avatar-uploader";
@@ -45,20 +45,9 @@ export default async function ProfilePage() {
         </div>
       </div>
 
-      {/* Details */}
-      <Card title="Account Details" accent="indigo">
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-          <Field label="Full Name"  value={user.name}  />
-          <Field label="Email"      value={user.email} />
-          <Field label="Role"       value={session.roleKey} />
-          <Field label="School"     value={school ? `${school.name} (${school.slug})` : "—"} />
-          <Field label="School Plan" value={schoolPlan} />
-          <Field label="School Status" value={schoolStatus} />
-        </div>
-      </Card>
-
-      {/* Extended settings */}
       <ProfileSettings
+        roleKey={session.roleKey}
+        schoolLabel={school ? `${school.name} (${school.slug})` : "—"}
         email={user.email}
         firstName={user.firstName}
         lastName={user.lastName}
@@ -88,15 +77,6 @@ export default async function ProfilePage() {
           </button>
         </form>
       </div>
-    </div>
-  );
-}
-
-function Field({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <p className="text-[11px] font-medium uppercase tracking-wider text-white/35 mb-1">{label}</p>
-      <p className="text-[14px] text-white/80">{value || "—"}</p>
     </div>
   );
 }

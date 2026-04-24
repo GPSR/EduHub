@@ -24,6 +24,7 @@ type SuggestionItem = {
   value: string;
   title: string;
   subtitle: string;
+  href: string;
   kind: "student" | "teacher";
 };
 
@@ -72,6 +73,7 @@ export function DashboardGlobalSearch({
         value: s.fullName,
         title: s.fullName,
         subtitle: `${s.studentId}${s.classLabel ? ` · ${s.classLabel}` : ""}`,
+        href: `/students/${s.id}`,
         kind: "student" as const
       }));
 
@@ -87,6 +89,7 @@ export function DashboardGlobalSearch({
         value: t.email,
         title: t.name,
         subtitle: `${t.email} · ${t.roleName}`,
+        href: `/admin/users#user-${t.id}`,
         kind: "teacher" as const
       }));
 
@@ -135,11 +138,12 @@ export function DashboardGlobalSearch({
                 <button
                   key={item.key}
                   type="button"
-                  onMouseDown={(e) => e.preventDefault()}
-                  onClick={() => {
-                    setQuery(item.value);
-                    submitSearch(item.value);
-                  }}
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={() => {
+                      setQuery(item.value);
+                      router.push(item.href);
+                      setOpen(false);
+                    }}
                   className="w-full flex items-center justify-between gap-3 px-3.5 py-2.5 text-left text-sm hover:bg-white/[0.06] transition border-b last:border-b-0 border-white/[0.06]"
                 >
                   <div className="min-w-0">

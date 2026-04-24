@@ -184,6 +184,63 @@ export default async function DashboardPage({
         />
       </Card>
 
+      {query && (matchedStudents.length > 0 || matchedTeachers.length > 0) && (
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+          {matchedStudents.length > 0 && (
+            <Card title={`Matched Students · ${matchedStudents.length}`} accent="indigo">
+              <div className="divide-y divide-white/[0.06]">
+                {matchedStudents.map((s) => {
+                  const classLabel = s.class ? `${s.class.name}${s.class.section ? `-${s.class.section}` : ""}` : "No class";
+                  return (
+                    <Link
+                      key={s.id}
+                      href={`/students/${s.id}`}
+                      className="py-3 flex items-center justify-between gap-3 hover:bg-white/[0.03] transition rounded-[10px] px-2 -mx-2"
+                    >
+                      <div className="min-w-0">
+                        <div className="text-sm font-medium text-white/90 truncate">{s.fullName}</div>
+                        <div className="text-xs text-white/45 truncate">
+                          {s.studentId} · {s.admissionNo ?? "No admission no."} · {classLabel}
+                        </div>
+                      </div>
+                      <span className="text-xs text-indigo-300/80 shrink-0">Open</span>
+                    </Link>
+                  );
+                })}
+              </div>
+            </Card>
+          )}
+
+          {matchedTeachers.length > 0 && (
+            <Card title={`Matched Teachers · ${matchedTeachers.length}`} accent="teal">
+              <div className="divide-y divide-white/[0.06]">
+                {matchedTeachers.map((t) => (
+                  <Link
+                    key={t.id}
+                    href={`/admin/users#user-${t.id}`}
+                    className="py-3 flex items-center justify-between gap-3 hover:bg-white/[0.03] transition rounded-[10px] px-2 -mx-2"
+                  >
+                    <div className="min-w-0">
+                      <div className="text-sm font-medium text-white/90 truncate">{t.name}</div>
+                      <div className="text-xs text-white/45 truncate">{t.email} · {t.schoolRole.name}</div>
+                    </div>
+                    <span className="text-xs text-teal-300/80 shrink-0">Open</span>
+                  </Link>
+                ))}
+              </div>
+            </Card>
+          )}
+        </div>
+      )}
+
+      {query && matchedStudents.length === 0 && matchedTeachers.length === 0 && (
+        <Card title="Search Results">
+          <p className="text-sm text-white/50">
+            No teachers or students matched <span className="text-white/75">&quot;{query}&quot;</span>.
+          </p>
+        </Card>
+      )}
+
       {/* Stat grid */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
@@ -204,66 +261,13 @@ export default async function DashboardPage({
         />
       </div>
 
-      {query && (matchedStudents.length > 0 || matchedTeachers.length > 0) && (
-        <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-          <Card title={`Matched Students · ${matchedStudents.length}`} accent="indigo">
-            <div className="divide-y divide-white/[0.06]">
-              {matchedStudents.map((s) => {
-                const classLabel = s.class ? `${s.class.name}${s.class.section ? `-${s.class.section}` : ""}` : "No class";
-                return (
-                  <Link
-                    key={s.id}
-                    href={`/students/${s.id}`}
-                    className="py-3 flex items-center justify-between gap-3 hover:bg-white/[0.03] transition rounded-[10px] px-2 -mx-2"
-                  >
-                    <div className="min-w-0">
-                      <div className="text-sm font-medium text-white/90 truncate">{s.fullName}</div>
-                      <div className="text-xs text-white/45 truncate">
-                        {s.studentId} · {s.admissionNo ?? "No admission no."} · {classLabel}
-                      </div>
-                    </div>
-                    <span className="text-xs text-indigo-300/80 shrink-0">Open</span>
-                  </Link>
-                );
-              })}
-            </div>
-          </Card>
-
-          <Card title={`Matched Teachers · ${matchedTeachers.length}`} accent="teal">
-            <div className="divide-y divide-white/[0.06]">
-              {matchedTeachers.map((t) => (
-                <Link
-                  key={t.id}
-                  href="/admin/users"
-                  className="py-3 flex items-center justify-between gap-3 hover:bg-white/[0.03] transition rounded-[10px] px-2 -mx-2"
-                >
-                  <div className="min-w-0">
-                    <div className="text-sm font-medium text-white/90 truncate">{t.name}</div>
-                    <div className="text-xs text-white/45 truncate">{t.email} · {t.schoolRole.name}</div>
-                  </div>
-                  <span className="text-xs text-teal-300/80 shrink-0">Manage</span>
-                </Link>
-              ))}
-            </div>
-          </Card>
-        </div>
-      )}
-
-      {query && matchedStudents.length === 0 && matchedTeachers.length === 0 && (
-        <Card title="Search Results">
-          <p className="text-sm text-white/50">
-            No teachers or students matched <span className="text-white/75">&quot;{query}&quot;</span>.
-          </p>
-        </Card>
-      )}
-
       <Card title="Quick Access" accent="teal">
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
           {[
-            { href: "/students",   icon: "👥", label: "Students"   },
-            { href: "/fees",       icon: "💳", label: "Fees"       },
+            { href: "/admin/users", icon: "🏫", label: "Teachers"   },
             { href: "/attendance", icon: "✅", label: "Attendance" },
-            { href: "/feed",       icon: "📢", label: "Feed"       },
+            { href: "/academics",  icon: "📚", label: "Academics"  },
+            { href: "/reports",    icon: "📊", label: "Reports"    },
           ].map(item => (
             <a
               key={item.href}

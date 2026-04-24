@@ -66,7 +66,9 @@ export default async function AdminUsersPage({
             return (
               <div
                 key={u.id}
+                id={`user-${u.id}`}
                 className={`flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-3 px-3.5 sm:px-4 py-4
+                             scroll-mt-24 target:bg-indigo-500/[0.08]
                              ${i === 0 ? "rounded-t-[16px]" : ""}
                              ${i === users.length - 1 ? "rounded-b-[16px]" : ""}
                              ${!u.isActive ? "opacity-60" : ""}`}

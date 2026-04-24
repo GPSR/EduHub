@@ -64,8 +64,12 @@ export default async function PlatformHomePage({
     orderBy: { createdAt: "desc" },
     take: 120
   });
+  const quickSearchUserWhere = {
+    ...(!isSuperAdmin ? { schoolId: { in: assignedIds } } : {}),
+    schoolRole: { key: "ADMIN" as const }
+  };
   const quickSearchSchoolUsers = await prisma.user.findMany({
-    where: !isSuperAdmin ? { schoolId: { in: assignedIds } } : undefined,
+    where: quickSearchUserWhere,
     select: { id: true, name: true, email: true, schoolId: true },
     orderBy: { createdAt: "desc" },
     take: 160
@@ -83,9 +87,34 @@ export default async function PlatformHomePage({
         <PlatformGlobalSearch
           initialQuery={query}
           schools={quickSearchSchools}
-          users={quickSearchSchoolUsers.map((u) => ({ id: u.id, name: u.name, email: u.email }))}
+          users={quickSearchSchoolUsers.map((u) => ({ id: u.id, name: u.name, email: u.email, schoolId: u.schoolId }))}
         />
       </Card>
+
+      {query && matchedSchoolUsers.length > 0 && (
+        <Card title={`Matched School Admins · ${matchedSchoolUsers.length}`}>
+          <div className="divide-y divide-white/[0.06]">
+            {matchedSchoolUsers.map((u) => {
+              const school = quickSearchSchools.find((s) => s.id === u.schoolId);
+              return (
+                <Link
+                  key={u.id}
+                  href={`/platform/schools/${u.schoolId}#school-admin-${u.id}`}
+                  className="py-3 flex flex-wrap items-center justify-between gap-3 hover:bg-white/[0.03] transition rounded-[10px] px-2 -mx-2"
+                >
+                  <div className="min-w-0 text-sm text-white/85">
+                    <div className="font-medium truncate">{u.name}</div>
+                    <div className="text-white/45 truncate">{u.email}</div>
+                  </div>
+                  <div className="text-xs text-indigo-300/80 shrink-0">
+                    {school ? `${school.name} (${school.slug})` : "Open school"}
+                  </div>
+                </Link>
+              );
+            })}
+          </div>
+        </Card>
+      )}
 
       {/* ── Hero ── */}
       <div className="rounded-[24px] border border-indigo-500/20 bg-gradient-to-br from-indigo-500/10 via-sky-500/5 to-transparent p-6">
@@ -139,23 +168,24 @@ export default async function PlatformHomePage({
         ))}
       </div>
 
-      {query && matchedSchoolUsers.length > 0 && (
-        <Card title={`Matched School Users · ${matchedSchoolUsers.length}`}>
-          <div className="divide-y divide-white/[0.06]">
-            {matchedSchoolUsers.map((u) => {
-              const school = quickSearchSchools.find((s) => s.id === u.schoolId);
-              return (
-                <div key={u.id} className="py-3 flex flex-wrap items-center justify-between gap-3">
-                  <div className="text-sm text-white/85">
-                    <div className="font-medium">{u.name}</div>
-                    <div className="text-white/45">{u.email}</div>
-                  </div>
-                  <div className="text-xs text-white/50">
-                    {school ? `${school.name} (${school.slug})` : "School user"}
-                  </div>
-                </div>
-              );
-            })}
+      {isSuperAdmin && (
+        <Card title="Quick Access" accent="teal">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+            {[
+              { href: "/platform/schools/new", icon: "➕", label: "Add School" },
+              { href: "/platform/subscriptions", icon: "💎", label: "Subscriptions" },
+              { href: "/platform/audit", icon: "🧾", label: "Audit Logs" },
+            ].map((item) => (
+              <Link
+                key={item.href}
+                href={item.href}
+                className="flex items-center gap-2.5 rounded-[13px] border border-white/[0.07] bg-white/[0.03]
+                           px-3.5 py-3 hover:bg-white/[0.07] hover:border-white/[0.12] transition-all duration-150"
+              >
+                <span className="text-lg leading-none">{item.icon}</span>
+                <span className="text-[13px] font-medium text-white/80">{item.label}</span>
+              </Link>
+            ))}
           </div>
         </Card>
       )}

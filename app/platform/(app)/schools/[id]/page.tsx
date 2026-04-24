@@ -35,6 +35,7 @@ export default async function PlatformSchoolPage({ params }: { params: Promise<{
   const modules = await prisma.module.findMany({ orderBy: { name: "asc" } });
   const enabledByModuleId = new Map(school.modules.map(m => [m.moduleId, m.enabled]));
   const schoolModules = modules.map(m => ({ id: m.id, key: m.key, name: m.name, enabled: enabledByModuleId.get(m.id) ?? false }));
+  const schoolAdminUsers = school.users.filter((u) => u.schoolRole.key === "ADMIN");
 
   const plan = school.subscription?.plan ?? "TRIAL";
 
@@ -105,16 +106,19 @@ export default async function PlatformSchoolPage({ params }: { params: Promise<{
 
       {/* Impersonate school admins only */}
       <Card title="School Admin Access" description="For support, sign in only as school admin users">
-        {school.users.filter((u) => u.schoolRole.key === "ADMIN").length === 0 ? (
+        {schoolAdminUsers.length === 0 ? (
           <p className="text-sm text-white/40 py-4 text-center">No school admin users found.</p>
         ) : (
           <div className="divide-y divide-white/[0.06] mt-2">
-            {school.users.filter((u) => u.schoolRole.key === "ADMIN").map((u, i) => {
+            {schoolAdminUsers.map((u, i) => {
               const initials = u.name.trim().split(/\s+/).map((p: string) => p[0]).slice(0,2).join("").toUpperCase();
               return (
-                <div key={u.id} className={`flex items-center gap-3 py-3 px-1
+                <div
+                  key={u.id}
+                  id={`school-admin-${u.id}`}
+                  className={`flex items-center gap-3 py-3 px-1 scroll-mt-24 target:bg-indigo-500/[0.08]
                                               ${i === 0 ? "rounded-t-[12px]" : ""}
-                                              ${i === school.users.length - 1 ? "rounded-b-[12px]" : ""}
+                                              ${i === schoolAdminUsers.length - 1 ? "rounded-b-[12px]" : ""}
                                               hover:bg-white/[0.03] transition`}>
                   <div className={`hidden sm:grid h-8 w-8 shrink-0 place-items-center rounded-[9px]
                                     bg-gradient-to-b ${avatarColor(u.name)} text-[11px] font-bold text-white`}>

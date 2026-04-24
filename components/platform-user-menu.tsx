@@ -18,15 +18,28 @@ function FormMsg({ state }: { state: PlatformProfileState }) {
   );
 }
 
+function ValueRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <p className="text-[11px] font-semibold uppercase tracking-wider text-white/35">{label}</p>
+      <p className="text-[13px] text-white/85 break-all">{value || "—"}</p>
+    </div>
+  );
+}
+
 export function PlatformUserMenu({ name, email }: { name: string; email: string }) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
+  const [editingProfile, setEditingProfile] = useState(false);
+  const [editingPassword, setEditingPassword] = useState(false);
   const ref = useRef<HTMLDivElement | null>(null);
   const [profileState, profileAction, profilePending] = useActionState(updatePlatformProfileAction, initialState);
   const [pwState, pwAction, pwPending] = useActionState(changePlatformPasswordAction, initialState);
 
   useEffect(() => {
     setOpen(false);
+    setEditingProfile(false);
+    setEditingPassword(false);
   }, [pathname]);
 
   useEffect(() => {
@@ -41,6 +54,14 @@ export function PlatformUserMenu({ name, email }: { name: string; email: string 
       document.removeEventListener("touchstart", handler);
     };
   }, [open]);
+
+  useEffect(() => {
+    if (profileState.ok && profileState.message) setEditingProfile(false);
+  }, [profileState]);
+
+  useEffect(() => {
+    if (pwState.ok && pwState.message) setEditingPassword(false);
+  }, [pwState]);
 
   useEffect(() => {
     if (!open) return;
@@ -76,38 +97,81 @@ export function PlatformUserMenu({ name, email }: { name: string; email: string 
         </div>
       </div>
 
-      {/* Update profile */}
-      <form action={profileAction} className="space-y-3 pb-4 border-b border-white/[0.07]">
-        <p className="text-[11px] font-semibold uppercase tracking-wider text-white/35">Update profile</p>
-        <div>
-          <Label required>Name</Label>
-          <Input name="name" defaultValue={name} required />
+      <section className="rounded-[14px] border border-white/[0.08] bg-white/[0.03] p-3.5">
+        <div className="flex items-center justify-between gap-2">
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-white/35">Profile</p>
+          {!editingProfile && (
+            <button
+              type="button"
+              onClick={() => setEditingProfile(true)}
+              className="inline-flex items-center gap-1.5 rounded-[9px] border border-white/[0.10] bg-white/[0.06] px-2.5 py-1 text-[11px] font-semibold text-white/80 hover:bg-white/[0.10] transition"
+            >
+              ✎ Edit
+            </button>
+          )}
         </div>
-        <div>
-          <Label required>Email</Label>
-          <Input name="email" type="email" defaultValue={email} required />
-        </div>
-        <FormMsg state={profileState} />
-        <div className="flex justify-end">
-          <Button type="submit" size="sm" disabled={profilePending}>
-            {profilePending ? "Saving…" : "Save profile"}
-          </Button>
-        </div>
-      </form>
+        {!editingProfile ? (
+          <div className="mt-3 space-y-3">
+            <ValueRow label="Name" value={name} />
+            <ValueRow label="Email" value={email} />
+          </div>
+        ) : (
+          <form action={profileAction} className="mt-3 space-y-3">
+            <div>
+              <Label required>Name</Label>
+              <Input name="name" defaultValue={name} required />
+            </div>
+            <div>
+              <Label required>Email</Label>
+              <Input name="email" type="email" defaultValue={email} required />
+            </div>
+            <FormMsg state={profileState} />
+            <div className="flex justify-end gap-2">
+              <Button type="button" variant="secondary" size="sm" onClick={() => setEditingProfile(false)} disabled={profilePending}>
+                Cancel
+              </Button>
+              <Button type="submit" size="sm" disabled={profilePending}>
+                {profilePending ? "Saving…" : "Save profile"}
+              </Button>
+            </div>
+          </form>
+        )}
+      </section>
 
-      {/* Change password */}
-      <form action={pwAction} className="space-y-3 pt-4">
-        <p className="text-[11px] font-semibold uppercase tracking-wider text-white/35">Change password</p>
-        <Input name="currentPassword" type="password" placeholder="Current password" required />
-        <Input name="newPassword"     type="password" placeholder="New password (min 10)" minLength={10} required />
-        <Input name="confirmPassword" type="password" placeholder="Confirm new password" minLength={10} required />
-        <FormMsg state={pwState} />
-        <div className="flex justify-end">
-          <Button type="submit" size="sm" disabled={pwPending}>
-            {pwPending ? "Updating…" : "Update password"}
-          </Button>
+      <section className="rounded-[14px] border border-white/[0.08] bg-white/[0.03] p-3.5 mt-3">
+        <div className="flex items-center justify-between gap-2">
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-white/35">Change password</p>
+          {!editingPassword && (
+            <button
+              type="button"
+              onClick={() => setEditingPassword(true)}
+              className="inline-flex items-center gap-1.5 rounded-[9px] border border-white/[0.10] bg-white/[0.06] px-2.5 py-1 text-[11px] font-semibold text-white/80 hover:bg-white/[0.10] transition"
+            >
+              ✎ Edit
+            </button>
+          )}
         </div>
-      </form>
+        {!editingPassword ? (
+          <p className="mt-3 text-xs text-white/55">
+            Password is hidden for security. Click edit to change it.
+          </p>
+        ) : (
+          <form action={pwAction} className="mt-3 space-y-3">
+            <Input name="currentPassword" type="password" placeholder="Current password" required />
+            <Input name="newPassword"     type="password" placeholder="New password (min 10)" minLength={10} required />
+            <Input name="confirmPassword" type="password" placeholder="Confirm new password" minLength={10} required />
+            <FormMsg state={pwState} />
+            <div className="flex justify-end gap-2">
+              <Button type="button" variant="secondary" size="sm" onClick={() => setEditingPassword(false)} disabled={pwPending}>
+                Cancel
+              </Button>
+              <Button type="submit" size="sm" disabled={pwPending}>
+                {pwPending ? "Updating…" : "Update password"}
+              </Button>
+            </div>
+          </form>
+        )}
+      </section>
     </>
   );
 
