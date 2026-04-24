@@ -9,12 +9,20 @@ import { HomeCTA } from "@/components/home-cta";
 const STORAGE_KEY = "eduhub_onboarded_v1";
 
 const FEATURES = [
-  { icon: "👥", label: "Students",    desc: "Profiles, parents, guardians"  },
-  { icon: "✅", label: "Attendance",  desc: "Daily tracking & reports"       },
-  { icon: "💳", label: "Fees",        desc: "Invoices & online payments"     },
-  { icon: "📢", label: "Feed",        desc: "Posts, updates & announcements" },
-  { icon: "📚", label: "Academics",   desc: "Classes, subjects & grades"     },
-  { icon: "📊", label: "Reports",     desc: "Analytics & exports"            },
+  { icon: "🏠", label: "Dashboard", desc: "School-wide overview at a glance" },
+  { icon: "👥", label: "Students", desc: "Admissions, profiles & guardians" },
+  { icon: "💳", label: "Fees", desc: "Invoices, dues & payment tracking" },
+  { icon: "✅", label: "Attendance", desc: "Daily marking with trends" },
+  { icon: "🗓️", label: "Timetable", desc: "Class schedules and periods" },
+  { icon: "📢", label: "Communication", desc: "Announcements and school feed" },
+  { icon: "📝", label: "Homework", desc: "Assignments and submissions" },
+  { icon: "🎓", label: "Progress Card", desc: "Marks, grades and report cards" },
+  { icon: "📊", label: "Reports", desc: "Academic and fee analytics" },
+  { icon: "📚", label: "Academics", desc: "Subjects, terms and curriculum" },
+  { icon: "🔔", label: "Notifications", desc: "Alerts, reminders and updates" },
+  { icon: "🚌", label: "Transport", desc: "Routes, buses and live trips" },
+  { icon: "⚙️", label: "School Settings", desc: "Branding and configuration" },
+  { icon: "🧑‍💼", label: "Users", desc: "Role-based staff and parent access" },
 ];
 
 export function HomeShell({ isSignedIn }: { isSignedIn: boolean }) {
@@ -39,8 +47,8 @@ export function HomeShell({ isSignedIn }: { isSignedIn: boolean }) {
           </div>
         </Card>
         <Card>
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-            {Array.from({ length: 6 }).map((_, i) => (
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+            {Array.from({ length: FEATURES.length }).map((_, i) => (
               <div key={i} className="h-16 rounded-[13px] bg-white/[0.04] animate-pulse" />
             ))}
           </div>
@@ -97,7 +105,7 @@ export function HomeShell({ isSignedIn }: { isSignedIn: boolean }) {
           <p className="mt-4 text-xs text-white/40">Free to start · No credit card required</p>
         </Card>
         <Card title="Everything you need" description="Core modules included" accent="teal">
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
             {FEATURES.map(f => (
               <div
                 key={f.label}

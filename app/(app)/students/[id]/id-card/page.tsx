@@ -110,7 +110,7 @@ export default async function StudentVirtualIdCardPage({ params }: { params: Pro
                   className="rounded-full border px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.16em]"
                   style={{ borderColor: "rgba(255,255,255,0.28)" }}
                 >
-                  Student Card
+                  Smart ID
                 </div>
               </div>
             </div>
@@ -174,38 +174,28 @@ export default async function StudentVirtualIdCardPage({ params }: { params: Pro
             )}
 
             <div className="mt-4 rounded-[14px] border px-3.5 py-3" style={{ borderColor: "rgba(255,255,255,0.24)", backgroundColor: "rgba(0,0,0,0.24)" }}>
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-                <div className="min-w-0 flex-1">
-                  <div className="h-9 w-full overflow-hidden rounded-[6px] border border-white/20 px-2 py-1">
-                    <div className="flex h-full items-end gap-[2px]" style={{ color: template.accent }}>
-                      {barcodePattern(student.studentId).map((width, index) => (
-                        <span
-                          key={`${width}-${index}`}
-                          className="inline-block h-full rounded-[1px] bg-current opacity-95"
-                          style={{ width: `${width * 3}px`, height: index % 2 === 0 ? "100%" : "75%" }}
-                        />
-                      ))}
-                    </div>
-                  </div>
-                  <p className="mt-1 text-[10px] uppercase tracking-[0.24em] opacity-75">{student.studentId}</p>
+              <div className="h-9 w-full overflow-hidden rounded-[8px] border border-white/20 px-2 py-1">
+                <div className="flex h-full items-end gap-[2px]" style={{ color: template.accent }}>
+                  {barcodePattern(student.studentId).map((width, index) => (
+                    <span
+                      key={`${width}-${index}`}
+                      className="inline-block h-full rounded-[1px] bg-current opacity-95"
+                      style={{ width: `${width * 3}px`, height: index % 2 === 0 ? "100%" : "75%" }}
+                    />
+                  ))}
                 </div>
-                <div className="text-[11px] leading-relaxed sm:text-right">
-                  <p>
-                    <span className="opacity-65">Issued:</span> {formatDate(issueDate)}
-                  </p>
-                  <p>
-                    <span className="opacity-65">Valid Till:</span> {formatDate(validTill)}
-                  </p>
-                </div>
+              </div>
+              <div className="mt-3 grid grid-cols-3 gap-2">
+                <MetaLine label="Student ID" value={student.studentId} align="left" />
+                <MetaLine label="Issued" value={formatDate(issueDate)} align="center" />
+                <MetaLine label="Valid Till" value={formatDate(validTill)} align="right" />
               </div>
             </div>
 
-            <div className="mt-4 flex flex-col gap-3 border-t pt-3 text-[11px] sm:flex-row sm:items-end sm:justify-between" style={{ borderColor: "rgba(255,255,255,0.2)" }}>
-              <p className="opacity-80">{footerText || "—"}</p>
-              <div className="text-left sm:text-right">
-                <p className="text-[10px] uppercase tracking-[0.16em] opacity-65">Authorized Signatory</p>
-                <p className="mt-1 text-[12px] font-semibold">{school.name}</p>
-              </div>
+            <div className="mt-4 border-t pt-3 text-center" style={{ borderColor: "rgba(255,255,255,0.2)" }}>
+              <p className="text-[10px] uppercase tracking-[0.16em] opacity-65">Authorized Signatory</p>
+              <p className="mt-1 text-[12px] font-semibold">{school.name}</p>
+              <p className="mt-1 text-[11px] opacity-80">{footerText || "—"}</p>
             </div>
           </div>
         </div>
@@ -244,6 +234,24 @@ function ContactBlock({
       <p className="mt-1 text-[13px] font-semibold break-words">{line1}</p>
       <p className="text-[12px] break-words opacity-85">{line2}</p>
       <p className="text-[11px] break-words opacity-70">{line3}</p>
+    </div>
+  );
+}
+
+function MetaLine({
+  label,
+  value,
+  align
+}: {
+  label: string;
+  value: string;
+  align: "left" | "center" | "right";
+}) {
+  const alignClass = align === "center" ? "text-center" : align === "right" ? "text-right" : "text-left";
+  return (
+    <div className={`min-w-0 ${alignClass}`}>
+      <p className="text-[9px] uppercase tracking-[0.16em] opacity-60">{label}</p>
+      <p className="mt-0.5 truncate text-[11px] font-semibold">{value}</p>
     </div>
   );
 }
