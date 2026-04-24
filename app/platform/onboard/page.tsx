@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { Card } from "@/components/ui";
+import { Button, Card } from "@/components/ui";
 import { PlatformOnboardForm } from "@/components/platform-onboard-form";
 import { BrandIcon } from "@/components/brand";
 import { prisma } from "@/lib/db";
@@ -14,9 +14,14 @@ export default async function PlatformOnboardPage() {
   return (
     <main className="min-h-dvh md:min-h-screen flex items-start md:items-center justify-center px-4 sm:px-6 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))]">
       <div className="w-full max-w-md space-y-4 animate-fade-up">
-        <Link href="/platform/login" className="text-sm text-white/70 hover:text-white">
-          ← Back to platform login
-        </Link>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+          <Link href="/platform/login" className="text-sm text-white/70 hover:text-white self-start">
+            ← Back to platform login
+          </Link>
+          <Link href="/platform/login" className="w-full sm:w-auto">
+            <Button variant="secondary" size="sm" className="w-full sm:w-auto">Platform Login</Button>
+          </Link>
+        </div>
         <div className="flex justify-center">
           <BrandIcon size={72} />
         </div>

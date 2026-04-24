@@ -10,18 +10,18 @@ export default async function OnboardPage() {
   return (
     <main className="min-h-dvh md:min-h-screen flex items-start md:items-center justify-center px-4 sm:px-6 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))]">
       <div className="w-full max-w-2xl space-y-4 sm:space-y-5 animate-fade-up">
-        <div className="flex items-center justify-between gap-2">
-          <Link href="/" className="inline-flex items-center gap-1.5 text-sm text-white/45 hover:text-white/80 transition-colors">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+          <Link href="/" className="inline-flex items-center gap-1.5 text-sm text-white/45 hover:text-white/80 transition-colors self-start">
             ← Back to home
           </Link>
-          <div className="flex items-center gap-2">
+          <div className="grid grid-cols-1 sm:flex gap-2 w-full sm:w-auto">
             {session && (
-              <Link href="/dashboard">
-                <Button variant="secondary" size="sm">Dashboard</Button>
+              <Link href="/dashboard" className="w-full sm:w-auto">
+                <Button variant="secondary" size="sm" className="w-full sm:w-auto">Dashboard</Button>
               </Link>
             )}
-            <Link href="/login">
-              <Button variant="secondary" size="sm">School Login</Button>
+            <Link href="/login" className="w-full sm:w-auto">
+              <Button variant="secondary" size="sm" className="w-full sm:w-auto">School Login</Button>
             </Link>
           </div>
         </div>
