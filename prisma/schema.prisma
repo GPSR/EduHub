@@ -36,7 +36,13 @@ enum PermissionLevel {
 enum OnboardingRequestStatus {
   PENDING
   APPROVED
+  HOLD
   REJECTED
+}
+
+enum PasswordResetSubjectType {
+  PLATFORM_USER
+  SCHOOL_USER
 }
 
 model Module {
@@ -70,6 +76,7 @@ model PlatformUser {
   approvedBy PlatformUser? @relation("PlatformUserApprovedBy", fields: [approvedByPlatformUserId], references: [id], onDelete: SetNull)
   approvedUsers PlatformUser[] @relation("PlatformUserApprovedBy")
   schoolAssignments PlatformUserSchoolAssignment[]
+  passwordResetTokens PasswordResetToken[]
 }
 
 model PlatformUserSchoolAssignment {
@@ -122,6 +129,7 @@ model School {
   moduleFieldSettings SchoolModuleField[]
   onboardingRequests SchoolOnboardingRequest[]
   platformAssignments PlatformUserSchoolAssignment[]
+  passwordResetTokens PasswordResetToken[]
 }
 
 model SchoolOnboardingRequest {
@@ -343,9 +351,32 @@ model User {
   requestedStudentUpdates StudentUpdateRequest[] @relation("StudentUpdateRequestedBy")
   busDriverAssignments BusDriverAssignment[]
   modulePermissions UserModulePermission[]
+  passwordResetTokens PasswordResetToken[]
 
   @@unique([schoolId, email])
   @@index([schoolId, schoolRoleId])
+}
+
+model PasswordResetToken {
+  id             String                   @id @default(cuid())
+  token          String                   @unique
+  subjectType    PasswordResetSubjectType
+  platformUserId String?
+  userId         String?
+  schoolId       String?
+  email          String
+  expiresAt      DateTime
+  usedAt         DateTime?
+  createdAt      DateTime                 @default(now())
+
+  platformUser PlatformUser? @relation(fields: [platformUserId], references: [id], onDelete: Cascade)
+  user         User?         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  school       School?       @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+
+  @@index([subjectType, expiresAt, usedAt])
+  @@index([platformUserId])
+  @@index([userId])
+  @@index([schoolId])
 }
 
 model SchoolRole {

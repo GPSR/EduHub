@@ -6,6 +6,8 @@ import { requirePermission } from "@/lib/require-permission";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import type { PermissionLevel } from "@prisma/client";
+import { createPasswordResetToken, sendPasswordResetEmail } from "@/lib/password-reset";
+import { auditLog } from "@/lib/audit";
 
 export type CreateUserState = { ok: boolean; message?: string };
 
@@ -233,4 +235,46 @@ export async function deleteUserAction(formData: FormData) {
   });
 
   redirect("/admin/users");
+}
+
+const SendResetSchema = z.object({
+  userId: z.string().min(1)
+});
+
+export async function sendUserPasswordResetAction(formData: FormData) {
+  const { session } = await requirePermission("USERS", "ADMIN");
+  const parsed = SendResetSchema.safeParse({ userId: formData.get("userId") });
+  if (!parsed.success) throw new Error("Unable to process request.");
+
+  const target = await prisma.user.findFirst({
+    where: { id: parsed.data.userId, schoolId: session.schoolId },
+    select: { id: true, name: true, email: true, isActive: true }
+  });
+  if (!target) throw new Error("Unable to process request.");
+  if (!target.isActive) throw new Error("Cannot send reset link to inactive user.");
+
+  const tokenRow = await createPasswordResetToken({
+    subjectType: "SCHOOL_USER",
+    userId: target.id,
+    schoolId: session.schoolId,
+    email: target.email
+  });
+  const sent = await sendPasswordResetEmail({
+    subjectType: "SCHOOL_USER",
+    toEmail: target.email,
+    recipientName: target.name,
+    resetToken: tokenRow.token,
+    expiresAt: tokenRow.expiresAt
+  });
+
+  await auditLog({
+    actor: { type: "SCHOOL_USER", id: session.userId, schoolId: session.schoolId },
+    action: "SCHOOL_USER_PASSWORD_RESET_EMAIL_SENT",
+    entityType: "User",
+    entityId: target.id,
+    schoolId: session.schoolId,
+    metadata: { emailSent: sent.sent, expiresAt: tokenRow.expiresAt.toISOString() }
+  });
+
+  redirect(`/admin/users?reset=${sent.sent ? "sent" : "failed"}`);
 }

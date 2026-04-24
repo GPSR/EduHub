@@ -4,6 +4,7 @@ import { useActionState, useMemo, useState } from "react";
 import { Button, Input, Label, Select } from "@/components/ui";
 import {
   approveOnboardingRequestAction,
+  holdOnboardingRequestAction,
   rejectOnboardingRequestAction,
   type OnboardingApprovalState
 } from "./actions";
@@ -18,6 +19,7 @@ export function RequestApprovalForm({
   modules: Array<{ id: string; key: string; name: string; enabledByDefault: boolean }>;
 }) {
   const [approveState, approveAction, approvePending] = useActionState(approveOnboardingRequestAction, initialState);
+  const [holdState, holdAction, holdPending] = useActionState(holdOnboardingRequestAction, initialState);
   const [rejectState, rejectAction, rejectPending] = useActionState(rejectOnboardingRequestAction, initialState);
   const [copied, setCopied] = useState(false);
 
@@ -26,7 +28,7 @@ export function RequestApprovalForm({
     const schoolName = approveState.schoolName ?? "your school";
     const subject = encodeURIComponent(`EduHub Invite Approved - ${schoolName}`);
     const body = encodeURIComponent(
-      `Your school onboarding is approved.\n\nUse this link to create the admin account:\n${approveState.inviteUrl}\n\nThis link may expire soon.`
+      `Your school onboarding is approved.\n\nUse this link to create the admin account:\n${approveState.inviteUrl}\n\nThis link expires in 30 minutes.`
     );
     return {
       emailHref: approveState.adminEmail ? `mailto:${approveState.adminEmail}?subject=${subject}&body=${body}` : null,
@@ -156,6 +158,29 @@ export function RequestApprovalForm({
         <div className="flex justify-end">
           <Button type="submit" variant="danger" disabled={rejectPending}>
             {rejectPending ? "Rejecting..." : "Reject request"}
+          </Button>
+        </div>
+      </form>
+
+      <form action={holdAction} className="space-y-3 border-t border-white/10 pt-4">
+        <input type="hidden" name="requestId" value={requestId} />
+        <div>
+          <Label>Put on hold note (optional)</Label>
+          <Input name="note" placeholder="Reason for hold / pending clarification" />
+        </div>
+        {holdState.message ? (
+          <div
+            className={
+              "rounded-2xl border p-3 text-sm " +
+              (holdState.ok ? "border-emerald-500/25 bg-emerald-500/10 text-emerald-100" : "border-white/10 bg-white/[0.04] text-white/80")
+            }
+          >
+            {holdState.message}
+          </div>
+        ) : null}
+        <div className="flex justify-end">
+          <Button type="submit" variant="secondary" disabled={holdPending}>
+            {holdPending ? "Updating..." : "Put on hold"}
           </Button>
         </div>
       </form>

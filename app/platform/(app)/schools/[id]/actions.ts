@@ -33,7 +33,7 @@ export async function createAdminInviteAction(
   if (!parsed.success) return { ok: false, message: parsed.error.issues[0]?.message };
 
   const token = randomToken(24);
-  const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+  const expiresAt = new Date(Date.now() + 30 * 60 * 1000);
 
   const adminRole = await prisma.schoolRole.findFirst({ where: { schoolId: parsed.data.schoolId, key: "ADMIN" } });
   if (!adminRole) return { ok: false, message: "School is missing Admin role." };

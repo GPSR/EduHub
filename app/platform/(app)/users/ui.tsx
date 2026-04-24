@@ -194,17 +194,8 @@ export function ManagePlatformUserForm({
 
           <form action={passwordAction} className="space-y-3 rounded-2xl border border-white/10 bg-white/[0.03] p-3">
             <input type="hidden" name="platformUserId" value={platformUserId} />
-            <div className="text-sm font-medium">Reset password</div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <div>
-                <Label>New password</Label>
-                <Input name="newPassword" type="password" minLength={10} required />
-              </div>
-              <div>
-                <Label>Confirm password</Label>
-                <Input name="confirmPassword" type="password" minLength={10} required />
-              </div>
-            </div>
+            <div className="text-sm font-medium">Reset password by email</div>
+            <p className="text-xs text-white/60">A secure reset link will be sent and expires in 30 minutes.</p>
             {passwordState.message ? (
               <div className={"rounded-2xl border p-3 text-sm " + (passwordState.ok ? "border-emerald-500/25 bg-emerald-500/10 text-emerald-100" : "border-white/10 bg-white/[0.04] text-white/80")}>
                 {passwordState.message}
@@ -212,7 +203,7 @@ export function ManagePlatformUserForm({
             ) : null}
             <div className="flex justify-end">
               <Button type="submit" disabled={passwordPending}>
-                {passwordPending ? "Resetting..." : "Reset Password"}
+                {passwordPending ? "Sending..." : "Send Reset Email"}
               </Button>
             </div>
           </form>

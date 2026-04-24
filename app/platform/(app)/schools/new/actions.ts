@@ -43,7 +43,7 @@ export async function createSchoolInviteAction(
 
   try {
     const token = randomToken(24);
-    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+    const expiresAt = new Date(Date.now() + 30 * 60 * 1000);
 
     const endsAt = await getPlanEndsAt(parsed.data.plan);
     const amountCents = await getPlanAmountCents(parsed.data.plan);

@@ -67,8 +67,66 @@ export default async function PlatformHomePage({
       user.role === "SUPER_ADMIN" ? prisma.schoolOnboardingRequest.count({ where: { status: "PENDING" } }) : 0,
     ]);
 
+  const quickSearchSchools = await prisma.school.findMany({
+    where: assignedIds ? { id: { in: assignedIds } } : undefined,
+    select: { id: true, name: true, slug: true },
+    orderBy: { createdAt: "desc" },
+    take: 120
+  });
+  const quickSearchPlatformUsers = await prisma.platformUser.findMany({
+    where: user.role === "SUPER_ADMIN" ? undefined : { id: user.id },
+    select: { id: true, name: true, email: true },
+    orderBy: { createdAt: "desc" },
+    take: 120
+  });
+  const quickSearchSchoolUsers = await prisma.user.findMany({
+    where: assignedIds ? { schoolId: { in: assignedIds } } : undefined,
+    select: { id: true, name: true, email: true, schoolId: true },
+    orderBy: { createdAt: "desc" },
+    take: 160
+  });
+
+  const matchedSchoolUsers = query
+    ? quickSearchSchoolUsers.filter((u) =>
+        `${u.name} ${u.email}`.toLowerCase().includes(query.toLowerCase())
+      ).slice(0, 12)
+    : [];
+
   return (
     <div className="space-y-6 animate-fade-up">
+      <Card>
+        <form action="/platform" method="get" className="grid grid-cols-1 lg:grid-cols-[1fr_auto] gap-3 items-end">
+          <div>
+            <label className="text-[12px] font-medium text-white/70">Global Search (schools + users)</label>
+            <input
+              name="q"
+              defaultValue={query}
+              list="platform-global-search"
+              placeholder="Search school, slug, platform user, or school user email"
+              className="mt-1 w-full rounded-xl bg-black/25 border border-white/10 px-3 py-2.5 outline-none focus:border-indigo-400 focus:ring-4 focus:ring-indigo-500/15 transition text-sm"
+            />
+            <datalist id="platform-global-search">
+              {quickSearchSchools.map((s) => (
+                <option key={`school-${s.id}`} value={s.name}>{`School · ${s.slug}`}</option>
+              ))}
+              {quickSearchSchools.map((s) => (
+                <option key={`slug-${s.id}`} value={s.slug}>{`School slug · ${s.name}`}</option>
+              ))}
+              {quickSearchPlatformUsers.map((u) => (
+                <option key={`platform-${u.id}`} value={u.email}>{`Platform user · ${u.name}`}</option>
+              ))}
+              {quickSearchSchoolUsers.map((u) => (
+                <option key={`school-user-${u.id}`} value={u.email}>{`School user · ${u.name}`}</option>
+              ))}
+            </datalist>
+          </div>
+          <div className="flex gap-2">
+            <Button type="submit">Search</Button>
+            <Link href="/platform"><Button type="button" variant="secondary">Clear</Button></Link>
+          </div>
+        </form>
+      </Card>
+
       {/* ── Hero ── */}
       <div className="rounded-[24px] border border-indigo-500/20 bg-gradient-to-br from-indigo-500/10 via-sky-500/5 to-transparent p-6">
         <div className="flex items-start justify-between gap-4">
@@ -127,6 +185,27 @@ export default async function PlatformHomePage({
 
       {/* ── Filters ── */}
       <PlatformControls q={query} status={status ?? ""} plan={plan ?? ""} customPlans={customPlans} />
+
+      {query && matchedSchoolUsers.length > 0 && (
+        <Card title={`Matched School Users · ${matchedSchoolUsers.length}`}>
+          <div className="divide-y divide-white/[0.06]">
+            {matchedSchoolUsers.map((u) => {
+              const school = quickSearchSchools.find((s) => s.id === u.schoolId);
+              return (
+                <div key={u.id} className="py-3 flex flex-wrap items-center justify-between gap-3">
+                  <div className="text-sm text-white/85">
+                    <div className="font-medium">{u.name}</div>
+                    <div className="text-white/45">{u.email}</div>
+                  </div>
+                  <div className="text-xs text-white/50">
+                    {school ? `${school.name} (${school.slug})` : "School user"}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </Card>
+      )}
 
       {/* ── Schools table ── */}
       <Card title={`Schools${schools.length > 0 ? ` · ${schools.length} shown` : ""}`}>

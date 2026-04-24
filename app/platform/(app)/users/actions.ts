@@ -6,6 +6,7 @@ import { requireSuperAdmin } from "@/lib/platform-require";
 import { hashPassword } from "@/lib/password";
 import { revalidatePath } from "next/cache";
 import { auditLog } from "@/lib/audit";
+import { createPasswordResetToken, sendPasswordResetEmail } from "@/lib/password-reset";
 
 export type PlatformUserAdminState = { ok: boolean; message?: string };
 
@@ -281,11 +282,7 @@ export async function deletePlatformUserAction(
   return { ok: true, message: "Platform user deleted." };
 }
 
-const ResetPasswordSchema = z.object({
-  platformUserId: z.string().min(1),
-  newPassword: z.string().min(10),
-  confirmPassword: z.string().min(10)
-});
+const ResetPasswordSchema = z.object({ platformUserId: z.string().min(1) });
 
 export async function resetPlatformUserPasswordAction(
   _prev: PlatformUserAdminState,
@@ -293,31 +290,34 @@ export async function resetPlatformUserPasswordAction(
 ): Promise<PlatformUserAdminState> {
   const { user: superAdmin } = await requireSuperAdmin();
   const parsed = ResetPasswordSchema.safeParse({
-    platformUserId: formData.get("platformUserId"),
-    newPassword: formData.get("newPassword"),
-    confirmPassword: formData.get("confirmPassword")
+    platformUserId: formData.get("platformUserId")
   });
   if (!parsed.success) return { ok: false, message: parsed.error.issues[0]?.message ?? "Invalid request." };
-  if (parsed.data.newPassword !== parsed.data.confirmPassword)
-    return { ok: false, message: "Passwords do not match." };
 
   const target = await prisma.platformUser.findUnique({ where: { id: parsed.data.platformUserId } });
   if (!target) return { ok: false, message: "Platform user not found." };
   if (target.role === "SUPER_ADMIN") return { ok: false, message: "Cannot reset super admin password in this flow." };
-
-  const passwordHash = await hashPassword(parsed.data.newPassword);
-  await prisma.platformUser.update({
-    where: { id: target.id },
-    data: { passwordHash }
+  const tokenRow = await createPasswordResetToken({
+    subjectType: "PLATFORM_USER",
+    platformUserId: target.id,
+    email: target.email
+  });
+  const sent = await sendPasswordResetEmail({
+    subjectType: "PLATFORM_USER",
+    toEmail: target.email,
+    recipientName: target.name,
+    resetToken: tokenRow.token,
+    expiresAt: tokenRow.expiresAt
   });
 
   await auditLog({
     actor: { type: "PLATFORM_USER", id: superAdmin.id },
-    action: "PLATFORM_USER_PASSWORD_RESET",
+    action: "PLATFORM_USER_PASSWORD_RESET_EMAIL_SENT",
     entityType: "PlatformUser",
-    entityId: target.id
+    entityId: target.id,
+    metadata: { emailSent: sent.sent, expiresAt: tokenRow.expiresAt.toISOString() }
   });
 
   revalidatePath("/platform/users");
-  return { ok: true, message: "Password reset successful." };
+  return { ok: sent.sent, message: sent.sent ? "Password reset email sent (valid for 30 minutes)." : "Email provider is not configured." };
 }

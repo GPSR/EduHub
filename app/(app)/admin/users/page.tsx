@@ -1,7 +1,7 @@
 import { Card, Badge, Button, Select, SectionHeader } from "@/components/ui";
 import { prisma } from "@/lib/db";
 import { requirePermission } from "@/lib/require-permission";
-import { deleteUserAction, setUserActiveAction, updateUserRoleAction } from "./actions";
+import { deleteUserAction, sendUserPasswordResetAction, setUserActiveAction, updateUserRoleAction } from "./actions";
 import { AdminCreateUserPanel } from "@/components/admin-create-user-panel";
 
 function avatarColor(name: string) {
@@ -15,8 +15,13 @@ function avatarColor(name: string) {
   return colors[name.charCodeAt(0) % colors.length];
 }
 
-export default async function AdminUsersPage() {
+export default async function AdminUsersPage({
+  searchParams
+}: {
+  searchParams: Promise<{ reset?: string }>;
+}) {
   const { session } = await requirePermission("USERS", "ADMIN");
+  const { reset } = await searchParams;
 
   const [users, students, classes, roles] = await Promise.all([
     prisma.user.findMany({
@@ -43,6 +48,16 @@ export default async function AdminUsersPage() {
   return (
     <div className="space-y-5 animate-fade-up">
       <SectionHeader title="Users" subtitle={`${users.length} user${users.length !== 1 ? "s" : ""} in your school`} />
+      {reset === "sent" && (
+        <div className="rounded-2xl border border-emerald-500/25 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-100">
+          Password reset email sent successfully. Link expires in 30 minutes.
+        </div>
+      )}
+      {reset === "failed" && (
+        <div className="rounded-2xl border border-rose-500/25 bg-rose-500/10 px-4 py-3 text-sm text-rose-100">
+          Could not send password reset email. Please check email provider settings.
+        </div>
+      )}
 
       <Card>
         <div className="divide-y divide-white/[0.06]">
@@ -93,6 +108,10 @@ export default async function AdminUsersPage() {
                     <form action={deleteUserAction}>
                       <input type="hidden" name="userId" value={u.id} />
                       <Button type="submit" variant="danger" size="sm">Delete</Button>
+                    </form>
+                    <form action={sendUserPasswordResetAction}>
+                      <input type="hidden" name="userId" value={u.id} />
+                      <Button type="submit" variant="secondary" size="sm">Send reset email</Button>
                     </form>
                   </div>
                 )}

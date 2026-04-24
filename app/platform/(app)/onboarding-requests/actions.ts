@@ -9,6 +9,7 @@ import { ensureBaseModules, seedSchoolModulesAndRolePerms } from "@/lib/permissi
 import { auditLog } from "@/lib/audit";
 import { sendOnboardingApprovalNotifications } from "@/lib/approval-notify";
 import { sendOnboardingRejectionEmail } from "@/lib/approval-notify";
+import { sendOnboardingHoldEmail } from "@/lib/approval-notify";
 import { revalidatePath } from "next/cache";
 
 export type OnboardingApprovalState = {
@@ -43,7 +44,9 @@ export async function approveOnboardingRequestAction(
       status: true,
       schoolName: true,
       schoolSlug: true,
-      adminEmail: true
+      adminEmail: true,
+      adminPhoneCountryCode: true,
+      adminPhone: true
     }
   });
   if (!request || request.status !== "PENDING") return { ok: false, message: "Request not found or already processed." };
@@ -102,7 +105,7 @@ export async function approveOnboardingRequestAction(
   if (!adminRole) return { ok: false, message: "Admin role was not created." };
 
   const token = randomToken(24);
-  const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+  const expiresAt = new Date(Date.now() + 30 * 60 * 1000);
   await prisma.schoolInvite.create({
     data: {
       schoolId: school.id,
@@ -142,7 +145,7 @@ export async function approveOnboardingRequestAction(
   const notify = await sendOnboardingApprovalNotifications({
     schoolName: request.schoolName,
     adminEmail: request.adminEmail.toLowerCase(),
-    adminPhone: undefined,
+    adminPhone: request.adminPhone ? `${request.adminPhoneCountryCode ?? ""}${request.adminPhone}` : undefined,
     inviteUrl,
     expiresAt
   });
@@ -169,7 +172,7 @@ export async function approveOnboardingRequestAction(
     } Share options are below.`,
     inviteUrl,
     adminEmail: request.adminEmail.toLowerCase(),
-    adminPhone: undefined,
+    adminPhone: request.adminPhone ? `${request.adminPhoneCountryCode ?? ""}${request.adminPhone}` : undefined,
     schoolName: request.schoolName
   };
 }
@@ -232,4 +235,69 @@ export async function rejectOnboardingRequestAction(
 
   revalidatePath("/platform/onboarding-requests");
   return { ok: true, message: rejectionEmailSent ? "Request rejected and email sent." : "Request rejected. Email could not be sent." };
+}
+
+const HoldSchema = z.object({
+  requestId: z.string().min(1),
+  note: z.string().trim().max(500).optional()
+});
+
+export async function holdOnboardingRequestAction(
+  _prev: OnboardingApprovalState,
+  formData: FormData
+): Promise<OnboardingApprovalState> {
+  const { session } = await requireSuperAdmin();
+  const parsed = HoldSchema.safeParse({
+    requestId: formData.get("requestId"),
+    note: formData.get("note")
+  });
+  if (!parsed.success) return { ok: false, message: "Invalid request." };
+
+  const request = await prisma.schoolOnboardingRequest.findUnique({
+    where: { id: parsed.data.requestId },
+    select: { id: true, status: true, schoolName: true, adminEmail: true }
+  });
+  if (!request || request.status !== "PENDING") return { ok: false, message: "Request not found or already processed." };
+
+  await prisma.schoolOnboardingRequest.update({
+    where: { id: request.id },
+    data: {
+      status: "HOLD",
+      note: parsed.data.note || null,
+      approvedByPlatformUserId: session.platformUserId
+    }
+  });
+
+  await auditLog({
+    actor: { type: "PLATFORM_USER", id: session.platformUserId },
+    action: "PLATFORM_ONBOARDING_REQUEST_ON_HOLD",
+    entityType: "SchoolOnboardingRequest",
+    entityId: request.id,
+    metadata: { note: parsed.data.note ?? "" }
+  });
+
+  let holdEmailSent = false;
+  let holdEmailError: string | null = null;
+  try {
+    const sent = await sendOnboardingHoldEmail({
+      adminEmail: request.adminEmail.toLowerCase(),
+      schoolName: request.schoolName,
+      note: parsed.data.note ?? null
+    });
+    holdEmailSent = sent.sent;
+  } catch (err) {
+    holdEmailError = err instanceof Error ? err.message : "hold_email_failed";
+  }
+
+  await auditLog({
+    actor: { type: "PLATFORM_USER", id: session.platformUserId },
+    action: "PLATFORM_ONBOARDING_HOLD_NOTIFICATION",
+    entityType: "SchoolOnboardingRequest",
+    entityId: request.id,
+    metadata: { holdEmailSent, holdEmailError }
+  });
+
+  revalidatePath("/platform/onboarding-requests");
+  revalidatePath("/platform");
+  return { ok: true, message: holdEmailSent ? "Request put on hold and email sent." : "Request put on hold. Email could not be sent." };
 }

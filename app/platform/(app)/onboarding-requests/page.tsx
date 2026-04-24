@@ -94,7 +94,7 @@ export default async function PlatformOnboardingRequestsPage() {
                     {r.note && <><span>·</span><span className="italic">{r.note}</span></>}
                   </div>
                 </div>
-                <Badge tone={r.status === "APPROVED" ? "success" : "danger"}>{r.status}</Badge>
+                <Badge tone={r.status === "APPROVED" ? "success" : r.status === "HOLD" ? "warning" : "danger"}>{r.status}</Badge>
               </div>
             ))}
           </div>

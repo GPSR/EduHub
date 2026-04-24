@@ -20,8 +20,19 @@ function stringifyValue(value: unknown): string {
   if (typeof value === "boolean") return value ? "Yes" : "No";
   if (typeof value === "number") return String(value);
   if (typeof value === "string") return value.length > 140 ? `${value.slice(0, 140)}...` : value;
-  if (Array.isArray(value)) return value.length ? `${value.length} item(s)` : "0 item(s)";
-  return "Updated";
+  if (Array.isArray(value)) return value.length ? value.map((v) => stringifyValue(v)).join(", ") : "None";
+  if (typeof value === "object") {
+    const obj = value as Record<string, unknown>;
+    if ("before" in obj || "after" in obj) {
+      return `Before: ${stringifyValue(obj.before)} | After: ${stringifyValue(obj.after)}`;
+    }
+    if ("old" in obj || "new" in obj) {
+      return `Old: ${stringifyValue(obj.old)} | New: ${stringifyValue(obj.new)}`;
+    }
+    const pairs = Object.entries(obj).slice(0, 6).map(([k, v]) => `${humanize(k)}=${stringifyValue(v)}`);
+    return pairs.join(", ") || "Updated";
+  }
+  return String(value);
 }
 function formatMetaEntries(meta: Record<string, unknown>): Array<[string, string]> {
   const out: Array<[string, string]> = [];
