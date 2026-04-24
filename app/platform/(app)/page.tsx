@@ -62,12 +62,6 @@ export default async function PlatformHomePage({
     orderBy: { createdAt: "desc" },
     take: 120
   });
-  const quickSearchPlatformUsers = await prisma.platformUser.findMany({
-    where: { id: user.id },
-    select: { id: true, name: true, email: true },
-    orderBy: { createdAt: "desc" },
-    take: 120
-  });
   const quickSearchSchoolUsers = await prisma.user.findMany({
     where: assignedIds ? { schoolId: { in: assignedIds } } : undefined,
     select: { id: true, name: true, email: true, schoolId: true },
@@ -84,34 +78,30 @@ export default async function PlatformHomePage({
   return (
     <div className="space-y-6 animate-fade-up">
       <Card>
-        <form action="/platform" method="get" className="grid grid-cols-1 lg:grid-cols-[1fr_auto] gap-3 items-end">
-          <div>
-            <label className="text-[12px] font-medium text-white/70">Global Search (schools + users)</label>
+        <form action="/platform" method="get" className="space-y-2">
+          <label className="text-[12px] font-medium text-white/70">Global Search (schools + users)</label>
+          <div className="relative">
+            <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-white/45" aria-hidden="true">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                <path d="M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14Zm9 16-3.5-3.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+              </svg>
+            </span>
             <input
               name="q"
               defaultValue={query}
-              list="platform-global-search"
-              placeholder="Search school, slug, platform user, or school user email"
-              className="mt-1 w-full rounded-xl bg-black/25 border border-white/10 px-3 py-2.5 outline-none focus:border-indigo-400 focus:ring-4 focus:ring-indigo-500/15 transition text-sm"
+              autoComplete="off"
+              placeholder="Search schools or users and press Enter"
+              className="w-full rounded-full bg-black/25 border border-white/10 pl-10 pr-12 py-2.5 outline-none focus:border-indigo-400 focus:ring-4 focus:ring-indigo-500/15 transition text-sm"
             />
-            <datalist id="platform-global-search">
-              {quickSearchSchools.map((s) => (
-                <option key={`school-${s.id}`} value={s.name}>{`School · ${s.slug}`}</option>
-              ))}
-              {quickSearchSchools.map((s) => (
-                <option key={`slug-${s.id}`} value={s.slug}>{`School slug · ${s.name}`}</option>
-              ))}
-              {quickSearchPlatformUsers.map((u) => (
-                <option key={`platform-${u.id}`} value={u.email}>{`Platform user · ${u.name}`}</option>
-              ))}
-              {quickSearchSchoolUsers.map((u) => (
-                <option key={`school-user-${u.id}`} value={u.email}>{`School user · ${u.name}`}</option>
-              ))}
-            </datalist>
-          </div>
-          <div className="flex gap-2">
-            <Button type="submit">Search</Button>
-            <Link href="/platform"><Button type="button" variant="secondary">Clear</Button></Link>
+            <button
+              type="submit"
+              aria-label="Search"
+              className="absolute right-1.5 top-1/2 -translate-y-1/2 h-9 w-9 rounded-full bg-indigo-500 text-white hover:bg-indigo-400 transition inline-flex items-center justify-center"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                <path d="M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14Zm9 16-3.5-3.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+              </svg>
+            </button>
           </div>
         </form>
       </Card>

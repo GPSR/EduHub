@@ -14,16 +14,11 @@ export default async function OnboardPage() {
           <Link href="/" className="inline-flex items-center gap-1.5 text-sm text-white/45 hover:text-white/80 transition-colors self-start">
             ← Back to home
           </Link>
-          <div className="grid grid-cols-1 sm:flex gap-2 w-full sm:w-auto">
-            {session && (
-              <Link href="/dashboard" className="w-full sm:w-auto">
-                <Button variant="secondary" size="sm" className="w-full sm:w-auto">Dashboard</Button>
-              </Link>
-            )}
-            <Link href="/login" className="w-full sm:w-auto">
-              <Button variant="secondary" size="sm" className="w-full sm:w-auto">School Login</Button>
+          {session && (
+            <Link href="/dashboard" className="w-full sm:w-auto">
+              <Button variant="secondary" size="sm" className="w-full sm:w-auto">Dashboard</Button>
             </Link>
-          </div>
+          )}
         </div>
         <div className="flex justify-center">
           <BrandIcon size={72} />
@@ -35,10 +30,6 @@ export default async function OnboardPage() {
         <Card title="School Details" description="Fill in the info below to get started" accent="indigo">
           <OnboardForm />
         </Card>
-        <p className="text-center text-xs text-white/25">
-          Already have an account?{" "}
-          <Link href="/login" className="text-white/45 hover:text-white/70 transition">Sign in →</Link>
-        </p>
       </div>
     </main>
   );
