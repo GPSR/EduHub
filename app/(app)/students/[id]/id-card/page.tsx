@@ -17,6 +17,16 @@ function initials(name: string) {
     .toUpperCase();
 }
 
+function formatDate(value?: Date | null) {
+  if (!value) return "—";
+  return value.toLocaleDateString("en-US", { month: "short", day: "2-digit", year: "numeric" });
+}
+
+function barcodePattern(value: string) {
+  const source = (value || "ID0000").toUpperCase();
+  return source.split("").map((char, index) => ((char.charCodeAt(0) + index) % 4) + 1);
+}
+
 export default async function StudentVirtualIdCardPage({ params }: { params: Promise<{ id: string }> }) {
   await requirePermission("STUDENTS", "VIEW");
   const session = await requireSession();
@@ -38,9 +48,14 @@ export default async function StudentVirtualIdCardPage({ params }: { params: Pro
   if (!student || !school) return notFound();
 
   const classLabel = student.class ? `${student.class.name}${student.class.section ? `-${student.class.section}` : ""}` : "—";
-
   const showSchoolLabel = template.schoolLabel.trim().toLowerCase() !== school.name.trim().toLowerCase();
   const footerText = schoolProfile.address || template.footerText;
+  const issueDate = student.joiningDate ?? student.createdAt;
+  const validTill = new Date(issueDate);
+  validTill.setFullYear(validTill.getFullYear() + 1);
+  const parentName = student.fatherName ?? student.motherName ?? "—";
+  const parentContact = student.parentMobiles ?? student.parentEmails ?? "—";
+  const guardianContact = student.guardianMobile ?? student.guardianAltContact ?? "—";
 
   return (
     <div className="space-y-5 animate-fade-up">
@@ -48,65 +63,187 @@ export default async function StudentVirtualIdCardPage({ params }: { params: Pro
         ← Back to student
       </Link>
 
-      <div className="rounded-[22px] border border-white/[0.10] p-6 max-w-[780px] mx-auto" style={{ background: template.background }}>
-        <div className="flex items-center justify-between gap-4 pb-4 border-b" style={{ borderColor: "rgba(255,255,255,0.18)" }}>
-          <div className="flex items-center gap-3 min-w-0">
-            {school.brandingLogoUrl ? (
-              <Image src={school.brandingLogoUrl} alt={school.name} width={48} height={48} className="h-12 w-12 rounded-[10px] object-cover border border-white/20" />
-            ) : (
-              <div className="h-12 w-12 rounded-[10px] grid place-items-center text-xs font-bold text-white/90 border border-white/25">{initials(school.name)}</div>
-            )}
-            <div className="min-w-0">
-              {showSchoolLabel ? (
-                <p className="text-[12px] uppercase tracking-wider" style={{ color: template.accent }}>{template.schoolLabel}</p>
+      <div className="mx-auto max-w-[860px]">
+        <div
+          className="relative overflow-hidden rounded-[26px] border p-5 sm:p-6 shadow-[0_28px_70px_-40px_rgba(0,0,0,0.95)]"
+          style={{ background: template.background, borderColor: "rgba(255,255,255,0.24)" }}
+        >
+          <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(145deg,rgba(255,255,255,0.14),rgba(255,255,255,0.03)_48%,rgba(0,0,0,0.18))]" />
+          <div className="pointer-events-none absolute -right-16 -top-20 h-64 w-64 rounded-full blur-3xl opacity-30" style={{ background: template.accent }} />
+          <div className="pointer-events-none absolute -left-16 -bottom-20 h-56 w-56 rounded-full blur-3xl opacity-20" style={{ background: template.accent }} />
+
+          <div className="relative" style={{ color: template.textColor }}>
+            <div className="flex flex-wrap items-start justify-between gap-4 border-b pb-4" style={{ borderColor: "rgba(255,255,255,0.2)" }}>
+              <div className="flex min-w-0 items-center gap-3">
+                {school.brandingLogoUrl ? (
+                  <Image
+                    src={school.brandingLogoUrl}
+                    alt={school.name}
+                    width={56}
+                    height={56}
+                    className="h-14 w-14 rounded-[12px] object-cover border border-white/30"
+                  />
+                ) : (
+                  <div className="grid h-14 w-14 place-items-center rounded-[12px] border border-white/30 text-sm font-bold">
+                    {initials(school.name)}
+                  </div>
+                )}
+                <div className="min-w-0">
+                  {showSchoolLabel ? (
+                    <p className="text-[10px] uppercase tracking-[0.22em] font-semibold" style={{ color: template.accent }}>
+                      {template.schoolLabel}
+                    </p>
+                  ) : null}
+                  <p className="truncate text-[17px] font-semibold leading-tight">{school.name}</p>
+                  <p className="mt-0.5 text-[11px] uppercase tracking-[0.16em] opacity-70">{template.headerText}</p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3">
+                <div
+                  className="grid h-9 w-12 place-items-center rounded-[9px] border text-[9px] font-semibold uppercase tracking-[0.12em]"
+                  style={{ borderColor: "rgba(255,255,255,0.28)", backgroundColor: "rgba(255,255,255,0.14)" }}
+                >
+                  CHIP
+                </div>
+                <div
+                  className="rounded-full border px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.16em]"
+                  style={{ borderColor: "rgba(255,255,255,0.28)" }}
+                >
+                  Student Card
+                </div>
+              </div>
+            </div>
+
+            <div className={template.showPhoto ? "mt-5 grid grid-cols-1 gap-4 md:grid-cols-[170px_1fr]" : "mt-5"}>
+              {template.showPhoto ? (
+                <div className="rounded-[16px] border p-2.5 backdrop-blur-sm" style={{ borderColor: "rgba(255,255,255,0.24)", backgroundColor: "rgba(0,0,0,0.18)" }}>
+                  {student.photoUrl ? (
+                    <Image
+                      src={student.photoUrl}
+                      alt={student.fullName}
+                      width={160}
+                      height={190}
+                      className="h-[190px] w-full rounded-[12px] object-cover border border-white/20"
+                    />
+                  ) : (
+                    <div className="grid h-[190px] w-full place-items-center rounded-[12px] border border-white/20 text-4xl font-bold">
+                      {initials(student.fullName)}
+                    </div>
+                  )}
+                  <p className="mt-2 text-center text-[10px] font-semibold uppercase tracking-[0.2em] opacity-70">Card Holder</p>
+                </div>
               ) : null}
-              <p className="text-[15px] font-semibold truncate" style={{ color: template.textColor }}>{school.name}</p>
+
+              <div className="rounded-[16px] border p-4 backdrop-blur-sm" style={{ borderColor: "rgba(255,255,255,0.24)", backgroundColor: "rgba(0,0,0,0.18)" }}>
+                <p className="text-[11px] uppercase tracking-[0.18em] opacity-65">Student Name</p>
+                <h2 className="mt-1 text-[23px] font-bold leading-tight">{student.fullName}</h2>
+
+                <div className="mt-4 grid grid-cols-1 gap-x-4 gap-y-2 sm:grid-cols-2">
+                  <InfoLine label="Student ID" value={student.studentId} />
+                  <InfoLine label="Admission No" value={student.admissionNo ?? "—"} />
+                  <InfoLine label="Class / Section" value={classLabel} />
+                  <InfoLine label="Roll Number" value={student.rollNumber ?? "—"} />
+                  <InfoLine label="Date of Birth" value={formatDate(student.dateOfBirth)} />
+                  <InfoLine label="Gender" value={student.gender ?? "—"} />
+                  <InfoLine label="Blood Group" value={student.bloodGroup ?? "—"} />
+                  <InfoLine label="Medical Notes" value={student.medicalNotes ?? "—"} />
+                </div>
+              </div>
+            </div>
+
+            {(template.showParent || template.showGuardian) && (
+              <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
+                {template.showParent ? (
+                  <ContactBlock
+                    title="Parent Contact"
+                    line1={parentName}
+                    line2={parentContact}
+                    line3={student.parentAddress ?? student.address ?? "—"}
+                  />
+                ) : null}
+                {template.showGuardian ? (
+                  <ContactBlock
+                    title="Guardian Contact"
+                    line1={student.guardianName ?? "—"}
+                    line2={guardianContact}
+                    line3={student.guardianRelationship ?? "—"}
+                  />
+                ) : null}
+              </div>
+            )}
+
+            <div className="mt-4 rounded-[14px] border px-3.5 py-3" style={{ borderColor: "rgba(255,255,255,0.24)", backgroundColor: "rgba(0,0,0,0.24)" }}>
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+                <div className="min-w-0 flex-1">
+                  <div className="h-9 w-full overflow-hidden rounded-[6px] border border-white/20 px-2 py-1">
+                    <div className="flex h-full items-end gap-[2px]" style={{ color: template.accent }}>
+                      {barcodePattern(student.studentId).map((width, index) => (
+                        <span
+                          key={`${width}-${index}`}
+                          className="inline-block h-full rounded-[1px] bg-current opacity-95"
+                          style={{ width: `${width * 3}px`, height: index % 2 === 0 ? "100%" : "75%" }}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                  <p className="mt-1 text-[10px] uppercase tracking-[0.24em] opacity-75">{student.studentId}</p>
+                </div>
+                <div className="text-[11px] leading-relaxed sm:text-right">
+                  <p>
+                    <span className="opacity-65">Issued:</span> {formatDate(issueDate)}
+                  </p>
+                  <p>
+                    <span className="opacity-65">Valid Till:</span> {formatDate(validTill)}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-4 flex flex-col gap-3 border-t pt-3 text-[11px] sm:flex-row sm:items-end sm:justify-between" style={{ borderColor: "rgba(255,255,255,0.2)" }}>
+              <p className="opacity-80">{footerText || "—"}</p>
+              <div className="text-left sm:text-right">
+                <p className="text-[10px] uppercase tracking-[0.16em] opacity-65">Authorized Signatory</p>
+                <p className="mt-1 text-[12px] font-semibold">{school.name}</p>
+              </div>
             </div>
           </div>
-          <span className="text-[11px] px-2.5 py-1 rounded-full border" style={{ color: template.textColor, borderColor: "rgba(255,255,255,0.28)" }}>
-            {template.headerText}
-          </span>
         </div>
 
-        <div className="pt-5 grid grid-cols-1 md:grid-cols-[120px_1fr] gap-5">
-          <div>
-            {template.showPhoto && student.photoUrl ? (
-              <Image src={student.photoUrl} alt={student.fullName} width={120} height={140} className="h-[140px] w-[120px] rounded-[12px] object-cover border border-white/20" />
-            ) : template.showPhoto ? (
-              <div className="h-[140px] w-[120px] rounded-[12px] grid place-items-center text-2xl font-bold border border-white/20" style={{ color: template.textColor }}>
-                {initials(student.fullName)}
-              </div>
-            ) : null}
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <Field label="Student Name" value={student.fullName} color={template.textColor} />
-            <Field label="Student ID" value={student.studentId} color={template.textColor} />
-            <Field label="Admission No" value={student.admissionNo ?? "—"} color={template.textColor} />
-            <Field label="Class" value={classLabel} color={template.textColor} />
-            <Field label="Roll No" value={student.rollNumber ?? "—"} color={template.textColor} />
-            <Field label="DOB" value={student.dateOfBirth ? student.dateOfBirth.toISOString().slice(0, 10) : "—"} color={template.textColor} />
-            {template.showParent ? <Field label="Parent Name" value={student.fatherName ?? "—"} color={template.textColor} /> : null}
-            {template.showParent ? <Field label="Parent Mobile" value={student.parentMobiles ?? "—"} color={template.textColor} /> : null}
-            {template.showParent ? <Field label="Parent Email" value={student.parentEmails ?? "—"} color={template.textColor} /> : null}
-            {template.showGuardian ? <Field label="Guardian" value={student.guardianName ?? "—"} color={template.textColor} /> : null}
-            {template.showGuardian ? <Field label="Guardian Mobile" value={student.guardianMobile ?? "—"} color={template.textColor} /> : null}
-          </div>
-        </div>
-
-        <div className="pt-4 mt-4 border-t text-[11px]" style={{ borderColor: "rgba(255,255,255,0.18)", color: template.textColor }}>
-          {footerText || "—"}
-        </div>
+        <p className="mt-3 text-center text-xs text-white/45">
+          Digital student identity card. Verify with school administration for official use.
+        </p>
       </div>
     </div>
   );
 }
 
-function Field({ label, value, color }: { label: string; value: string; color: string }) {
+function InfoLine({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-[10px] border border-white/20 bg-black/20 px-3 py-2">
-      <p className="text-[10px] uppercase tracking-wider text-white/60">{label}</p>
-      <p className="text-[13px] font-medium break-words" style={{ color }}>{value}</p>
+    <div className="min-w-0">
+      <p className="text-[10px] uppercase tracking-[0.14em] opacity-60">{label}</p>
+      <p className="truncate text-[13px] font-semibold">{value}</p>
+    </div>
+  );
+}
+
+function ContactBlock({
+  title,
+  line1,
+  line2,
+  line3
+}: {
+  title: string;
+  line1: string;
+  line2: string;
+  line3: string;
+}) {
+  return (
+    <div className="rounded-[13px] border px-3.5 py-3 backdrop-blur-sm" style={{ borderColor: "rgba(255,255,255,0.24)", backgroundColor: "rgba(0,0,0,0.22)" }}>
+      <p className="text-[10px] font-semibold uppercase tracking-[0.16em] opacity-65">{title}</p>
+      <p className="mt-1 text-[13px] font-semibold break-words">{line1}</p>
+      <p className="text-[12px] break-words opacity-85">{line2}</p>
+      <p className="text-[11px] break-words opacity-70">{line3}</p>
     </div>
   );
 }
