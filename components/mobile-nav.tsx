@@ -42,6 +42,13 @@ export function MobileNav({
   // Close drawer on navigation
   useEffect(() => { setOpen(false); }, [pathname]);
 
+  // Allow top-header profile button to open this menu.
+  useEffect(() => {
+    const onOpen = () => setOpen(true);
+    window.addEventListener("eduhub:open-mobile-menu", onOpen);
+    return () => window.removeEventListener("eduhub:open-mobile-menu", onOpen);
+  }, []);
+
   // Lock body scroll when drawer open
   useEffect(() => {
     const html = document.documentElement;

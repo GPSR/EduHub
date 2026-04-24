@@ -8,6 +8,7 @@ import { UserMenu } from "@/components/user-menu";
 import { BrandIcon } from "@/components/brand";
 import { PWAInstallPrompt } from "@/components/pwa-install-prompt";
 import { PullToRefresh } from "@/components/pull-to-refresh";
+import { MobileProfileTrigger } from "@/components/mobile-profile-trigger";
 import { getEffectivePermissions, atLeastLevel } from "@/lib/permissions";
 import { prisma } from "@/lib/db";
 import { getUserProfileImageUrl } from "@/lib/uploads";
@@ -54,33 +55,27 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         {/* ── Top header with iOS safe-area top ── */}
         <header className="header-safe sticky top-0 z-20 border-b border-white/[0.08] bg-[#060912]/90 backdrop-blur-xl">
           <div className="mx-auto max-w-[1320px] px-4 md:px-6 h-[62px] flex items-center justify-between gap-4">
-            <Link href="/dashboard" className="flex items-center gap-3 group shrink-0">
-              {school?.brandingLogoUrl ? (
-                <Image
-                  src={school.brandingLogoUrl}
-                  alt="School Logo"
-                  width={30}
-                  height={30}
-                  className="h-[30px] w-[30px] rounded-[8px] object-cover border border-white/[0.12]"
-                />
-              ) : (
-                <BrandIcon size={30} />
-              )}
-              <span className="hidden sm:block text-[15px] font-semibold text-white/90 group-hover:text-white transition">
-                {school?.brandingLogoUrl ? (school?.name ?? "School") : "EduHub"}
-              </span>
-            </Link>
+            <div className="flex items-center gap-2 shrink-0">
+              <MobileProfileTrigger userName={user.name} photoUrl={userPhotoUrl ?? undefined} />
+              <Link href="/dashboard" className="flex items-center gap-3 group shrink-0">
+                {school?.brandingLogoUrl ? (
+                  <Image
+                    src={school.brandingLogoUrl}
+                    alt="School Logo"
+                    width={30}
+                    height={30}
+                    className="h-[30px] w-[30px] rounded-[8px] object-cover border border-white/[0.12]"
+                  />
+                ) : (
+                  <BrandIcon size={30} />
+                )}
+                <span className="hidden sm:block text-[15px] font-semibold text-white/90 group-hover:text-white transition">
+                  {school?.brandingLogoUrl ? (school?.name ?? "School") : "EduHub"}
+                </span>
+              </Link>
+            </div>
             <div className="flex items-center gap-2">
               <Badge tone="info">{session.roleKey}</Badge>
-              <MobileNav
-                role={session.roleKey}
-                userName={user.name}
-                userEmail={user.email}
-                items={mobileItems}
-                moreItems={mobileMore}
-                unreadCount={unreadCount}
-                feedUnreadCount={feedUnreadCount}
-              />
               <UserMenu userName={user.name} userEmail={user.email} photoUrl={userPhotoUrl ?? undefined} />
             </div>
           </div>
@@ -155,6 +150,16 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           {/* ── Main content ── */}
           <main className="min-w-0 space-y-5">{children}</main>
         </div>
+
+        <MobileNav
+          role={session.roleKey}
+          userName={user.name}
+          userEmail={user.email}
+          items={mobileItems}
+          moreItems={mobileMore}
+          unreadCount={unreadCount}
+          feedUnreadCount={feedUnreadCount}
+        />
 
         {/* PWA install prompt (mobile only) */}
         <PWAInstallPrompt />
