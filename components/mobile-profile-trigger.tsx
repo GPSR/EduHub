@@ -20,7 +20,7 @@ export function MobileProfileTrigger({
   return (
     <Link
       href="/profile"
-      className="md:hidden inline-flex items-center gap-2 rounded-[12px] border border-white/[0.10] bg-white/[0.05] px-2.5 py-1.5 text-white/90"
+      className="md:hidden inline-flex items-center justify-center rounded-[12px] border border-white/[0.10] bg-white/[0.05] p-1.5 text-white/90"
       aria-label="Open profile"
     >
       {photoUrl ? (
@@ -36,7 +36,6 @@ export function MobileProfileTrigger({
           {avatar}
         </span>
       )}
-      <span className="text-[11px] font-semibold text-white/75">Profile</span>
     </Link>
   );
 }

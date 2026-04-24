@@ -3,6 +3,7 @@ import { Badge, Card, Button } from "@/components/ui";
 import { prisma } from "@/lib/db";
 import { requirePlatformUser } from "@/lib/platform-require";
 import { ImpersonateLauncher } from "./ui";
+import { PlatformGlobalSearch } from "./platform-global-search";
 
 function centsToUsd(cents: number) {
   return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(cents / 100);
@@ -30,6 +31,7 @@ export default async function PlatformHomePage({
 
   const monthStart  = new Date(); monthStart.setDate(1); monthStart.setHours(0,0,0,0);
   const last30Days  = new Date(Date.now() - 30 * 86400000);
+  const isSuperAdmin = user.role === "SUPER_ADMIN";
 
   const assignedIds = (await prisma.platformUserSchoolAssignment.findMany({
     where: { platformUserId: user.id }, select: { schoolId: true },
@@ -37,7 +39,7 @@ export default async function PlatformHomePage({
 
   const schoolFilter = {
     ...(query ? { OR: [{ name: { contains: query } }, { slug: { contains: query } }] } : {}),
-    ...(assignedIds ? { id: { in: assignedIds } } : {}),
+    ...(!isSuperAdmin ? { id: { in: assignedIds } } : {}),
   };
 
   const [schools, totalSchools, totalStudents, totalTeachers, totalRev, monthlyRev, last30Rev, pendingOnboarding] =
@@ -47,23 +49,23 @@ export default async function PlatformHomePage({
         include: { subscription: { include: { customPlan: true } }, users: { select: { id: true } }, students: { select: { id: true } } },
         orderBy: { createdAt: "desc" }, take: 200,
       }),
-      prisma.school.count({ where: { id: { in: assignedIds } } }),
-      prisma.student.count({ where: { schoolId: { in: assignedIds } } }),
-      prisma.user.count({ where: { schoolId: { in: assignedIds }, schoolRole: { key: { in: ["TEACHER","CLASS_TEACHER"] } } } }),
-      prisma.feePayment.aggregate({ where: { invoice: { schoolId: { in: assignedIds } } }, _sum: { amountCents: true } }),
-      prisma.feePayment.aggregate({ where: { invoice: { schoolId: { in: assignedIds } }, paidAt: { gte: monthStart } }, _sum: { amountCents: true } }),
-      prisma.feePayment.aggregate({ where: { invoice: { schoolId: { in: assignedIds } }, paidAt: { gte: last30Days } }, _sum: { amountCents: true } }),
+      prisma.school.count({ where: !isSuperAdmin ? { id: { in: assignedIds } } : undefined }),
+      prisma.student.count({ where: !isSuperAdmin ? { schoolId: { in: assignedIds } } : undefined }),
+      prisma.user.count({ where: { ...(!isSuperAdmin ? { schoolId: { in: assignedIds } } : {}), schoolRole: { key: { in: ["TEACHER","CLASS_TEACHER"] } } } }),
+      prisma.feePayment.aggregate({ where: { ...(!isSuperAdmin ? { invoice: { schoolId: { in: assignedIds } } } : {}) }, _sum: { amountCents: true } }),
+      prisma.feePayment.aggregate({ where: { ...(!isSuperAdmin ? { invoice: { schoolId: { in: assignedIds } } } : {}), paidAt: { gte: monthStart } }, _sum: { amountCents: true } }),
+      prisma.feePayment.aggregate({ where: { ...(!isSuperAdmin ? { invoice: { schoolId: { in: assignedIds } } } : {}), paidAt: { gte: last30Days } }, _sum: { amountCents: true } }),
       0,
     ]);
 
   const quickSearchSchools = await prisma.school.findMany({
-    where: assignedIds ? { id: { in: assignedIds } } : undefined,
+    where: !isSuperAdmin ? { id: { in: assignedIds } } : undefined,
     select: { id: true, name: true, slug: true },
     orderBy: { createdAt: "desc" },
     take: 120
   });
   const quickSearchSchoolUsers = await prisma.user.findMany({
-    where: assignedIds ? { schoolId: { in: assignedIds } } : undefined,
+    where: !isSuperAdmin ? { schoolId: { in: assignedIds } } : undefined,
     select: { id: true, name: true, email: true, schoolId: true },
     orderBy: { createdAt: "desc" },
     take: 160
@@ -78,32 +80,11 @@ export default async function PlatformHomePage({
   return (
     <div className="space-y-6 animate-fade-up">
       <Card>
-        <form action="/platform" method="get" className="space-y-2">
-          <label className="text-[12px] font-medium text-white/70">Global Search (schools + users)</label>
-          <div className="relative">
-            <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-white/45" aria-hidden="true">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-                <path d="M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14Zm9 16-3.5-3.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-              </svg>
-            </span>
-            <input
-              name="q"
-              defaultValue={query}
-              autoComplete="off"
-              placeholder="Search schools or users and press Enter"
-              className="w-full rounded-full bg-black/25 border border-white/10 pl-10 pr-12 py-2.5 outline-none focus:border-indigo-400 focus:ring-4 focus:ring-indigo-500/15 transition text-sm"
-            />
-            <button
-              type="submit"
-              aria-label="Search"
-              className="absolute right-1.5 top-1/2 -translate-y-1/2 h-9 w-9 rounded-full bg-indigo-500 text-white hover:bg-indigo-400 transition inline-flex items-center justify-center"
-            >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-                <path d="M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14Zm9 16-3.5-3.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-              </svg>
-            </button>
-          </div>
-        </form>
+        <PlatformGlobalSearch
+          initialQuery={query}
+          schools={quickSearchSchools}
+          users={quickSearchSchoolUsers.map((u) => ({ id: u.id, name: u.name, email: u.email }))}
+        />
       </Card>
 
       {/* ── Hero ── */}

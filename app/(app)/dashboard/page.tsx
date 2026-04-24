@@ -1,10 +1,11 @@
-import { Card, SectionHeader, Badge, Button } from "@/components/ui";
+import { Card, SectionHeader } from "@/components/ui";
 import { prisma } from "@/lib/db";
 import { requireSession } from "@/lib/require";
 import { atLeastLevel, getEffectivePermissions } from "@/lib/permissions";
 import { requirePermission } from "@/lib/require-permission";
 import { redirect } from "next/navigation";
 import Link from "next/link";
+import { DashboardGlobalSearch } from "../dashboard-global-search";
 
 function startOfDay(d: Date) {
   const out = new Date(d);
@@ -87,8 +88,6 @@ export default async function DashboardPage({
     })
   ]);
 
-  const plan = school?.subscription?.plan ?? "TRIAL";
-  const isActive = school?.isActive ?? false;
   const canViewAttendance = perms["ATTENDANCE"] ? atLeastLevel(perms["ATTENDANCE"], "VIEW") : false;
 
   const attendanceScopeLabel = "School-wide students";
@@ -166,36 +165,23 @@ export default async function DashboardPage({
       <SectionHeader title="Dashboard" subtitle={`Welcome back — ${school?.name ?? "your school"}`} />
 
       <Card>
-        <form action="/dashboard" method="get" className="grid grid-cols-1 lg:grid-cols-[1fr_auto] gap-3 items-end">
-          <div>
-            <label className="text-[12px] font-medium text-white/70">Global Search (teachers + students)</label>
-            <input
-              name="q"
-              defaultValue={query}
-              list="school-dashboard-global-search"
-              placeholder="Search teacher name/email or student name/ID"
-              className="mt-1 w-full rounded-xl bg-black/25 border border-white/10 px-3 py-2.5 outline-none focus:border-indigo-400 focus:ring-4 focus:ring-indigo-500/15 transition text-sm"
-            />
-            <datalist id="school-dashboard-global-search">
-              {quickSearchStudents.map((s) => (
-                <option key={`student-name-${s.id}`} value={s.fullName}>{`Student · ${s.studentId}`}</option>
-              ))}
-              {quickSearchStudents.map((s) => (
-                <option key={`student-id-${s.id}`} value={s.studentId}>{`Student ID · ${s.fullName}`}</option>
-              ))}
-              {quickSearchTeachers.map((t) => (
-                <option key={`teacher-email-${t.id}`} value={t.email}>{`Teacher · ${t.name}`}</option>
-              ))}
-              {quickSearchTeachers.map((t) => (
-                <option key={`teacher-name-${t.id}`} value={t.name}>{`Teacher · ${t.email}`}</option>
-              ))}
-            </datalist>
-          </div>
-          <div className="flex gap-2">
-            <Button type="submit">Search</Button>
-            <Link href="/dashboard"><Button type="button" variant="secondary">Clear</Button></Link>
-          </div>
-        </form>
+        <DashboardGlobalSearch
+          initialQuery={query}
+          students={quickSearchStudents.map((s) => ({
+            id: s.id,
+            fullName: s.fullName,
+            studentId: s.studentId,
+            admissionNo: s.admissionNo ?? null,
+            rollNumber: s.rollNumber ?? null,
+            classLabel: s.class ? `${s.class.name}${s.class.section ? `-${s.class.section}` : ""}` : null
+          }))}
+          teachers={quickSearchTeachers.map((t) => ({
+            id: t.id,
+            name: t.name,
+            email: t.email,
+            roleName: t.schoolRole.name
+          }))}
+        />
       </Card>
 
       {/* Stat grid */}
@@ -271,50 +257,26 @@ export default async function DashboardPage({
         </Card>
       )}
 
-      {/* School info */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <Card title="School" accent="indigo">
-          <div className="space-y-3">
-            <Link href="/admin/settings" className="block rounded-[10px] px-2 py-1.5 -mx-2 hover:bg-white/[0.05] transition-colors">
-              <p className="text-xs text-white/40 font-medium uppercase tracking-wider mb-1">Name</p>
-              <p className="text-[15px] font-semibold text-white/90">{school?.name ?? "—"}</p>
-            </Link>
-            <div className="flex items-center gap-3">
-              <Link href="/admin/settings" className="block rounded-[10px] px-2 py-1.5 -mx-2 hover:bg-white/[0.05] transition-colors">
-                <p className="text-xs text-white/40 font-medium uppercase tracking-wider mb-1">Plan</p>
-                <Badge tone={plan === "TRIAL" ? "warning" : "success"}>{plan}</Badge>
-              </Link>
-              <Link href="/admin/settings" className="block rounded-[10px] px-2 py-1.5 -mx-2 hover:bg-white/[0.05] transition-colors">
-                <p className="text-xs text-white/40 font-medium uppercase tracking-wider mb-1">Status</p>
-                <Badge tone={isActive ? "success" : "danger"} dot>
-                  {isActive ? "Active" : "Inactive"}
-                </Badge>
-              </Link>
-            </div>
-          </div>
-        </Card>
-
-        <Card title="Quick Access" accent="teal">
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-            {[
-              { href: "/students",   icon: "👥", label: "Students"   },
-              { href: "/fees",       icon: "💳", label: "Fees"       },
-              { href: "/attendance", icon: "✅", label: "Attendance" },
-              { href: "/feed",       icon: "📢", label: "Feed"       },
-            ].map(item => (
-              <a
-                key={item.href}
-                href={item.href}
-                className="flex items-center gap-2.5 rounded-[13px] border border-white/[0.07] bg-white/[0.03]
-                           px-3.5 py-3 hover:bg-white/[0.07] hover:border-white/[0.12] transition-all duration-150"
-              >
-                <span className="text-lg leading-none">{item.icon}</span>
-                <span className="text-[13px] font-medium text-white/80">{item.label}</span>
-              </a>
-            ))}
-          </div>
-        </Card>
-      </div>
+      <Card title="Quick Access" accent="teal">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+          {[
+            { href: "/students",   icon: "👥", label: "Students"   },
+            { href: "/fees",       icon: "💳", label: "Fees"       },
+            { href: "/attendance", icon: "✅", label: "Attendance" },
+            { href: "/feed",       icon: "📢", label: "Feed"       },
+          ].map(item => (
+            <a
+              key={item.href}
+              href={item.href}
+              className="flex items-center gap-2.5 rounded-[13px] border border-white/[0.07] bg-white/[0.03]
+                         px-3.5 py-3 hover:bg-white/[0.07] hover:border-white/[0.12] transition-all duration-150"
+            >
+              <span className="text-lg leading-none">{item.icon}</span>
+              <span className="text-[13px] font-medium text-white/80">{item.label}</span>
+            </a>
+          ))}
+        </div>
+      </Card>
 
       <Card
         title="Attendance Trend (Last 14 Days)"

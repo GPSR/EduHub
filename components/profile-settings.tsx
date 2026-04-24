@@ -2,7 +2,7 @@
 
 import { useActionState } from "react";
 import { Button, Card, Input, Label, Select, Textarea } from "@/components/ui";
-import { changePasswordAction, updateProfileAction, uploadProfilePhotoAction, type ProfileState } from "@/app/(app)/profile/actions";
+import { changePasswordAction, updateProfileAction, type ProfileState } from "@/app/(app)/profile/actions";
 
 const initialState: ProfileState = { ok: true };
 
@@ -44,26 +44,10 @@ export function ProfileSettings({
 }) {
   const [profileState, profileAction, profilePending] = useActionState(updateProfileAction, initialState);
   const [pwState, pwAction, pwPending] = useActionState(changePasswordAction, initialState);
-  const [photoState, photoAction, photoPending] = useActionState(uploadProfilePhotoAction, initialState);
   const dobValue = dateOfBirth ? dateOfBirth.toISOString().slice(0, 10) : "";
 
   return (
     <div className="space-y-5">
-      <Card title="Profile Photo" description="Upload JPG, PNG or WEBP (max 3MB)" accent="teal">
-        <form action={photoAction} className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 items-end">
-          <div>
-            <Label required>Choose photo</Label>
-            <Input name="photo" type="file" accept="image/png,image/jpeg,image/webp" required />
-          </div>
-          <div className="md:justify-self-end">
-            <Button type="submit" disabled={photoPending}>
-              {photoPending ? "Uploading..." : "Upload photo"}
-            </Button>
-          </div>
-          <FormMessage state={photoState} />
-        </form>
-      </Card>
-
       {/* ── Personal info ── */}
       <Card title="Personal Information" description="Update your profile and contact details" accent="indigo">
         <form action={profileAction} className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">

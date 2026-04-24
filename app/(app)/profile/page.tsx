@@ -2,20 +2,25 @@ import { requireUser } from "@/lib/require";
 import { prisma } from "@/lib/db";
 import { Card, Badge, SectionHeader } from "@/components/ui";
 import { ProfileSettings } from "@/components/profile-settings";
-import Image from "next/image";
 import { getUserProfileImageUrl } from "@/lib/uploads";
+import { ProfileAvatarUploader } from "@/components/profile-avatar-uploader";
 
 export default async function ProfilePage() {
   const { user, session } = await requireUser();
   const [school, profilePhotoUrl] = await Promise.all([
     prisma.school.findUnique({
       where: { id: user.schoolId },
-      select: { name: true, slug: true },
+      select: {
+        name: true,
+        slug: true,
+        isActive: true,
+        subscription: { select: { plan: true } }
+      },
     }),
     getUserProfileImageUrl(user.schoolId, user.id)
   ]);
-
-  const initials = user.name.trim().split(/\s+/).map((p: string) => p[0]).slice(0, 2).join("").toUpperCase();
+  const schoolPlan = school?.subscription?.plan ?? "TRIAL";
+  const schoolStatus = school?.isActive ? "Active" : "Inactive";
 
   return (
     <div className="space-y-5 animate-fade-up">
@@ -24,21 +29,7 @@ export default async function ProfilePage() {
       {/* Profile hero */}
       <div className="rounded-[22px] border border-white/[0.08] bg-white/[0.04] p-6">
         <div className="flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-5">
-          {profilePhotoUrl ? (
-            <Image
-              src={profilePhotoUrl}
-              alt={user.name}
-              width={64}
-              height={64}
-              className="h-16 w-16 shrink-0 rounded-[18px] object-cover border border-white/[0.10]"
-            />
-          ) : (
-            <div className="grid h-14 w-14 sm:h-16 sm:w-16 shrink-0 place-items-center rounded-[16px] sm:rounded-[18px]
-                            bg-gradient-to-b from-indigo-400 to-indigo-600 text-xl font-bold text-white
-                            shadow-[0_8px_24px_-8px_rgba(99,102,241,0.6)]">
-              {initials}
-            </div>
-          )}
+          <ProfileAvatarUploader userName={user.name} photoUrl={profilePhotoUrl ?? undefined} />
           <div className="min-w-0">
             <h2 className="text-base sm:text-lg font-bold text-white/95 tracking-tight">{user.name}</h2>
             <p className="text-sm text-white/50 mt-0.5">{user.email}</p>
@@ -47,6 +38,8 @@ export default async function ProfilePage() {
               {school && (
                 <Badge tone="neutral">{school.name} <span className="opacity-50">({school.slug})</span></Badge>
               )}
+              <Badge tone={schoolPlan === "TRIAL" ? "warning" : "success"}>{schoolPlan}</Badge>
+              <Badge tone={schoolStatus === "Active" ? "success" : "danger"} dot>{schoolStatus}</Badge>
             </div>
           </div>
         </div>
@@ -59,6 +52,8 @@ export default async function ProfilePage() {
           <Field label="Email"      value={user.email} />
           <Field label="Role"       value={session.roleKey} />
           <Field label="School"     value={school ? `${school.name} (${school.slug})` : "—"} />
+          <Field label="School Plan" value={schoolPlan} />
+          <Field label="School Status" value={schoolStatus} />
         </div>
       </Card>
 
