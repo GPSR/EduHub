@@ -54,29 +54,45 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       <div className="min-h-dvh md:min-h-screen overflow-x-clip">
         {/* ── Top header with iOS safe-area top ── */}
         <header className="header-safe sticky top-0 z-20 border-b border-white/[0.08] bg-[#060912]/90 backdrop-blur-xl">
-          <div className="mx-auto max-w-[1320px] px-4 md:px-6 h-[62px] flex items-center justify-between gap-4">
-            <div className="flex items-center gap-2 shrink-0">
+          <div className="relative mx-auto max-w-[1320px] px-4 md:px-6 h-[62px] flex items-center justify-between gap-4">
+            <div className="flex items-center gap-2 shrink-0 md:hidden">
               <MobileProfileTrigger userName={user.name} photoUrl={userPhotoUrl ?? undefined} />
-              <Link href="/dashboard" className="flex items-center gap-3 group shrink-0">
-                {school?.brandingLogoUrl ? (
-                  <Image
-                    src={school.brandingLogoUrl}
-                    alt="School Logo"
-                    width={30}
-                    height={30}
-                    className="h-[30px] w-[30px] rounded-[8px] object-cover border border-white/[0.12]"
-                  />
-                ) : (
-                  <BrandIcon size={30} />
-                )}
-                <span className="hidden sm:block text-[15px] font-semibold text-white/90 group-hover:text-white transition">
-                  {school?.brandingLogoUrl ? (school?.name ?? "School") : "EduHub"}
-                </span>
-              </Link>
             </div>
+            <Link href="/dashboard" className="hidden md:flex items-center gap-3 group shrink-0">
+              {school?.brandingLogoUrl ? (
+                <Image
+                  src={school.brandingLogoUrl}
+                  alt="School Logo"
+                  width={30}
+                  height={30}
+                  className="h-[30px] w-[30px] rounded-[8px] object-cover border border-white/[0.12]"
+                />
+              ) : (
+                <BrandIcon size={30} />
+              )}
+              <span className="hidden sm:block text-[15px] font-semibold text-white/90 group-hover:text-white transition">
+                {school?.brandingLogoUrl ? (school?.name ?? "School") : "EduHub"}
+              </span>
+            </Link>
+            <Link href="/dashboard" className="md:hidden absolute left-1/2 -translate-x-1/2 inline-flex items-center justify-center">
+              {school?.brandingLogoUrl ? (
+                <Image
+                  src={school.brandingLogoUrl}
+                  alt="School Logo"
+                  width={30}
+                  height={30}
+                  className="h-[30px] w-[30px] rounded-[8px] object-cover border border-white/[0.12]"
+                />
+              ) : (
+                <BrandIcon size={30} />
+              )}
+            </Link>
             <div className="flex items-center gap-2">
-              <Badge tone="info">{session.roleKey}</Badge>
+              <div className="hidden md:block">
+                <Badge tone="info">{session.roleKey}</Badge>
+              </div>
               <UserMenu userName={user.name} userEmail={user.email} photoUrl={userPhotoUrl ?? undefined} />
+              <div className="md:hidden w-9" />
             </div>
           </div>
         </header>

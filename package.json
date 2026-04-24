@@ -17,7 +17,8 @@
     "mobile:open:android": "cap open android",
     "mobile:build": "next build && cap sync",
     "mobile:build:ios": "next build && cap sync ios",
-    "mobile:build:android": "next build && cap sync android"
+    "mobile:build:android": "next build && cap sync android",
+    "mobile:build:android:clean": "next build && cap sync android && cd android && ./gradlew clean assembleDebug"
   },
   "dependencies": {
     "@capacitor/android": "^7.0.0",

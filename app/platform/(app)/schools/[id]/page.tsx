@@ -20,10 +20,6 @@ export default async function PlatformSchoolPage({ params }: { params: Promise<{
   await requireSuperAdmin();
   const { id } = await params;
   await ensureBaseModules();
-  const schoolAppBaseUrl =
-    process.env.SCHOOL_APP_BASE_URL?.replace(/\/+$/, "") ||
-    process.env.NEXT_PUBLIC_SCHOOL_APP_BASE_URL?.replace(/\/+$/, "") ||
-    "https://schools.softlanetech.com";
 
   const school = await prisma.school.findUnique({
     where: { id },
@@ -81,32 +77,24 @@ export default async function PlatformSchoolPage({ params }: { params: Promise<{
         </Card>
 
         {/* Recent invites */}
-        <Card title="Recent Invites" accent="teal">
+        <Card title="Recent Invites (Masked)" accent="teal">
           {school.invites.length === 0 ? (
             <p className="text-sm text-white/40 py-4 text-center">No invites sent yet.</p>
           ) : (
             <div className="space-y-2 mt-1">
               {school.invites.map(inv => {
-                const inviteUrl = `${schoolAppBaseUrl}/accept-invite?token=${encodeURIComponent(inv.token)}`;
+                const [n, d] = inv.email.split("@");
+                const maskedEmail = n && d ? `${n.slice(0, 2)}***@${d}` : "hidden";
                 return (
                 <div key={inv.id} className="rounded-[12px] border border-white/[0.07] bg-white/[0.03] px-3.5 py-3">
                   <div className="flex items-center justify-between gap-2">
-                    <p className="text-[13px] font-medium text-white/80 truncate">{inv.email}</p>
+                    <p className="text-[13px] font-medium text-white/80 truncate">{maskedEmail}</p>
                     <Badge tone={inv.usedAt ? "success" : "neutral"}>{inv.usedAt ? "Used" : "Pending"}</Badge>
                   </div>
                   <p className="text-[11px] text-white/35 mt-0.5">
                     Expires {inv.expiresAt.toDateString()}
                     {inv.usedAt && ` · Used ${inv.usedAt.toDateString()}`}
                   </p>
-                  <a
-                    href={inviteUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="block text-[10px] font-mono text-indigo-300/80 hover:text-indigo-200 mt-1 break-all"
-                    title={inviteUrl}
-                  >
-                    {inviteUrl}
-                  </a>
                 </div>
                 );
               })}
@@ -115,13 +103,13 @@ export default async function PlatformSchoolPage({ params }: { params: Promise<{
         </Card>
       </div>
 
-      {/* Impersonate any user */}
-      <Card title="Impersonate User" description="Sign in as any school user for support and troubleshooting">
-        {school.users.length === 0 ? (
-          <p className="text-sm text-white/40 py-4 text-center">No users in this school yet.</p>
+      {/* Impersonate school admins only */}
+      <Card title="School Admin Access" description="For support, sign in only as school admin users">
+        {school.users.filter((u) => u.schoolRole.key === "ADMIN").length === 0 ? (
+          <p className="text-sm text-white/40 py-4 text-center">No school admin users found.</p>
         ) : (
           <div className="divide-y divide-white/[0.06] mt-2">
-            {school.users.map((u, i) => {
+            {school.users.filter((u) => u.schoolRole.key === "ADMIN").map((u, i) => {
               const initials = u.name.trim().split(/\s+/).map((p: string) => p[0]).slice(0,2).join("").toUpperCase();
               return (
                 <div key={u.id} className={`flex items-center gap-3 py-3 px-1
@@ -134,7 +122,7 @@ export default async function PlatformSchoolPage({ params }: { params: Promise<{
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-[13px] font-semibold text-white/85 truncate">{u.name}</p>
-                    <p className="text-[11px] text-white/40 truncate">{u.email} · {u.schoolRole.name}</p>
+                    <p className="text-[11px] text-white/40 truncate">{u.schoolRole.name}</p>
                   </div>
                   <form action={impersonateUserAction} method="post">
                     <input type="hidden" name="schoolId" value={school.id} />

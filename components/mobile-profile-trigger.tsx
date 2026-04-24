@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 
 function initials(name: string) {
   const parts = name.trim().split(/\s+/).filter(Boolean);
@@ -17,11 +18,10 @@ export function MobileProfileTrigger({
   const avatar = initials(userName);
 
   return (
-    <button
-      type="button"
-      onClick={() => window.dispatchEvent(new Event("eduhub:open-mobile-menu"))}
+    <Link
+      href="/profile"
       className="md:hidden inline-flex items-center gap-2 rounded-[12px] border border-white/[0.10] bg-white/[0.05] px-2.5 py-1.5 text-white/90"
-      aria-label="Open mobile menu"
+      aria-label="Open profile"
     >
       {photoUrl ? (
         <Image
@@ -37,6 +37,6 @@ export function MobileProfileTrigger({
         </span>
       )}
       <span className="text-[11px] font-semibold text-white/75">Profile</span>
-    </button>
+    </Link>
   );
 }
