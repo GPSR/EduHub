@@ -6,6 +6,7 @@ import { requirePermission } from "@/lib/require-permission";
 import { prisma } from "@/lib/db";
 import { getSchoolIdCardTemplate } from "@/lib/id-card-template";
 import { getSchoolProfile } from "@/lib/school-profile";
+import { getUserProfileImageUrl } from "@/lib/uploads";
 
 function initials(name: string) {
   return name
@@ -27,6 +28,15 @@ function barcodePattern(value: string) {
   return source.split("").map((char, index) => ((char.charCodeAt(0) + index) % 4) + 1);
 }
 
+function firstCsvValue(value?: string | null) {
+  if (!value) return null;
+  const first = value
+    .split(",")
+    .map((v) => v.trim())
+    .find((v) => v.length > 0);
+  return first ?? null;
+}
+
 export default async function StudentVirtualIdCardPage({ params }: { params: Promise<{ id: string }> }) {
   await requirePermission("STUDENTS", "VIEW");
   const session = await requireSession();
@@ -38,7 +48,16 @@ export default async function StudentVirtualIdCardPage({ params }: { params: Pro
         session.roleKey === "PARENT"
           ? { id, schoolId: session.schoolId, parents: { some: { userId: session.userId } } }
           : { id, schoolId: session.schoolId },
-      include: { class: true }
+      include: {
+        class: true,
+        parents: {
+          orderBy: { createdAt: "asc" },
+          select: {
+            userId: true,
+            user: { select: { name: true, email: true } }
+          }
+        }
+      }
     }),
     prisma.school.findUnique({ where: { id: session.schoolId }, select: { name: true, brandingLogoUrl: true } }),
     getSchoolIdCardTemplate(session.schoolId),
@@ -53,9 +72,22 @@ export default async function StudentVirtualIdCardPage({ params }: { params: Pro
   const issueDate = student.joiningDate ?? student.createdAt;
   const validTill = new Date(issueDate);
   validTill.setFullYear(validTill.getFullYear() + 1);
-  const parentName = student.fatherName ?? student.motherName ?? "—";
-  const parentContact = student.parentMobiles ?? student.parentEmails ?? "—";
+  const parentUserId =
+    session.roleKey === "PARENT"
+      ? (student.parents.some((p) => p.userId === session.userId) ? session.userId : student.parents[0]?.userId)
+      : student.parents[0]?.userId;
+  const parentUser =
+    parentUserId ? student.parents.find((p) => p.userId === parentUserId)?.user : student.parents[0]?.user;
+  const parentName = student.fatherName ?? student.motherName ?? parentUser?.name ?? "—";
+  const parentContact = student.parentMobiles ?? student.parentEmails ?? parentUser?.email ?? "—";
   const guardianContact = student.guardianMobile ?? student.guardianAltContact ?? "—";
+  const parentPhotoUrl = parentUserId ? await getUserProfileImageUrl(session.schoolId, parentUserId) : null;
+  const hasContactCards = template.showParent || template.showGuardian;
+  const primaryParentPhone = firstCsvValue(student.parentMobiles);
+  const schoolReturnLabel = footerText ? `${school.name}, ${footerText}` : school.name;
+  const foundCardMessage = primaryParentPhone
+    ? `If found, please return this card to ${schoolReturnLabel}, or call parent at ${primaryParentPhone}.`
+    : `If found, please return this card to ${schoolReturnLabel}, or contact school administration.`;
 
   return (
     <div className="space-y-5 animate-fade-up">
@@ -152,44 +184,31 @@ export default async function StudentVirtualIdCardPage({ params }: { params: Pro
               </div>
             </div>
 
-            {(template.showParent || template.showGuardian) && (
-              <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
-                {template.showParent ? (
-                  <ContactBlock
-                    title="Parent Contact"
-                    line1={parentName}
-                    line2={parentContact}
-                    line3={student.parentAddress ?? student.address ?? "—"}
-                  />
-                ) : null}
-                {template.showGuardian ? (
-                  <ContactBlock
-                    title="Guardian Contact"
-                    line1={student.guardianName ?? "—"}
-                    line2={guardianContact}
-                    line3={student.guardianRelationship ?? "—"}
-                  />
-                ) : null}
-              </div>
-            )}
-
-            <div className="mt-4 rounded-[14px] border px-3.5 py-3" style={{ borderColor: "rgba(255,255,255,0.24)", backgroundColor: "rgba(0,0,0,0.24)" }}>
-              <div className="h-9 w-full overflow-hidden rounded-[8px] border border-white/20 px-2 py-1">
-                <div className="flex h-full items-end gap-[2px]" style={{ color: template.accent }}>
-                  {barcodePattern(student.studentId).map((width, index) => (
-                    <span
-                      key={`${width}-${index}`}
-                      className="inline-block h-full rounded-[1px] bg-current opacity-95"
-                      style={{ width: `${width * 3}px`, height: index % 2 === 0 ? "100%" : "75%" }}
-                    />
-                  ))}
-                </div>
-              </div>
-              <div className="mt-3 grid grid-cols-3 gap-2">
-                <MetaLine label="Student ID" value={student.studentId} align="left" />
-                <MetaLine label="Issued" value={formatDate(issueDate)} align="center" />
-                <MetaLine label="Valid Till" value={formatDate(validTill)} align="right" />
-              </div>
+            <div className={hasContactCards ? "mt-4 grid grid-cols-1 gap-3 md:grid-cols-2" : "mt-4"}>
+              <IdentityMetaBlock
+                studentId={student.studentId}
+                issueDate={formatDate(issueDate)}
+                validTill={formatDate(validTill)}
+                accent={template.accent}
+              />
+              {template.showParent ? (
+                <ContactBlock
+                  title="Parent Contact"
+                  line1={parentName}
+                  line2={parentContact}
+                  line3={student.parentAddress ?? student.address ?? "—"}
+                  photoUrl={parentPhotoUrl}
+                />
+              ) : null}
+              {template.showGuardian ? (
+                <ContactBlock
+                  title="Guardian Contact"
+                  line1={student.guardianName ?? "—"}
+                  line2={guardianContact}
+                  line3={student.guardianRelationship ?? "—"}
+                  className={template.showParent ? "md:col-span-2" : undefined}
+                />
+              ) : null}
             </div>
 
             <div className="mt-4 border-t pt-3 text-center" style={{ borderColor: "rgba(255,255,255,0.2)" }}>
@@ -200,9 +219,7 @@ export default async function StudentVirtualIdCardPage({ params }: { params: Pro
           </div>
         </div>
 
-        <p className="mt-3 text-center text-xs text-white/45">
-          Digital student identity card. Verify with school administration for official use.
-        </p>
+        <p className="mt-3 text-center text-xs text-white/45">{foundCardMessage}</p>
       </div>
     </div>
   );
@@ -217,21 +234,70 @@ function InfoLine({ label, value }: { label: string; value: string }) {
   );
 }
 
+function IdentityMetaBlock({
+  studentId,
+  issueDate,
+  validTill,
+  accent
+}: {
+  studentId: string;
+  issueDate: string;
+  validTill: string;
+  accent: string;
+}) {
+  return (
+    <div className="rounded-[13px] border px-3.5 py-3 backdrop-blur-sm" style={{ borderColor: "rgba(255,255,255,0.24)", backgroundColor: "rgba(0,0,0,0.22)" }}>
+      <p className="text-[10px] font-semibold uppercase tracking-[0.16em] opacity-65">Card Details</p>
+      <div className="mt-2 h-8 w-full overflow-hidden rounded-[8px] border border-white/20 px-2 py-1">
+        <div className="flex h-full items-end gap-[2px]" style={{ color: accent }}>
+          {barcodePattern(studentId).map((width, index) => (
+            <span
+              key={`${width}-${index}`}
+              className="inline-block h-full rounded-[1px] bg-current opacity-95"
+              style={{ width: `${width * 3}px`, height: index % 2 === 0 ? "100%" : "75%" }}
+            />
+          ))}
+        </div>
+      </div>
+      <div className="mt-2 grid grid-cols-3 gap-2">
+        <MetaLine label="Student ID" value={studentId} align="left" />
+        <MetaLine label="Issued" value={issueDate} align="center" />
+        <MetaLine label="Valid Till" value={validTill} align="right" />
+      </div>
+    </div>
+  );
+}
+
 function ContactBlock({
   title,
   line1,
   line2,
-  line3
+  line3,
+  className,
+  photoUrl
 }: {
   title: string;
   line1: string;
   line2: string;
   line3: string;
+  className?: string;
+  photoUrl?: string | null;
 }) {
   return (
-    <div className="rounded-[13px] border px-3.5 py-3 backdrop-blur-sm" style={{ borderColor: "rgba(255,255,255,0.24)", backgroundColor: "rgba(0,0,0,0.22)" }}>
+    <div className={`rounded-[13px] border px-3.5 py-3 backdrop-blur-sm ${className ?? ""}`} style={{ borderColor: "rgba(255,255,255,0.24)", backgroundColor: "rgba(0,0,0,0.22)" }}>
       <p className="text-[10px] font-semibold uppercase tracking-[0.16em] opacity-65">{title}</p>
-      <p className="mt-1 text-[13px] font-semibold break-words">{line1}</p>
+      <div className="mt-1 flex items-center gap-2.5">
+        {photoUrl ? (
+          <Image
+            src={photoUrl}
+            alt={`${title} photo`}
+            width={40}
+            height={40}
+            className="h-10 w-10 rounded-[10px] border border-white/20 object-cover"
+          />
+        ) : null}
+        <p className="text-[13px] font-semibold break-words">{line1}</p>
+      </div>
       <p className="text-[12px] break-words opacity-85">{line2}</p>
       <p className="text-[11px] break-words opacity-70">{line3}</p>
     </div>

@@ -8,6 +8,7 @@ import { updateStudentAction } from "../../actions";
 import { ParentAddressField } from "@/components/parent-address-field";
 import { getSchoolStudentDemographicsConfig } from "@/lib/student-demographics";
 import Image from "next/image";
+import { getUserProfileImageUrl } from "@/lib/uploads";
 
 function dateValue(d: Date | null | undefined) {
   if (!d) return "";
@@ -37,7 +38,8 @@ export default async function EditStudentPage({ params }: { params: Promise<{ id
   });
   if (!student) return notFound();
   const demographicsConfig = await getSchoolStudentDemographicsConfig(session.schoolId);
-  const { uploadStudentPhotoAction } = await import("../../actions");
+  const parentPhotoUrl = !canEditStudents ? await getUserProfileImageUrl(session.schoolId, session.userId) : null;
+  const { uploadStudentPhotoAction, uploadParentPhotoAction } = await import("../../actions");
 
   return (
     <div className="space-y-5 animate-fade-up">
@@ -69,6 +71,29 @@ export default async function EditStudentPage({ params }: { params: Promise<{ id
           </div>
         </form>
       </Card>
+
+      {!canEditStudents ? (
+        <Card title="Parent Photo" description="Upload your photo to show in Parent Contact on the Smart ID card." accent="teal">
+          <form action={uploadParentPhotoAction} className="grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
+            <input type="hidden" name="id" value={student.id} />
+            <div className="flex items-center gap-3">
+              {parentPhotoUrl ? (
+                <Image src={parentPhotoUrl} alt="Parent profile photo" width={64} height={64} className="h-16 w-16 rounded-[12px] object-cover border border-white/[0.10]" />
+              ) : (
+                <div className="h-16 w-16 rounded-[12px] border border-white/[0.10] bg-white/[0.04] grid place-items-center text-[11px] text-white/40">No photo</div>
+              )}
+              <div className="min-w-0">
+                <Label required>Upload parent photo</Label>
+                <Input name="photo" type="file" accept="image/png,image/jpeg,image/webp" required />
+                <p className="mt-1 text-[11px] text-white/35">JPG/PNG/WEBP, max 1.5MB</p>
+              </div>
+            </div>
+            <div className="md:justify-self-end">
+              <Button type="submit">Upload parent photo</Button>
+            </div>
+          </form>
+        </Card>
+      ) : null}
 
       <Card>
         <form action={updateStudentAction} className="grid grid-cols-1 md:grid-cols-2 gap-5">
