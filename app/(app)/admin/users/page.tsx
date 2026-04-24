@@ -28,7 +28,7 @@ export default async function AdminUsersPage({
       where: { schoolId: session.schoolId },
       orderBy: { createdAt: "desc" },
       take: 200,
-      include: { schoolRole: true },
+      include: { schoolRole: true, classAssignments: { include: { class: true } } },
     }),
     prisma.student.findMany({
       where: { schoolId: session.schoolId },
@@ -44,6 +44,33 @@ export default async function AdminUsersPage({
     include: { module: true },
     orderBy: { module: { name: "asc" } },
   });
+
+  const userIds = users.map((u) => u.id);
+  const [feedCounts, recentFeedPosts] = userIds.length
+    ? await Promise.all([
+        prisma.feedPost.groupBy({
+          by: ["authorId"],
+          where: { schoolId: session.schoolId, authorId: { in: userIds } },
+          _count: { _all: true }
+        }),
+        prisma.feedPost.findMany({
+          where: { schoolId: session.schoolId, authorId: { in: userIds } },
+          select: { id: true, authorId: true, title: true, scope: true, classId: true, createdAt: true },
+          orderBy: { createdAt: "desc" },
+          take: 700
+        })
+      ])
+    : [[], []];
+
+  const classLabelById = new Map(classes.map((c) => [c.id, `${c.name}${c.section ? `-${c.section}` : ""}`]));
+  const feedCountByAuthorId = new Map(feedCounts.map((entry) => [entry.authorId, entry._count._all]));
+  const recentFeedByAuthorId = new Map<string, Array<{ id: string; title: string; scope: string; classId: string | null; createdAt: Date }>>();
+  for (const post of recentFeedPosts) {
+    const existing = recentFeedByAuthorId.get(post.authorId) ?? [];
+    if (existing.length >= 3) continue;
+    existing.push(post);
+    recentFeedByAuthorId.set(post.authorId, existing);
+  }
 
   return (
     <div className="space-y-5 animate-fade-up">
@@ -63,6 +90,9 @@ export default async function AdminUsersPage({
         <div className="divide-y divide-white/[0.06]">
           {users.map((u, i) => {
             const initials = u.name.trim().split(/\s+/).map(p => p[0]).slice(0, 2).join("").toUpperCase();
+            const classLabels = u.classAssignments.map((assignment) => classLabelById.get(assignment.classId) ?? assignment.class.name).filter(Boolean);
+            const feedCount = feedCountByAuthorId.get(u.id) ?? 0;
+            const recentFeed = recentFeedByAuthorId.get(u.id) ?? [];
             return (
               <div
                 key={u.id}
@@ -117,6 +147,54 @@ export default async function AdminUsersPage({
                     </form>
                   </div>
                 )}
+
+                <details className="w-full rounded-[12px] border border-white/[0.07] bg-white/[0.03]">
+                  <summary className="cursor-pointer list-none px-3 py-2.5 text-[12px] font-semibold uppercase tracking-wider text-white/55">
+                    View User Information
+                  </summary>
+                  <div className="border-t border-white/[0.07] px-3 py-3 space-y-4">
+                    <div>
+                      <p className="text-[11px] font-semibold uppercase tracking-wider text-white/35 mb-2">Contact Information</p>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                        <InfoField label="Email" value={u.email} />
+                        <InfoField label="Phone" value={u.phoneNumber ?? "—"} />
+                        <InfoField label="Alternate Phone" value={u.alternatePhoneNumber ?? "—"} />
+                        <InfoField label="Address" value={u.address ?? "—"} />
+                        <InfoField label="Location" value={[u.city, u.state, u.country].filter(Boolean).join(", ") || "—"} />
+                        <InfoField label="Postal Code" value={u.postalCode ?? "—"} />
+                      </div>
+                    </div>
+
+                    <div>
+                      <p className="text-[11px] font-semibold uppercase tracking-wider text-white/35 mb-2">Academic Information</p>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                        <InfoField label="Role" value={u.schoolRole.name} />
+                        <InfoField label="Class Assignments" value={classLabels.length ? classLabels.join(", ") : "No class assigned"} />
+                        <InfoField label="Class Teacher" value={u.classAssignments.some((a) => a.isClassTeacher) ? "Yes" : "No"} />
+                      </div>
+                    </div>
+
+                    <div>
+                      <p className="text-[11px] font-semibold uppercase tracking-wider text-white/35 mb-2">Feed Information</p>
+                      <div className="rounded-[10px] border border-white/[0.07] bg-black/20 p-3">
+                        <p className="text-[13px] text-white/80 mb-2">
+                          Total posts: <span className="font-semibold text-indigo-300">{feedCount}</span>
+                        </p>
+                        {recentFeed.length === 0 ? (
+                          <p className="text-[12px] text-white/45">No feed posts yet.</p>
+                        ) : (
+                          <div className="space-y-1.5">
+                            {recentFeed.map((post) => (
+                              <p key={post.id} className="text-[12px] text-white/65 break-words">
+                                {post.title} · {post.scope === "CLASS" ? `Class ${post.classId && classLabelById.get(post.classId) ? classLabelById.get(post.classId) : "Feed"}` : "School Feed"} · {post.createdAt.toDateString()}
+                              </p>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </details>
               </div>
             );
           })}
@@ -132,6 +210,15 @@ export default async function AdminUsersPage({
         students={students.map(s => ({ id: s.id, fullName: s.fullName, classId: s.classId ?? null }))}
         classes={classes.map(c => ({ id: c.id, label: `${c.name}${c.section ? `-${c.section}` : ""}` }))}
       />
+    </div>
+  );
+}
+
+function InfoField({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <p className="text-[10px] font-semibold uppercase tracking-wider text-white/35 mb-1">{label}</p>
+      <p className="text-[13px] text-white/80 break-words">{value}</p>
     </div>
   );
 }

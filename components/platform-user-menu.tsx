@@ -1,249 +1,130 @@
 "use client";
 
-import { useState, useActionState, useEffect, useRef } from "react";
+import Image from "next/image";
+import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { clsx } from "clsx";
-import { Button, Input, Label } from "@/components/ui";
-import { updatePlatformProfileAction, changePlatformPasswordAction, type PlatformProfileState } from "@/app/platform/(app)/profile/actions";
 
-const initialState: PlatformProfileState = { ok: true };
-
-function FormMsg({ state }: { state: PlatformProfileState }) {
-  if (!state.message) return null;
-  return (
-    <div className={["flex items-start gap-2 rounded-[10px] border p-3 text-xs",
-      state.ok ? "border-emerald-500/25 bg-emerald-500/10 text-emerald-200"
-               : "border-rose-500/25 bg-rose-500/10 text-rose-200"].join(" ")}>
-      <span>{state.ok ? "✓" : "⚠"}</span>{state.message}
-    </div>
-  );
+function initials(name: string) {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  return ((parts[0]?.[0] ?? "") + (parts.length > 1 ? parts[parts.length - 1]?.[0] ?? "" : "")).toUpperCase();
 }
 
-function ValueRow({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <p className="text-[11px] font-semibold uppercase tracking-wider text-white/35">{label}</p>
-      <p className="text-[13px] text-white/85 break-all">{value || "—"}</p>
-    </div>
-  );
-}
-
-export function PlatformUserMenu({ name, email }: { name: string; email: string }) {
+export function PlatformUserMenu({
+  name,
+  email,
+  photoUrl
+}: {
+  name: string;
+  email: string;
+  photoUrl?: string | null;
+}) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
-  const [editingProfile, setEditingProfile] = useState(false);
-  const [editingPassword, setEditingPassword] = useState(false);
-  const ref = useRef<HTMLDivElement | null>(null);
-  const [profileState, profileAction, profilePending] = useActionState(updatePlatformProfileAction, initialState);
-  const [pwState, pwAction, pwPending] = useActionState(changePlatformPasswordAction, initialState);
+  const panelRef = useRef<HTMLDivElement | null>(null);
+  const avatar = useMemo(() => initials(name), [name]);
 
   useEffect(() => {
     setOpen(false);
-    setEditingProfile(false);
-    setEditingPassword(false);
   }, [pathname]);
 
   useEffect(() => {
     if (!open) return;
-    const handler = (e: MouseEvent | TouchEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-    };
-    document.addEventListener("mousedown", handler);
-    document.addEventListener("touchstart", handler);
-    return () => {
-      document.removeEventListener("mousedown", handler);
-      document.removeEventListener("touchstart", handler);
-    };
-  }, [open]);
-
-  useEffect(() => {
-    if (profileState.ok && profileState.message) setEditingProfile(false);
-  }, [profileState]);
-
-  useEffect(() => {
-    if (pwState.ok && pwState.message) setEditingPassword(false);
-  }, [pwState]);
-
-  useEffect(() => {
-    if (!open) return;
-    const html = document.documentElement;
-    const body = document.body;
-    const current = Number(body.dataset.scrollLockCount ?? "0");
-    body.dataset.scrollLockCount = String(current + 1);
-    html.style.overflow = "hidden";
-    body.style.overflow = "hidden";
-    return () => {
-      const next = Math.max(0, Number(body.dataset.scrollLockCount ?? "1") - 1);
-      body.dataset.scrollLockCount = String(next);
-      if (next === 0) {
-        html.style.overflow = "";
-        body.style.overflow = "";
+    const onKey = (event: KeyboardEvent) => event.key === "Escape" && setOpen(false);
+    const onClick = (event: MouseEvent) => {
+      if (panelRef.current && event.target instanceof Node && !panelRef.current.contains(event.target)) {
+        setOpen(false);
       }
     };
+    window.addEventListener("keydown", onKey);
+    window.addEventListener("mousedown", onClick);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      window.removeEventListener("mousedown", onClick);
+    };
   }, [open]);
 
-  const initials = name.trim().split(/\s+/).map(p => p[0]).slice(0,2).join("").toUpperCase();
-  const panelContent = (
-    <>
-      {/* User info header */}
-      <div className="pb-4 border-b border-white/[0.07] mb-4">
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex items-center gap-3 min-w-0">
-            <div className="grid h-10 w-10 place-items-center rounded-[11px]
-                            bg-gradient-to-b from-indigo-400 to-indigo-600
-                            text-sm font-bold text-white shadow-sm shrink-0">
-              {initials}
-            </div>
-            <div className="min-w-0">
-              <p className="text-[14px] font-semibold text-white/90 truncate">{name}</p>
-              <p className="text-[11px] text-white/40 break-all">{email}</p>
-            </div>
-          </div>
-          <form action="/platform/logout" method="post" className="shrink-0">
-            <button
-              type="submit"
-              className="inline-flex items-center gap-1.5 rounded-[9px] border border-rose-500/25 bg-rose-500/[0.10] px-2.5 py-1 text-[11px] font-semibold text-rose-300 hover:bg-rose-500/[0.20] transition"
-            >
-              ↗ Sign out
-            </button>
-          </form>
-        </div>
-      </div>
-
-      <section className="rounded-[14px] border border-white/[0.14] bg-white/[0.08] p-3.5">
-        <div className="flex items-center justify-between gap-2">
-          <p className="text-[11px] font-semibold uppercase tracking-wider text-white/35">Profile</p>
-          {!editingProfile && (
-            <button
-              type="button"
-              onClick={() => setEditingProfile(true)}
-              className="inline-flex items-center gap-1.5 rounded-[9px] border border-white/[0.10] bg-white/[0.06] px-2.5 py-1 text-[11px] font-semibold text-white/80 hover:bg-white/[0.10] transition"
-            >
-              ✎ Edit
-            </button>
-          )}
-        </div>
-        {!editingProfile ? (
-          <div className="mt-3 space-y-3">
-            <ValueRow label="Name" value={name} />
-            <ValueRow label="Email" value={email} />
-          </div>
-        ) : (
-          <form action={profileAction} className="mt-3 space-y-3">
-            <div>
-              <Label required>Name</Label>
-              <Input name="name" defaultValue={name} required />
-            </div>
-            <div>
-              <Label required>Email</Label>
-              <Input name="email" type="email" defaultValue={email} required />
-            </div>
-            <FormMsg state={profileState} />
-            <div className="flex justify-end gap-2">
-              <Button type="button" variant="secondary" size="sm" onClick={() => setEditingProfile(false)} disabled={profilePending}>
-                Cancel
-              </Button>
-              <Button type="submit" size="sm" disabled={profilePending}>
-                {profilePending ? "Saving…" : "Save profile"}
-              </Button>
-            </div>
-          </form>
-        )}
-      </section>
-
-      <section className="mt-3 rounded-[14px] border border-white/[0.14] bg-white/[0.08] p-3.5">
-        <div className="flex items-center justify-between gap-2">
-          <p className="text-[11px] font-semibold uppercase tracking-wider text-white/35">Change password</p>
-          {!editingPassword && (
-            <button
-              type="button"
-              onClick={() => setEditingPassword(true)}
-              className="inline-flex items-center gap-1.5 rounded-[9px] border border-white/[0.10] bg-white/[0.06] px-2.5 py-1 text-[11px] font-semibold text-white/80 hover:bg-white/[0.10] transition"
-            >
-              ✎ Edit
-            </button>
-          )}
-        </div>
-        {!editingPassword ? (
-          <p className="mt-3 text-xs text-white/55">
-            Password is hidden for security. Click edit to change it.
-          </p>
-        ) : (
-          <form action={pwAction} className="mt-3 space-y-3">
-            <Input name="currentPassword" type="password" placeholder="Current password" required />
-            <Input name="newPassword"     type="password" placeholder="New password (min 10)" minLength={10} required />
-            <Input name="confirmPassword" type="password" placeholder="Confirm new password" minLength={10} required />
-            <FormMsg state={pwState} />
-            <div className="flex justify-end gap-2">
-              <Button type="button" variant="secondary" size="sm" onClick={() => setEditingPassword(false)} disabled={pwPending}>
-                Cancel
-              </Button>
-              <Button type="submit" size="sm" disabled={pwPending}>
-                {pwPending ? "Updating…" : "Update password"}
-              </Button>
-            </div>
-          </form>
-        )}
-      </section>
-    </>
-  );
-
   return (
-    <div className="relative" ref={ref}>
+    <div className="relative hidden md:block" ref={panelRef}>
       <button
         type="button"
-        onClick={() => setOpen(v => !v)}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        onClick={() => setOpen((value) => !value)}
         className={clsx(
-          "inline-flex items-center gap-2 rounded-[12px] border px-2.5 py-1.5 text-white/90 transition-all",
+          "flex items-center gap-2.5 rounded-[13px] border px-3 py-2 transition-all",
           open
-            ? "border-indigo-400/35 bg-indigo-500/[0.18]"
-            : "border-white/[0.16] bg-white/[0.08] hover:bg-white/[0.14]"
+            ? "border-indigo-400/35 bg-indigo-500/[0.16]"
+            : "border-white/[0.10] bg-white/[0.05] hover:bg-white/[0.09] hover:border-white/[0.14]"
         )}
-        aria-label="Open profile menu"
       >
-        <div className="grid h-6 w-6 place-items-center rounded-[7px]
-                        bg-gradient-to-b from-indigo-400 to-indigo-600 text-[10px] font-bold text-white">
-          {initials}
+        {photoUrl ? (
+          <Image
+            src={photoUrl}
+            alt={name}
+            width={32}
+            height={32}
+            className="h-8 w-8 rounded-[10px] object-cover border border-white/[0.12]"
+          />
+        ) : (
+          <div
+            className="grid h-8 w-8 place-items-center rounded-[10px]
+                       bg-gradient-to-b from-indigo-400 to-indigo-600 text-xs font-bold text-white shadow-sm"
+          >
+            {avatar}
+          </div>
+        )}
+        <div className="max-w-[140px] text-left">
+          <div className="truncate text-[13px] font-semibold leading-tight text-white/90">{name}</div>
+          <div className="truncate text-[11px] leading-tight text-white/45">{email}</div>
         </div>
-        <span className="text-[12px] font-semibold sm:hidden">Menu</span>
-        <span className="text-sm font-medium text-white/80 hidden sm:block truncate max-w-[9rem]">{name}</span>
-        <span className="text-white/60 text-[11px] leading-none">{open ? "▲" : "▼"}</span>
+        <svg
+          width="12"
+          height="12"
+          viewBox="0 0 12 12"
+          fill="none"
+          className={clsx("text-white/35 transition-transform", open && "rotate-180")}
+        >
+          <path d="M2 4l4 4 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
       </button>
 
       {open && (
-        <>
-          <button
-            type="button"
-            aria-label="Close profile menu"
-            onClick={() => setOpen(false)}
-            className="hidden md:block fixed inset-0 z-[70] bg-black/50 backdrop-blur-[1.5px]"
-          />
-          <button
-            type="button"
-            aria-label="Close profile menu"
-            onClick={() => setOpen(false)}
-            className="md:hidden fixed inset-0 z-[70] bg-black/75 backdrop-blur-sm"
-          />
-          <div className="md:hidden fixed inset-x-2 bottom-[calc(5.5rem+env(safe-area-inset-bottom,0px))] top-[calc(env(safe-area-inset-top,0px)+56px)] z-[80]">
-            <div
-              className="h-full overflow-y-auto rounded-[20px] border border-indigo-300/35
-                         bg-[#111a31]/98 backdrop-blur-2xl p-4
-                         shadow-[0_28px_90px_-24px_rgba(0,0,0,0.9),0_0_0_1px_rgba(129,140,248,0.26)]
-                         animate-fade-up"
-              style={{ animationDuration: "0.15s" }}
-            >
-              {panelContent}
+        <div
+          role="menu"
+          className="absolute right-0 z-[90] mt-2 w-[min(22rem,calc(100vw-1rem))] max-w-[calc(100vw-1rem)] overflow-hidden rounded-[16px]
+                     border border-indigo-300/30 bg-[#111a31]/98
+                     shadow-[0_18px_50px_-18px_rgba(0,0,0,0.88),0_0_0_1px_rgba(129,140,248,0.18)]
+                     animate-fade-up"
+          style={{ animationDuration: "0.15s" }}
+        >
+          <div className="flex items-start justify-between gap-3 border-b border-white/[0.08] px-3.5 py-3">
+            <div className="min-w-0">
+              <div className="mb-0.5 text-[12px] font-medium text-white/40">Signed in as</div>
+              <div className="break-words text-[13px] font-semibold text-white/85">{email}</div>
             </div>
+            <form action="/platform/logout" method="post" className="shrink-0">
+              <button
+                type="submit"
+                role="menuitem"
+                className="inline-flex items-center gap-1.5 rounded-[9px] border border-rose-500/25 bg-rose-500/[0.10] px-2.5 py-1 text-[11px] font-semibold text-rose-300 transition hover:bg-rose-500/[0.20]"
+              >
+                ↗ Sign out
+              </button>
+            </form>
           </div>
-          <div
-            className="hidden md:block absolute right-0 mt-2 w-[min(22rem,calc(100vw-1rem))] max-w-[calc(100vw-1rem)] max-h-[75vh] overflow-y-auto
-                       rounded-[20px] border border-indigo-300/35 bg-[#111a31]/98 backdrop-blur-2xl p-5
-                       shadow-[0_28px_90px_-24px_rgba(0,0,0,0.9),0_0_0_1px_rgba(129,140,248,0.26)] animate-fade-up z-[90]"
-            style={{ animationDuration: "0.15s" }}
+
+          <Link
+            role="menuitem"
+            href="/platform/profile"
+            onClick={() => setOpen(false)}
+            className="flex items-center gap-2.5 px-3.5 py-2.5 text-sm text-white/70 transition hover:bg-white/[0.07] hover:text-white"
           >
-            {panelContent}
-          </div>
-        </>
+            <span>👤</span>
+            Profile settings
+          </Link>
+        </div>
       )}
     </div>
   );

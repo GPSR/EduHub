@@ -5,6 +5,7 @@ import { prisma } from "@/lib/db";
 import { requireSession } from "@/lib/require";
 import { atLeastLevel, getEffectivePermissions } from "@/lib/permissions";
 import { requirePermission } from "@/lib/require-permission";
+import { sendInvoiceReminderAction } from "../actions";
 
 function fmt(cents: number) {
   return (cents / 100).toLocaleString("en-US", { style: "currency", currency: "USD" });
@@ -14,10 +15,17 @@ function statusTone(s: string): "success" | "danger" | "warning" | "neutral" {
   return s === "PAID" ? "success" : s === "OVERDUE" ? "danger" : s === "PENDING" ? "warning" : "neutral";
 }
 
-export default async function InvoicePage({ params }: { params: Promise<{ id: string }> }) {
+export default async function InvoicePage({
+  params,
+  searchParams
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ reminder?: string }>;
+}) {
   await requirePermission("FEES", "VIEW");
   const session = await requireSession();
   const { id } = await params;
+  const { reminder } = await searchParams;
   const perms = await getEffectivePermissions({ schoolId: session.schoolId, userId: session.userId, roleId: session.roleId });
   const canWrite = perms["FEES"] ? atLeastLevel(perms["FEES"], "EDIT") : false;
 
@@ -40,6 +48,17 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
         ← Fee Invoices
       </Link>
 
+      {reminder === "sent" && (
+        <div className="rounded-2xl border border-emerald-500/25 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-100">
+          Fee reminder sent successfully.
+        </div>
+      )}
+      {reminder === "already_paid" && (
+        <div className="rounded-2xl border border-white/[0.14] bg-white/[0.06] px-4 py-3 text-sm text-white/85">
+          This invoice is already paid. Reminder was not sent.
+        </div>
+      )}
+
       {/* Invoice hero */}
       <div className="rounded-[22px] border border-white/[0.08] bg-white/[0.04] p-6">
         <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
@@ -56,6 +75,13 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
           <div className="text-right">
             <p className="text-2xl sm:text-3xl font-bold text-white/95 tabular-nums">{fmt(invoice.amountCents)}</p>
             <p className="text-sm text-white/45 mt-0.5">Total amount</p>
+            {canWrite && balanceCents > 0 && (
+              <form action={sendInvoiceReminderAction} className="mt-3">
+                <input type="hidden" name="invoiceId" value={invoice.id} />
+                <input type="hidden" name="returnTo" value={`/fees/${invoice.id}`} />
+                <Button type="submit" size="sm" variant="secondary">Send Reminder</Button>
+              </form>
+            )}
           </div>
         </div>
 

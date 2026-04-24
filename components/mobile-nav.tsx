@@ -38,9 +38,13 @@ export function MobileNav({
 }) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
+  const [showUserInfo, setShowUserInfo] = useState(false);
 
   // Close drawer on navigation
-  useEffect(() => { setOpen(false); }, [pathname]);
+  useEffect(() => {
+    setOpen(false);
+    setShowUserInfo(false);
+  }, [pathname]);
 
   // Allow top-header profile button to open this menu.
   useEffect(() => {
@@ -68,6 +72,10 @@ export function MobileNav({
       };
     }
     return undefined;
+  }, [open]);
+
+  useEffect(() => {
+    if (open) setShowUserInfo(false);
   }, [open]);
 
   const tabItems   = items.slice(0, 4);
@@ -103,22 +111,47 @@ export function MobileNav({
             <div className="mx-auto mt-3 mb-1 h-1 w-10 rounded-full bg-white/20" />
 
             {/* User row */}
-            <div className="flex items-center gap-3 px-5 py-4 border-b border-white/[0.07]">
-              <div className="h-11 w-11 shrink-0 rounded-[13px] bg-gradient-to-b from-indigo-400 to-indigo-600
-                              flex items-center justify-center text-sm font-bold text-white shadow">
-                {initials}
+            <div className="px-5 py-4 border-b border-white/[0.07]">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="h-11 w-11 shrink-0 rounded-[13px] bg-gradient-to-b from-indigo-400 to-indigo-600
+                                  flex items-center justify-center text-sm font-bold text-white shadow">
+                    {initials}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowUserInfo(v => !v)}
+                    className="inline-flex items-center gap-1.5 rounded-[10px] border border-white/[0.10] bg-white/[0.05] px-3 py-1.5 text-[12px] font-semibold text-white/80 transition hover:bg-white/[0.09]"
+                  >
+                    {showUserInfo ? "Hide info" : "Show info"}
+                    <span className="text-[10px]">{showUserInfo ? "▲" : "▼"}</span>
+                  </button>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <form action="/logout" method="post">
+                    <button
+                      type="submit"
+                      className="inline-flex items-center gap-1.5 rounded-[10px] border border-rose-500/25 bg-rose-500/[0.10] px-2.5 py-1.5 text-[11px] font-semibold text-rose-300 transition hover:bg-rose-500/[0.20]"
+                    >
+                      ↗ Sign out
+                    </button>
+                  </form>
+                  <button onClick={() => setOpen(false)}
+                    className="p-2 rounded-[10px] bg-white/[0.06] border border-white/[0.08]
+                               text-white/40 hover:text-white/80 active:bg-white/[0.12] transition">
+                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                      <path d="M2 2l10 10M12 2L2 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                    </svg>
+                  </button>
+                </div>
               </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-[15px] font-semibold text-white/95 truncate">{userName}</p>
-                <p className="text-[12px] text-white/45 truncate">{userEmail}</p>
-              </div>
-              <button onClick={() => setOpen(false)}
-                className="p-2 rounded-[10px] bg-white/[0.06] border border-white/[0.08]
-                           text-white/40 hover:text-white/80 active:bg-white/[0.12] transition">
-                <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                  <path d="M2 2l10 10M12 2L2 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-                </svg>
-              </button>
+
+              {showUserInfo && (
+                <div className="mt-3 rounded-[12px] border border-white/[0.08] bg-white/[0.03] px-3 py-2.5">
+                  <p className="text-[14px] font-semibold text-white/95 truncate">{userName}</p>
+                  <p className="text-[12px] text-white/45 truncate">{userEmail}</p>
+                </div>
+              )}
             </div>
 
             {/* Nav grid */}
@@ -161,16 +194,6 @@ export function MobileNav({
               })}
             </div>
 
-            {/* Sign out */}
-            <div className="px-4 pb-4">
-              <form action="/logout" method="post">
-                <button className="w-full h-[50px] rounded-[14px] border border-rose-500/25
-                                    bg-rose-500/[0.10] text-sm font-semibold text-rose-300
-                                    active:bg-rose-500/[0.22] transition">
-                  Sign out
-                </button>
-              </form>
-            </div>
           </div>
         </div>
       )}

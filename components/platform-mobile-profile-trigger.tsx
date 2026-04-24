@@ -1,5 +1,8 @@
 "use client";
 
+import Image from "next/image";
+import Link from "next/link";
+
 function initials(name: string) {
   return name
     .trim()
@@ -10,17 +13,32 @@ function initials(name: string) {
     .toUpperCase();
 }
 
-export function PlatformMobileProfileTrigger({ userName }: { userName: string }) {
+export function PlatformMobileProfileTrigger({
+  userName,
+  photoUrl
+}: {
+  userName: string;
+  photoUrl?: string | null;
+}) {
   return (
-    <button
-      type="button"
-      onClick={() => window.dispatchEvent(new Event("eduhub:open-platform-mobile-menu"))}
+    <Link
+      href="/platform/profile"
       className="md:hidden inline-flex items-center justify-center rounded-[12px] border border-white/[0.10] bg-white/[0.05] p-1.5 text-white/90"
-      aria-label="Open menu"
+      aria-label="Open profile"
     >
-      <span className="grid h-[26px] w-[26px] place-items-center rounded-[8px] bg-gradient-to-b from-indigo-400 to-indigo-600 text-[10px] font-bold text-white">
-        {initials(userName)}
-      </span>
-    </button>
+      {photoUrl ? (
+        <Image
+          src={photoUrl}
+          alt={userName}
+          width={26}
+          height={26}
+          className="h-[26px] w-[26px] rounded-[8px] object-cover border border-white/[0.12]"
+        />
+      ) : (
+        <span className="grid h-[26px] w-[26px] place-items-center rounded-[8px] bg-gradient-to-b from-indigo-400 to-indigo-600 text-[10px] font-bold text-white">
+          {initials(userName)}
+        </span>
+      )}
+    </Link>
   );
 }

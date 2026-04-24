@@ -4,9 +4,26 @@ import { PlatformUserMenu } from "@/components/platform-user-menu";
 import { BrandIcon } from "@/components/brand";
 import { PlatformMobileNav } from "@/components/platform-mobile-nav";
 import { PlatformMobileProfileTrigger } from "@/components/platform-mobile-profile-trigger";
+import { Badge } from "@/components/ui";
+import { getPlatformUserProfileImageUrl } from "@/lib/uploads";
+import Image from "next/image";
 
 export default async function PlatformAppLayout({ children }: { children: React.ReactNode }) {
   const { user } = await requirePlatformUser();
+  const profilePhotoUrl = await getPlatformUserProfileImageUrl(user.id);
+  const desktopItems =
+    user.role === "SUPER_ADMIN"
+      ? [
+          { href: "/platform", label: "Dashboard", icon: "◈" },
+          { href: "/platform/schools", label: "Schools", icon: "🏫" },
+          { href: "/platform/onboarding-requests", label: "Approvals", icon: "📋" },
+          { href: "/platform/users", label: "Users", icon: "🛡" },
+          { href: "/platform/subscriptions", label: "Subscriptions", icon: "💎" },
+          { href: "/platform/audit", label: "Audit", icon: "🧾" },
+          { href: "/platform/settings", label: "Settings", icon: "⚙️" }
+        ]
+      : [{ href: "/platform", label: "Dashboard", icon: "◈" }];
+
   const mobileItems =
     user.role === "SUPER_ADMIN"
       ? [
@@ -19,12 +36,21 @@ export default async function PlatformAppLayout({ children }: { children: React.
           { href: "/platform/settings", label: "Settings", icon: "⚙️" }
         ]
       : [{ href: "/platform", label: "Home", icon: "◈" }];
+
+  const initials = user.name
+    .trim()
+    .split(/\s+/)
+    .map((part) => part[0])
+    .slice(0, 2)
+    .join("")
+    .toUpperCase();
+
   return (
     <div className="min-h-dvh md:min-h-screen overflow-x-clip">
       <header className="sticky top-0 z-20 border-b border-white/[0.08] bg-[#060912]/88 backdrop-blur-xl pt-[max(0px,env(safe-area-inset-top))]">
         <div className="mx-auto max-w-[1320px] px-3 sm:px-4 md:px-6">
           <div className="relative flex min-h-[60px] items-center justify-between py-2 md:hidden">
-            <PlatformMobileProfileTrigger userName={user.name} />
+            <PlatformMobileProfileTrigger userName={user.name} photoUrl={profilePhotoUrl} />
             <div className="absolute left-1/2 -translate-x-1/2">
               <BrandIcon size={28} href="/platform" />
             </div>
@@ -41,37 +67,65 @@ export default async function PlatformAppLayout({ children }: { children: React.
               >
                 Platform
               </span>
-              {user.role === "SUPER_ADMIN" && (
-                <nav className="ml-2 flex items-center gap-0.5">
-                  <PlatformNavLink href="/platform" label="Dashboard" />
-                  <PlatformNavLink href="/platform/schools" label="Schools" />
-                  <PlatformNavLink href="/platform/users" label="Users" />
-                  <PlatformNavLink href="/platform/onboarding-requests" label="Approvals" />
-                  <PlatformNavLink href="/platform/subscriptions" label="Subscriptions" />
-                  <PlatformNavLink href="/platform/audit" label="Audit" />
-                  <PlatformNavLink href="/platform/settings" label="Settings" />
-                </nav>
-              )}
             </div>
 
             <div className="flex shrink-0 items-center gap-1.5">
-              <PlatformUserMenu name={user.name} email={user.email} />
-              <form action="/platform/logout" method="post">
-                <button
-                  className="inline-flex rounded-[11px] border border-white/[0.09] bg-white/[0.04]
-                             px-3 py-1.5 text-sm text-white/55 transition-all hover:bg-white/[0.09] hover:text-white/85"
-                >
-                  Sign out
-                </button>
-              </form>
+              <Badge tone="info">{user.role}</Badge>
+              <PlatformUserMenu name={user.name} email={user.email} photoUrl={profilePhotoUrl} />
             </div>
           </div>
         </div>
       </header>
-      <div className="mx-auto max-w-[1320px] px-3 sm:px-4 md:px-6 py-4 md:py-6 pb-[calc(5.5rem+env(safe-area-inset-bottom,0px))] md:pb-6">
-        {children}
+
+      <div
+        className="mx-auto max-w-[1320px] px-3 sm:px-4 md:px-6 py-4 md:py-7
+                   grid grid-cols-1 md:grid-cols-[220px_1fr] gap-5 md:gap-7
+                   pb-[calc(5.5rem+env(safe-area-inset-bottom,0px))] md:pb-8"
+      >
+        <aside className="hidden md:flex flex-col gap-1 h-fit sticky top-[78px]">
+          <div className="mb-3 rounded-[16px] border border-white/[0.08] bg-white/[0.03] px-3 py-3">
+            <div className="flex items-center gap-2.5">
+              {profilePhotoUrl ? (
+                <Image
+                  src={profilePhotoUrl}
+                  alt={user.name}
+                  width={32}
+                  height={32}
+                  className="h-8 w-8 shrink-0 rounded-[10px] object-cover border border-white/[0.12]"
+                />
+              ) : (
+                <div
+                  className="grid h-8 w-8 place-items-center rounded-[10px]
+                             bg-gradient-to-b from-indigo-400 to-indigo-600 text-xs font-bold text-white shadow-sm shrink-0"
+                >
+                  {initials}
+                </div>
+              )}
+              <div className="min-w-0">
+                <div className="truncate text-[13px] font-semibold text-white/90">{user.name}</div>
+                <div className="truncate text-[11px] text-white/45">{user.email}</div>
+              </div>
+            </div>
+          </div>
+
+          <nav className="space-y-0.5">
+            {desktopItems.map((item) => (
+              <PlatformNavLink key={item.href} href={item.href} label={item.label} icon={item.icon} />
+            ))}
+          </nav>
+
+          <div className="mx-3 my-2 h-px bg-white/[0.07]" />
+          <nav className="space-y-0.5">
+            <PlatformNavLink href="/platform/profile" label="Profile" icon="👤" />
+          </nav>
+        </aside>
+
+        <main className="min-w-0 space-y-5">
+          {children}
+        </main>
       </div>
-      <PlatformMobileNav items={mobileItems} userName={user.name} userEmail={user.email} />
+
+      <PlatformMobileNav items={mobileItems} userName={user.name} userEmail={user.email} photoUrl={profilePhotoUrl} />
     </div>
   );
 }

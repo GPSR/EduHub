@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { clsx } from "clsx";
@@ -15,13 +16,16 @@ export function PlatformMobileNav({
   items,
   userName,
   userEmail,
+  photoUrl,
 }: {
   items: Item[];
   userName: string;
   userEmail: string;
+  photoUrl?: string | null;
 }) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
+  const [showUserInfo, setShowUserInfo] = useState(false);
   const initials = userName
     .trim()
     .split(/\s+/)
@@ -35,13 +39,8 @@ export function PlatformMobileNav({
 
   useEffect(() => {
     setOpen(false);
+    setShowUserInfo(false);
   }, [pathname]);
-
-  useEffect(() => {
-    const onOpen = () => setOpen(true);
-    window.addEventListener("eduhub:open-platform-mobile-menu", onOpen);
-    return () => window.removeEventListener("eduhub:open-platform-mobile-menu", onOpen);
-  }, []);
 
   useEffect(() => {
     const html = document.documentElement;
@@ -59,6 +58,10 @@ export function PlatformMobileNav({
         body.style.overflow = "";
       }
     };
+  }, [open]);
+
+  useEffect(() => {
+    if (open) setShowUserInfo(false);
   }, [open]);
 
   return (
@@ -79,26 +82,61 @@ export function PlatformMobileNav({
           >
             <div className="mx-auto mb-1 mt-3 h-1 w-10 rounded-full bg-white/20" />
 
-            <div className="flex items-center gap-3 border-b border-white/[0.07] px-5 py-4">
-              <div
-                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[13px]
-                           bg-gradient-to-b from-indigo-400 to-indigo-600 text-sm font-bold text-white shadow"
-              >
-                {initials}
+            <div className="border-b border-white/[0.07] px-5 py-4">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-3 min-w-0">
+                  {photoUrl ? (
+                    <Image
+                      src={photoUrl}
+                      alt={userName}
+                      width={44}
+                      height={44}
+                      className="h-11 w-11 shrink-0 rounded-[13px] object-cover border border-white/[0.12]"
+                    />
+                  ) : (
+                    <div
+                      className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[13px]
+                                 bg-gradient-to-b from-indigo-400 to-indigo-600 text-sm font-bold text-white shadow"
+                    >
+                      {initials}
+                    </div>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setShowUserInfo((value) => !value)}
+                    className="inline-flex items-center gap-1.5 rounded-[10px] border border-white/[0.10] bg-white/[0.05] px-3 py-1.5 text-[12px] font-semibold text-white/80 transition hover:bg-white/[0.09]"
+                  >
+                    {showUserInfo ? "Hide info" : "Show info"}
+                    <span className="text-[10px]">{showUserInfo ? "▲" : "▼"}</span>
+                  </button>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <form action="/platform/logout" method="post">
+                    <button
+                      type="submit"
+                      className="inline-flex items-center gap-1.5 rounded-[10px] border border-rose-500/25 bg-rose-500/[0.10] px-2.5 py-1.5 text-[11px] font-semibold text-rose-300 transition hover:bg-rose-500/[0.20]"
+                    >
+                      ↗ Sign out
+                    </button>
+                  </form>
+                  <button
+                    type="button"
+                    onClick={() => setOpen(false)}
+                    className="rounded-[10px] border border-white/[0.08] bg-white/[0.06] p-2 text-white/40 transition hover:text-white/80 active:bg-white/[0.12]"
+                  >
+                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                      <path d="M2 2l10 10M12 2L2 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                    </svg>
+                  </button>
+                </div>
               </div>
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-[15px] font-semibold text-white/95">{userName}</p>
-                <p className="truncate text-[12px] text-white/45">{userEmail}</p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setOpen(false)}
-                className="rounded-[10px] border border-white/[0.08] bg-white/[0.06] p-2 text-white/40 transition hover:text-white/80 active:bg-white/[0.12]"
-              >
-                <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                  <path d="M2 2l10 10M12 2L2 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-                </svg>
-              </button>
+
+              {showUserInfo && (
+                <div className="mt-3 rounded-[12px] border border-white/[0.08] bg-white/[0.03] px-3 py-2.5">
+                  <p className="truncate text-[14px] font-semibold text-white/95">{userName}</p>
+                  <p className="truncate text-[12px] text-white/45">{userEmail}</p>
+                </div>
+              )}
             </div>
 
             <div className="grid grid-cols-4 gap-2 px-4 py-4">
@@ -135,17 +173,6 @@ export function PlatformMobileNav({
               })}
             </div>
 
-            <div className="px-4 pb-4">
-              <form action="/platform/logout" method="post">
-                <button
-                  type="submit"
-                  className="h-[50px] w-full rounded-[14px] border border-rose-500/25 bg-rose-500/[0.10]
-                             text-sm font-semibold text-rose-300 transition active:bg-rose-500/[0.22]"
-                >
-                  Sign out
-                </button>
-              </form>
-            </div>
           </div>
         </div>
       )}

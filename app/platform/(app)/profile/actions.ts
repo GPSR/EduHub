@@ -4,6 +4,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { requirePlatformUser } from "@/lib/platform-require";
 import { hashPassword, verifyPassword } from "@/lib/password";
+import { clearPlatformUserProfileImages, savePlatformUserProfileImage } from "@/lib/uploads";
 
 export type PlatformProfileState = { ok: boolean; message?: string };
 
@@ -71,4 +72,18 @@ export async function changePlatformPasswordAction(
   });
 
   return { ok: true, message: "Password updated." };
+}
+
+export async function uploadPlatformProfilePhotoAction(
+  _prev: PlatformProfileState,
+  formData: FormData
+): Promise<PlatformProfileState> {
+  const { user } = await requirePlatformUser();
+  const file = formData.get("photo");
+  if (!(file instanceof File)) return { ok: false, message: "Please choose an image." };
+
+  await clearPlatformUserProfileImages(user.id);
+  const saved = await savePlatformUserProfileImage(user.id, file);
+  if (!saved.ok) return { ok: false, message: saved.message };
+  return { ok: true, message: "Profile photo updated." };
 }

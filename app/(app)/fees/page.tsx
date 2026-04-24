@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import { requireSession } from "@/lib/require";
 import { atLeastLevel, getEffectivePermissions } from "@/lib/permissions";
 import { requirePermission } from "@/lib/require-permission";
+import { sendPendingFeeRemindersAction } from "./actions";
 
 function centsToDollars(cents: number) {
   return (cents / 100).toFixed(2);
@@ -16,9 +17,14 @@ function statusTone(status: string): "success" | "danger" | "warning" | "neutral
   return "neutral";
 }
 
-export default async function FeesPage() {
+export default async function FeesPage({
+  searchParams
+}: {
+  searchParams: Promise<{ reminder?: string; count?: string }>;
+}) {
   await requirePermission("FEES", "VIEW");
   const session = await requireSession();
+  const { reminder, count } = await searchParams;
   const perms = await getEffectivePermissions({
     schoolId: session.schoolId,
     userId: session.userId,
@@ -52,7 +58,36 @@ export default async function FeesPage() {
 
   return (
     <div className="space-y-5 animate-fade-up">
-      <SectionHeader title="Fee Invoices" subtitle={`${invoices.length} total invoices`} />
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+        <SectionHeader title="Fee Invoices" subtitle={`${invoices.length} total invoices`} />
+        {canWrite && pendingCount > 0 && (
+          <form action={sendPendingFeeRemindersAction}>
+            <input type="hidden" name="returnTo" value="/fees" />
+            <Button type="submit" variant="secondary" size="sm">Send Pending Reminders</Button>
+          </form>
+        )}
+      </div>
+
+      {reminder === "bulk_sent" && (
+        <div className="rounded-2xl border border-emerald-500/25 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-100">
+          Fee reminders sent successfully{count ? ` for ${count} student${count === "1" ? "" : "s"}` : ""}.
+        </div>
+      )}
+      {reminder === "sent" && (
+        <div className="rounded-2xl border border-emerald-500/25 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-100">
+          Fee reminder sent successfully.
+        </div>
+      )}
+      {reminder === "none" && (
+        <div className="rounded-2xl border border-amber-500/25 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
+          No pending fee balances found for reminders.
+        </div>
+      )}
+      {reminder === "already_paid" && (
+        <div className="rounded-2xl border border-white/[0.14] bg-white/[0.06] px-4 py-3 text-sm text-white/85">
+          This invoice is already paid. Reminder was not sent.
+        </div>
+      )}
 
       {/* Summary row */}
       <div className="grid grid-cols-3 gap-3">

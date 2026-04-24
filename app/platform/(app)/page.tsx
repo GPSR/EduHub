@@ -130,11 +130,11 @@ export default async function PlatformHomePage({
       </div>
 
       {/* ── Revenue + stats grid ── */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Revenue hero card */}
-        <div className="sm:col-span-2 md:row-span-2 rounded-[22px] border border-emerald-500/20 bg-emerald-500/[0.06] p-4 sm:p-6">
+        <div className="col-span-2 lg:col-span-2 rounded-[22px] border border-emerald-500/20 bg-emerald-500/[0.06] p-4 sm:p-6">
           <p className="text-[11px] font-semibold uppercase tracking-wider text-emerald-400/70 mb-2">Total Revenue</p>
-          <p className="text-4xl font-bold text-emerald-300 tabular-nums">{centsToUsd(totalRev._sum.amountCents ?? 0)}</p>
+          <p className="text-3xl sm:text-4xl font-bold text-emerald-300 tabular-nums">{centsToUsd(totalRev._sum.amountCents ?? 0)}</p>
           <p className="text-[12px] text-white/35 mt-1 mb-6">All time · all schools</p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="rounded-[14px] border border-white/[0.07] bg-white/[0.03] px-3.5 py-3">
@@ -155,9 +155,9 @@ export default async function PlatformHomePage({
           { label: "Pending Approvals", value: pendingOnboarding,  icon: "📋", color: pendingOnboarding > 0 ? "text-amber-300" : "text-white/60", href: null },
           { label: "Custom Plans",      value: customPlans.length, icon: "💎", color: "text-teal-300",    href: null },
         ].map(s => (
-          <div key={s.label} className="rounded-[22px] border border-white/[0.08] bg-white/[0.04] p-5 hover:bg-white/[0.06] transition-all">
+          <div key={s.label} className="rounded-[22px] border border-white/[0.08] bg-white/[0.04] p-4 sm:p-5 hover:bg-white/[0.06] transition-all">
             <div className="text-2xl mb-3">{s.icon}</div>
-            <div className={`text-2xl font-bold tabular-nums ${s.color}`}>{s.value.toLocaleString()}</div>
+            <div className={`text-xl sm:text-2xl font-bold tabular-nums ${s.color}`}>{s.value.toLocaleString()}</div>
             <div className="text-[11px] font-medium text-white/40 uppercase tracking-wider mt-1">{s.label}</div>
             {s.href && (
               <Link href={s.href} className="mt-3 inline-flex text-[11px] text-indigo-300/70 hover:text-indigo-200 transition">

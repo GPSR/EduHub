@@ -84,3 +84,49 @@ export async function getUserProfileImageUrl(schoolId: string, userId: string): 
 export async function clearUserProfileImages(_userId: string) {
   // No-op for audit-log based storage.
 }
+
+export async function savePlatformUserProfileImage(
+  platformUserId: string,
+  file: File
+): Promise<{ ok: true } | { ok: false; message: string }> {
+  const checked = await validateImage(file);
+  if (!checked.ok) return checked;
+  const dataUrl = toDataUrl(file, checked.bytes, checked.ext);
+
+  await prisma.auditLog.create({
+    data: {
+      schoolId: null,
+      actorType: "PLATFORM_USER",
+      actorId: platformUserId,
+      action: "PLATFORM_USER_PROFILE_PHOTO_UPDATE",
+      entityType: "PlatformUser",
+      entityId: platformUserId,
+      metadataJson: JSON.stringify({ dataUrl, updatedAt: new Date().toISOString() })
+    }
+  });
+
+  return { ok: true };
+}
+
+export async function getPlatformUserProfileImageUrl(platformUserId: string): Promise<string | null> {
+  const log = await prisma.auditLog.findFirst({
+    where: {
+      action: "PLATFORM_USER_PROFILE_PHOTO_UPDATE",
+      entityType: "PlatformUser",
+      entityId: platformUserId
+    },
+    orderBy: { createdAt: "desc" },
+    select: { metadataJson: true }
+  });
+  if (!log?.metadataJson) return null;
+  try {
+    const parsed = JSON.parse(log.metadataJson) as { dataUrl?: unknown };
+    return typeof parsed.dataUrl === "string" ? parsed.dataUrl : null;
+  } catch {
+    return null;
+  }
+}
+
+export async function clearPlatformUserProfileImages(_platformUserId: string) {
+  // No-op for audit-log based storage.
+}

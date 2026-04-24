@@ -59,6 +59,8 @@ export function ProfileSettings({
   const [pwState, pwAction, pwPending] = useActionState(changePasswordAction, initialState);
   const [editingProfile, setEditingProfile] = useState(false);
   const [editingPassword, setEditingPassword] = useState(false);
+  const [profileExpanded, setProfileExpanded] = useState(false);
+  const [passwordExpanded, setPasswordExpanded] = useState(false);
   const dobValue = dateOfBirth ? dateOfBirth.toISOString().slice(0, 10) : "";
   const dobDisplay = dateOfBirth ? dateOfBirth.toDateString() : "—";
 
@@ -70,23 +72,44 @@ export function ProfileSettings({
     if (pwState.ok && pwState.message) setEditingPassword(false);
   }, [pwState]);
 
+  useEffect(() => {
+    if (editingProfile) setProfileExpanded(true);
+  }, [editingProfile]);
+
+  useEffect(() => {
+    if (editingPassword) setPasswordExpanded(true);
+  }, [editingPassword]);
+
   return (
     <div className="space-y-5">
       <Card
         title="Profile"
-        description={editingProfile ? "Edit your information" : "View your information"}
+        description={editingProfile ? "Edit your information" : profileExpanded ? "View your information" : "Collapsed by default. Click view to expand."}
         accent="indigo"
-        action={!editingProfile ? (
-          <button
-            type="button"
-            onClick={() => setEditingProfile(true)}
-            className="inline-flex items-center gap-1.5 rounded-[10px] border border-white/[0.10] bg-white/[0.05] px-3 py-1.5 text-xs font-semibold text-white/80 hover:bg-white/[0.10] transition"
-          >
-            ✎ Edit
-          </button>
-        ) : null}
+        action={editingProfile ? null : (
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setProfileExpanded((value) => !value)}
+              className="inline-flex items-center gap-1.5 rounded-[10px] border border-white/[0.10] bg-white/[0.05] px-3 py-1.5 text-xs font-semibold text-white/80 hover:bg-white/[0.10] transition"
+            >
+              {profileExpanded ? "▴ Hide" : "▾ View"}
+            </button>
+            <button
+              type="button"
+              onClick={() => setEditingProfile(true)}
+              className="inline-flex items-center gap-1.5 rounded-[10px] border border-white/[0.10] bg-white/[0.05] px-3 py-1.5 text-xs font-semibold text-white/80 hover:bg-white/[0.10] transition"
+            >
+              ✎ Edit
+            </button>
+          </div>
+        )}
       >
-        {!editingProfile ? (
+        {!editingProfile && !profileExpanded ? (
+          <p className="text-sm text-white/55">
+            Profile information is collapsed. Tap <span className="text-white/80 font-medium">View</span> to expand details.
+          </p>
+        ) : !editingProfile ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <ValueRow label="First name" value={firstName ?? "—"} />
             <ValueRow label="Last name" value={lastName ?? "—"} />
@@ -200,19 +223,32 @@ export function ProfileSettings({
 
       <Card
         title="Change Password"
-        description="Use a strong password with at least 8 characters"
+        description={editingPassword ? "Use a strong password with at least 8 characters" : passwordExpanded ? "Use a strong password with at least 8 characters" : "Collapsed by default. Click view to open password section."}
         accent="rose"
-        action={!editingPassword ? (
-          <button
-            type="button"
-            onClick={() => setEditingPassword(true)}
-            className="inline-flex items-center gap-1.5 rounded-[10px] border border-white/[0.10] bg-white/[0.05] px-3 py-1.5 text-xs font-semibold text-white/80 hover:bg-white/[0.10] transition"
-          >
-            ✎ Edit
-          </button>
-        ) : null}
+        action={editingPassword ? null : (
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setPasswordExpanded((value) => !value)}
+              className="inline-flex items-center gap-1.5 rounded-[10px] border border-white/[0.10] bg-white/[0.05] px-3 py-1.5 text-xs font-semibold text-white/80 hover:bg-white/[0.10] transition"
+            >
+              {passwordExpanded ? "▴ Hide" : "▾ View"}
+            </button>
+            <button
+              type="button"
+              onClick={() => setEditingPassword(true)}
+              className="inline-flex items-center gap-1.5 rounded-[10px] border border-white/[0.10] bg-white/[0.05] px-3 py-1.5 text-xs font-semibold text-white/80 hover:bg-white/[0.10] transition"
+            >
+              ✎ Edit
+            </button>
+          </div>
+        )}
       >
-        {!editingPassword ? (
+        {!editingPassword && !passwordExpanded ? (
+          <p className="text-sm text-white/55">
+            Password section is collapsed. Tap <span className="text-white/80 font-medium">View</span> to expand.
+          </p>
+        ) : !editingPassword ? (
           <p className="text-sm text-white/55">
             Your password is hidden for security. Click the edit icon to change it.
           </p>
