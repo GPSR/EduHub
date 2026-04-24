@@ -72,19 +72,20 @@ export function ProfileSettings({
 
   return (
     <div className="space-y-5">
-      <Card title="Profile" description={editingProfile ? "Edit your information" : "View your information"} accent="indigo">
-        <div className="flex justify-end mb-3">
-          {!editingProfile && (
-            <button
-              type="button"
-              onClick={() => setEditingProfile(true)}
-              className="inline-flex items-center gap-1.5 rounded-[10px] border border-white/[0.10] bg-white/[0.05] px-3 py-1.5 text-xs font-semibold text-white/80 hover:bg-white/[0.10] transition"
-            >
-              ✎ Edit
-            </button>
-          )}
-        </div>
-
+      <Card
+        title="Profile"
+        description={editingProfile ? "Edit your information" : "View your information"}
+        accent="indigo"
+        action={!editingProfile ? (
+          <button
+            type="button"
+            onClick={() => setEditingProfile(true)}
+            className="inline-flex items-center gap-1.5 rounded-[10px] border border-white/[0.10] bg-white/[0.05] px-3 py-1.5 text-xs font-semibold text-white/80 hover:bg-white/[0.10] transition"
+          >
+            ✎ Edit
+          </button>
+        ) : null}
+      >
         {!editingProfile ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <ValueRow label="First name" value={firstName ?? "—"} />
@@ -197,19 +198,20 @@ export function ProfileSettings({
         )}
       </Card>
 
-      <Card title="Change Password" description="Use a strong password with at least 8 characters" accent="rose">
-        <div className="flex justify-end mb-3">
-          {!editingPassword && (
-            <button
-              type="button"
-              onClick={() => setEditingPassword(true)}
-              className="inline-flex items-center gap-1.5 rounded-[10px] border border-white/[0.10] bg-white/[0.05] px-3 py-1.5 text-xs font-semibold text-white/80 hover:bg-white/[0.10] transition"
-            >
-              ✎ Edit
-            </button>
-          )}
-        </div>
-
+      <Card
+        title="Change Password"
+        description="Use a strong password with at least 8 characters"
+        accent="rose"
+        action={!editingPassword ? (
+          <button
+            type="button"
+            onClick={() => setEditingPassword(true)}
+            className="inline-flex items-center gap-1.5 rounded-[10px] border border-white/[0.10] bg-white/[0.05] px-3 py-1.5 text-xs font-semibold text-white/80 hover:bg-white/[0.10] transition"
+          >
+            ✎ Edit
+          </button>
+        ) : null}
+      >
         {!editingPassword ? (
           <p className="text-sm text-white/55">
             Your password is hidden for security. Click the edit icon to change it.

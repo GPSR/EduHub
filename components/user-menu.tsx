@@ -74,9 +74,20 @@ export function UserMenu({ userName, userEmail, photoUrl }: { userName: string; 
                      animate-fade-up"
           style={{ animationDuration: "0.15s" }}
         >
-          <div className="px-3.5 py-3 border-b border-white/[0.07]">
-            <div className="text-[12px] text-white/40 font-medium mb-0.5">Signed in as</div>
-            <div className="text-[13px] font-semibold text-white/85 break-all">{userEmail}</div>
+          <div className="px-3.5 py-3 border-b border-white/[0.07] flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <div className="text-[12px] text-white/40 font-medium mb-0.5">Signed in as</div>
+              <div className="text-[13px] font-semibold text-white/85 break-all">{userEmail}</div>
+            </div>
+            <form action="/logout" method="post" className="shrink-0">
+              <button
+                type="submit"
+                role="menuitem"
+                className="inline-flex items-center gap-1.5 rounded-[9px] border border-rose-500/25 bg-rose-500/[0.10] px-2.5 py-1 text-[11px] font-semibold text-rose-300 hover:bg-rose-500/[0.20] transition"
+              >
+                ↗ Sign out
+              </button>
+            </form>
           </div>
           <Link
             role="menuitem"
@@ -86,16 +97,6 @@ export function UserMenu({ userName, userEmail, photoUrl }: { userName: string; 
           >
             <span>👤</span> Profile settings
           </Link>
-          <div className="h-px bg-white/[0.07]" />
-          <form action="/logout" method="post">
-            <button
-              type="submit"
-              role="menuitem"
-              className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-sm text-rose-300 hover:bg-rose-500/[0.12] transition"
-            >
-              <span>→</span> Sign out
-            </button>
-          </form>
         </div>
       )}
     </div>

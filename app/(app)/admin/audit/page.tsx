@@ -13,13 +13,23 @@ export default async function SchoolAuditPage() {
   const schoolUserIds = Array.from(
     new Set(logs.filter(l => l.actorType === "SCHOOL_USER" && l.actorId).map(l => l.actorId as string))
   );
+  const platformUserIds = Array.from(
+    new Set(logs.filter(l => l.actorType === "PLATFORM_USER" && l.actorId).map(l => l.actorId as string))
+  );
   const schoolUsers = schoolUserIds.length
     ? await prisma.user.findMany({
         where: { id: { in: schoolUserIds } },
-        select: { id: true, name: true, email: true, schoolRole: { select: { name: true } } },
+        select: { id: true, name: true, email: true, schoolRole: { select: { key: true, name: true } } },
+      })
+    : [];
+  const platformUsers = platformUserIds.length
+    ? await prisma.platformUser.findMany({
+        where: { id: { in: platformUserIds } },
+        select: { id: true, name: true, email: true, role: true }
       })
     : [];
   const schoolUserById = new Map(schoolUsers.map(u => [u.id, u]));
+  const platformUserById = new Map(platformUsers.map(u => [u.id, u]));
 
   return (
     <div className="space-y-5 animate-fade-up">
@@ -53,7 +63,7 @@ export default async function SchoolAuditPage() {
                     <time className="text-[11px] text-white/30 shrink-0">{formatDateTime(l.createdAt)}</time>
                   </div>
                   <div className="mt-1 text-[12px] text-white/45 flex flex-wrap items-center gap-1.5">
-                    <span>{formatActor({ actorType: l.actorType, actorId: l.actorId, schoolUserById })}</span>
+                    <span>{formatActor({ actorType: l.actorType, actorId: l.actorId, schoolUserById, platformUserById })}</span>
                     {l.entityType && (
                       <>
                         <span className="text-white/20">·</span>
@@ -83,10 +93,11 @@ function humanizeToken(value: string) {
   return value.toLowerCase().split("_").map(p => p.charAt(0).toUpperCase() + p.slice(1)).join(" ");
 }
 
-function formatActor({ actorType, actorId, schoolUserById }: {
+function formatActor({ actorType, actorId, schoolUserById, platformUserById }: {
   actorType: "PLATFORM_USER" | "SCHOOL_USER" | "SYSTEM";
   actorId: string | null;
-  schoolUserById: Map<string, { id: string; name: string; email: string; schoolRole: { name: string } | null }>;
+  schoolUserById: Map<string, { id: string; name: string; email: string; schoolRole: { key: string; name: string } | null }>;
+  platformUserById: Map<string, { id: string; name: string; email: string; role: "SUPER_ADMIN" | "SUPPORT_USER" }>;
 }) {
   if (actorType === "SYSTEM") return "System";
   if (!actorId) return humanizeToken(actorType);
@@ -96,7 +107,12 @@ function formatActor({ actorType, actorId, schoolUserById }: {
       ? `${actor.name}${actor.schoolRole?.name ? ` (${actor.schoolRole.name})` : ""}`
       : `User ${actorId}`;
   }
-  return `Platform User`;
+  const platformActor = platformUserById.get(actorId);
+  if (platformActor) {
+    const roleLabel = platformActor.role === "SUPER_ADMIN" ? "Super Admin" : "Support User";
+    return `${platformActor.name} (${roleLabel})`;
+  }
+  return "Platform User";
 }
 
 function MetadataRow({ metadataJson }: { metadataJson: string }) {

@@ -190,48 +190,49 @@ export default async function PlatformHomePage({
         </Card>
       )}
 
-      {/* ── Schools table ── */}
-      <Card title={`Schools${schools.length > 0 ? ` · ${schools.length} shown` : ""}`}>
-        {schools.length === 0 ? (
-          <div className="py-10 text-center text-sm text-white/40">No schools match your filters.</div>
-        ) : (
-          <div className="divide-y divide-white/[0.06] mt-2">
-            {schools.map((s, i) => {
-              const planLabel = s.subscription?.plan === "CUSTOM"
-                ? (s.subscription.customPlan?.name ?? "Custom") : (s.subscription?.plan ?? "TRIAL");
-              return (
-                <div key={s.id} className={`flex flex-col sm:flex-row sm:flex-wrap items-start gap-3 sm:gap-4 px-2 py-4 hover:bg-white/[0.03] transition
-                                             ${i === 0 ? "rounded-t-[14px]" : ""}
-                                             ${i === schools.length-1 ? "rounded-b-[14px]" : ""}`}>
-                  {/* Info */}
-                  <Link href={`/platform/schools/${s.id}`} className="flex-1 min-w-0 w-full">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="text-[14px] font-semibold text-white/90">{s.name}</span>
-                      <span className="text-[12px] text-white/35">({s.slug})</span>
-                      <Badge tone={s.isActive ? "success" : "danger"} dot>{s.isActive ? "Active" : "Inactive"}</Badge>
-                      <Badge tone={planTone(planLabel)}>{planLabel}</Badge>
-                    </div>
-                    <div className="text-[12px] text-white/40 mt-1 flex flex-wrap gap-3">
-                      <span>💳 {centsToUsd(s.subscription?.amountCents ?? 0)}</span>
-                      <span>👥 {s.students.length} students</span>
-                      <span>🏫 {s.users.length} users</span>
-                      {s.subscription?.endsAt && <span>Expires {s.subscription.endsAt.toDateString()}</span>}
-                    </div>
-                  </Link>
-                  {/* Actions */}
-                  <div className="flex flex-wrap items-center gap-2 shrink-0 w-full sm:w-auto">
-                    <Link href={`/login?schoolSlug=${encodeURIComponent(s.slug)}`}>
-                      <Button variant="secondary" size="sm" className="w-full sm:w-auto">School login</Button>
+      {!isSuperAdmin && (
+        <Card title={`Schools${schools.length > 0 ? ` · ${schools.length} shown` : ""}`}>
+          {schools.length === 0 ? (
+            <div className="py-10 text-center text-sm text-white/40">No schools match your filters.</div>
+          ) : (
+            <div className="divide-y divide-white/[0.06] mt-2">
+              {schools.map((s, i) => {
+                const planLabel = s.subscription?.plan === "CUSTOM"
+                  ? (s.subscription.customPlan?.name ?? "Custom") : (s.subscription?.plan ?? "TRIAL");
+                return (
+                  <div key={s.id} className={`flex flex-col sm:flex-row sm:flex-wrap items-start gap-3 sm:gap-4 px-2 py-4 hover:bg-white/[0.03] transition
+                                               ${i === 0 ? "rounded-t-[14px]" : ""}
+                                               ${i === schools.length-1 ? "rounded-b-[14px]" : ""}`}>
+                    {/* Info */}
+                    <Link href={`/platform/schools/${s.id}`} className="flex-1 min-w-0 w-full">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="text-[14px] font-semibold text-white/90">{s.name}</span>
+                        <span className="text-[12px] text-white/35">({s.slug})</span>
+                        <Badge tone={s.isActive ? "success" : "danger"} dot>{s.isActive ? "Active" : "Inactive"}</Badge>
+                        <Badge tone={planTone(planLabel)}>{planLabel}</Badge>
+                      </div>
+                      <div className="text-[12px] text-white/40 mt-1 flex flex-wrap gap-3">
+                        <span>💳 {centsToUsd(s.subscription?.amountCents ?? 0)}</span>
+                        <span>👥 {s.students.length} students</span>
+                        <span>🏫 {s.users.length} users</span>
+                        {s.subscription?.endsAt && <span>Expires {s.subscription.endsAt.toDateString()}</span>}
+                      </div>
                     </Link>
-                    <ImpersonateLauncher schoolId={s.id} schoolName={s.name} />
-                    
+                    {/* Actions */}
+                    <div className="flex flex-wrap items-center gap-2 shrink-0 w-full sm:w-auto">
+                      <Link href={`/login?schoolSlug=${encodeURIComponent(s.slug)}`}>
+                        <Button variant="secondary" size="sm" className="w-full sm:w-auto">School login</Button>
+                      </Link>
+                      <ImpersonateLauncher schoolId={s.id} schoolName={s.name} />
+                      
+                    </div>
                   </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </Card>
+                );
+              })}
+            </div>
+          )}
+        </Card>
+      )}
     </div>
   );
 }

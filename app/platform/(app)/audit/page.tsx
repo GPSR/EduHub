@@ -57,18 +57,50 @@ function formatMetaEntries(meta: Record<string, unknown>): Array<[string, string
 
 export default async function PlatformAuditPage() {
   await requireSuperAdmin();
-  const logs = await prisma.auditLog.findMany({
-    where: { actorType: { in: ["PLATFORM_USER", "SYSTEM"] } },
-    orderBy: { createdAt: "desc" }, take: 200,
+  const rawLogs = await prisma.auditLog.findMany({
+    where: { actorType: { in: ["PLATFORM_USER", "SCHOOL_USER", "SYSTEM"] } },
+    orderBy: { createdAt: "desc" }, take: 500,
   });
-  const puIds = Array.from(new Set(logs.filter(l => l.actorType === "PLATFORM_USER" && l.actorId).map(l => l.actorId as string)));
-  const pUsers = puIds.length ? await prisma.platformUser.findMany({ where: { id: { in: puIds } }, select: { id: true, name: true, email: true } }) : [];
+  const puIds = Array.from(new Set(rawLogs.filter(l => l.actorType === "PLATFORM_USER" && l.actorId).map(l => l.actorId as string)));
+  const suIds = Array.from(new Set(rawLogs.filter(l => l.actorType === "SCHOOL_USER" && l.actorId).map(l => l.actorId as string)));
+  const pUsers = puIds.length
+    ? await prisma.platformUser.findMany({
+        where: { id: { in: puIds } },
+        select: { id: true, name: true, email: true, role: true }
+      })
+    : [];
+  const sUsers = suIds.length
+    ? await prisma.user.findMany({
+        where: { id: { in: suIds } },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          schoolRole: { select: { key: true, name: true } }
+        }
+      })
+    : [];
   const byId = new Map(pUsers.map(u => [u.id, u]));
+  const schoolUserById = new Map(sUsers.map(u => [u.id, u]));
+  const logs = rawLogs
+    .filter((l) => {
+      if (l.actorType !== "SCHOOL_USER") return true;
+      const user = l.actorId ? schoolUserById.get(l.actorId) : undefined;
+      return user?.schoolRole?.key === "ADMIN";
+    })
+    .slice(0, 200);
 
   function actor(actorType: string, actorId: string | null) {
     if (actorType === "SYSTEM") return "System";
     if (!actorId) return humanize(actorType);
-    if (actorType === "PLATFORM_USER") { const u = byId.get(actorId); return u ? `${u.name} (${u.email})` : `Platform User`; }
+    if (actorType === "PLATFORM_USER") {
+      const u = byId.get(actorId);
+      if (!u) return "Platform User";
+      const roleLabel = u.role === "SUPER_ADMIN" ? "Super Admin" : "Support User";
+      return `${u.name} (${roleLabel})`;
+    }
+    const schoolUser = schoolUserById.get(actorId);
+    if (schoolUser) return `${schoolUser.name} (${schoolUser.schoolRole?.name ?? "School User"})`;
     return "School User";
   }
 

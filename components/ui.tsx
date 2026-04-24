@@ -2,11 +2,11 @@ import { clsx } from "clsx";
 
 /* ─── Card ──────────────────────────────────────── */
 export function Card({
-  title, description, accent, children, className
+  title, description, accent, children, className, action
 }: {
   title?: string; description?: string;
   accent?: "indigo"|"emerald"|"amber"|"rose"|"teal"|"violet";
-  children: React.ReactNode; className?: string;
+  children: React.ReactNode; className?: string; action?: React.ReactNode;
 }) {
   const accentBar: Record<string, string> = {
     indigo:  "before:bg-indigo-500",
@@ -29,10 +29,13 @@ export function Card({
       ],
       className
     )}>
-      {title && (
-        <div className={clsx("mb-3 sm:mb-4", accent && "pl-1")}>
-          <h2 className="text-[14px] sm:text-[15px] font-semibold tracking-[-0.01em] text-white/95">{title}</h2>
-          {description && <p className="mt-0.5 text-xs sm:text-sm text-white/50 leading-relaxed">{description}</p>}
+      {(title || action) && (
+        <div className={clsx("mb-3 sm:mb-4", accent && "pl-1", action && "flex items-start justify-between gap-3")}>
+          <div className="min-w-0">
+            {title && <h2 className="text-[14px] sm:text-[15px] font-semibold tracking-[-0.01em] text-white/95">{title}</h2>}
+            {description && <p className="mt-0.5 text-xs sm:text-sm text-white/50 leading-relaxed">{description}</p>}
+          </div>
+          {action ? <div className="shrink-0 pt-0.5">{action}</div> : null}
         </div>
       )}
       {children}

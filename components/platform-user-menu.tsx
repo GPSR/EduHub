@@ -2,6 +2,7 @@
 
 import { useState, useActionState, useEffect, useRef } from "react";
 import { usePathname } from "next/navigation";
+import { clsx } from "clsx";
 import { Button, Input, Label } from "@/components/ui";
 import { updatePlatformProfileAction, changePlatformPasswordAction, type PlatformProfileState } from "@/app/platform/(app)/profile/actions";
 
@@ -85,19 +86,31 @@ export function PlatformUserMenu({ name, email }: { name: string; email: string 
   const panelContent = (
     <>
       {/* User info header */}
-      <div className="flex items-center gap-3 pb-4 border-b border-white/[0.07] mb-4">
-        <div className="grid h-10 w-10 place-items-center rounded-[11px]
-                        bg-gradient-to-b from-indigo-400 to-indigo-600
-                        text-sm font-bold text-white shadow-sm shrink-0">
-          {initials}
-        </div>
-        <div className="min-w-0">
-          <p className="text-[14px] font-semibold text-white/90 truncate">{name}</p>
-          <p className="text-[11px] text-white/40 break-all">{email}</p>
+      <div className="pb-4 border-b border-white/[0.07] mb-4">
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="grid h-10 w-10 place-items-center rounded-[11px]
+                            bg-gradient-to-b from-indigo-400 to-indigo-600
+                            text-sm font-bold text-white shadow-sm shrink-0">
+              {initials}
+            </div>
+            <div className="min-w-0">
+              <p className="text-[14px] font-semibold text-white/90 truncate">{name}</p>
+              <p className="text-[11px] text-white/40 break-all">{email}</p>
+            </div>
+          </div>
+          <form action="/platform/logout" method="post" className="shrink-0">
+            <button
+              type="submit"
+              className="inline-flex items-center gap-1.5 rounded-[9px] border border-rose-500/25 bg-rose-500/[0.10] px-2.5 py-1 text-[11px] font-semibold text-rose-300 hover:bg-rose-500/[0.20] transition"
+            >
+              ↗ Sign out
+            </button>
+          </form>
         </div>
       </div>
 
-      <section className="rounded-[14px] border border-white/[0.08] bg-white/[0.03] p-3.5">
+      <section className="rounded-[14px] border border-white/[0.14] bg-white/[0.08] p-3.5">
         <div className="flex items-center justify-between gap-2">
           <p className="text-[11px] font-semibold uppercase tracking-wider text-white/35">Profile</p>
           {!editingProfile && (
@@ -138,7 +151,7 @@ export function PlatformUserMenu({ name, email }: { name: string; email: string 
         )}
       </section>
 
-      <section className="rounded-[14px] border border-white/[0.08] bg-white/[0.03] p-3.5 mt-3">
+      <section className="mt-3 rounded-[14px] border border-white/[0.14] bg-white/[0.08] p-3.5">
         <div className="flex items-center justify-between gap-2">
           <p className="text-[11px] font-semibold uppercase tracking-wider text-white/35">Change password</p>
           {!editingPassword && (
@@ -180,8 +193,12 @@ export function PlatformUserMenu({ name, email }: { name: string; email: string 
       <button
         type="button"
         onClick={() => setOpen(v => !v)}
-        className="inline-flex items-center gap-2 rounded-[12px] border border-white/[0.16] bg-white/[0.08]
-                   px-2.5 py-1.5 text-white/90 hover:bg-white/[0.14] transition-all"
+        className={clsx(
+          "inline-flex items-center gap-2 rounded-[12px] border px-2.5 py-1.5 text-white/90 transition-all",
+          open
+            ? "border-indigo-400/35 bg-indigo-500/[0.18]"
+            : "border-white/[0.16] bg-white/[0.08] hover:bg-white/[0.14]"
+        )}
         aria-label="Open profile menu"
       >
         <div className="grid h-6 w-6 place-items-center rounded-[7px]
@@ -199,13 +216,19 @@ export function PlatformUserMenu({ name, email }: { name: string; email: string 
             type="button"
             aria-label="Close profile menu"
             onClick={() => setOpen(false)}
-            className="md:hidden fixed inset-0 z-40 bg-black/75 backdrop-blur-sm"
+            className="hidden md:block fixed inset-0 z-[70] bg-black/50 backdrop-blur-[1.5px]"
           />
-          <div className="md:hidden fixed inset-x-2 bottom-[calc(5.5rem+env(safe-area-inset-bottom,0px))] top-[calc(env(safe-area-inset-top,0px)+56px)] z-50">
+          <button
+            type="button"
+            aria-label="Close profile menu"
+            onClick={() => setOpen(false)}
+            className="md:hidden fixed inset-0 z-[70] bg-black/75 backdrop-blur-sm"
+          />
+          <div className="md:hidden fixed inset-x-2 bottom-[calc(5.5rem+env(safe-area-inset-bottom,0px))] top-[calc(env(safe-area-inset-top,0px)+56px)] z-[80]">
             <div
-              className="h-full overflow-y-auto rounded-[20px] border border-white/[0.10]
-                         bg-[#060912]/97 backdrop-blur-2xl p-4
-                         shadow-[0_20px_60px_-20px_rgba(0,0,0,0.8),0_0_0_1px_rgba(255,255,255,0.05)]
+              className="h-full overflow-y-auto rounded-[20px] border border-indigo-300/35
+                         bg-[#111a31]/98 backdrop-blur-2xl p-4
+                         shadow-[0_28px_90px_-24px_rgba(0,0,0,0.9),0_0_0_1px_rgba(129,140,248,0.26)]
                          animate-fade-up"
               style={{ animationDuration: "0.15s" }}
             >
@@ -214,8 +237,8 @@ export function PlatformUserMenu({ name, email }: { name: string; email: string 
           </div>
           <div
             className="hidden md:block absolute right-0 mt-2 w-[min(22rem,calc(100vw-1rem))] max-w-[calc(100vw-1rem)] max-h-[75vh] overflow-y-auto
-                       rounded-[20px] border border-white/[0.10] bg-[#060912]/97 backdrop-blur-2xl p-5
-                       shadow-[0_20px_60px_-20px_rgba(0,0,0,0.8),0_0_0_1px_rgba(255,255,255,0.05)] animate-fade-up z-50"
+                       rounded-[20px] border border-indigo-300/35 bg-[#111a31]/98 backdrop-blur-2xl p-5
+                       shadow-[0_28px_90px_-24px_rgba(0,0,0,0.9),0_0_0_1px_rgba(129,140,248,0.26)] animate-fade-up z-[90]"
             style={{ animationDuration: "0.15s" }}
           >
             {panelContent}

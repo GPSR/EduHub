@@ -1,63 +1,47 @@
 import { Card, SectionHeader } from "@/components/ui";
 import { prisma } from "@/lib/db";
 import { requireSession } from "@/lib/require";
-import { atLeastLevel, getEffectivePermissions } from "@/lib/permissions";
 import { requirePermission } from "@/lib/require-permission";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { DashboardGlobalSearch } from "../dashboard-global-search";
 
-function startOfDay(d: Date) {
-  const out = new Date(d);
-  out.setHours(0, 0, 0, 0);
-  return out;
+function centsToUsd(cents: number) {
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    maximumFractionDigits: 0
+  }).format(cents / 100);
 }
-
-function addDays(d: Date, days: number) {
-  const out = new Date(d);
-  out.setDate(out.getDate() + days);
-  return out;
-}
-
-function dayKey(d: Date) {
-  return d.toISOString().slice(0, 10);
-}
-
-type TrendPoint = {
-  day: Date;
-  marked: number;
-  present: number;
-  absent: number;
-  late: number;
-  leave: number;
-};
 
 export default async function DashboardPage({
   searchParams
 }: {
-  searchParams: Promise<{ q?: string }>;
+  searchParams: Promise<{ q?: string; fees?: string }>;
 }) {
   await requirePermission("DASHBOARD", "VIEW");
   const session = await requireSession();
   if (session.roleKey !== "ADMIN") redirect("/students");
-  const { q } = await searchParams;
+  const { q, fees } = await searchParams;
   const query = (q ?? "").trim();
+  const feeView = fees === "paid" || fees === "pending" ? fees : null;
 
-  const [students, teachers, pendingFees, posts, school, perms, quickSearchStudents, quickSearchTeachers] = await Promise.all([
-    prisma.student.count({ where: { schoolId: session.schoolId } }),
+  const [
+    teachers,
+    posts,
+    school,
+    quickSearchStudents,
+    quickSearchTeachers,
+    feeInvoicedTotals,
+    feeCollectedTotals
+  ] = await Promise.all([
     prisma.user.count({
       where: { schoolId: session.schoolId, schoolRole: { key: { in: ["TEACHER", "CLASS_TEACHER"] } } }
     }),
-    prisma.feeInvoice.count({ where: { schoolId: session.schoolId, status: { not: "PAID" } } }),
     prisma.feedPost.count({ where: { schoolId: session.schoolId } }),
     prisma.school.findUnique({
       where: { id: session.schoolId },
       include: { subscription: true }
-    }),
-    getEffectivePermissions({
-      schoolId: session.schoolId,
-      userId: session.userId,
-      roleId: session.roleId
     }),
     prisma.student.findMany({
       where: { schoolId: session.schoolId },
@@ -85,61 +69,146 @@ export default async function DashboardPage({
       },
       orderBy: { createdAt: "desc" },
       take: 180
+    }),
+    prisma.feeInvoice.aggregate({
+      where: { schoolId: session.schoolId },
+      _sum: { amountCents: true }
+    }),
+    prisma.feePayment.aggregate({
+      where: { invoice: { schoolId: session.schoolId } },
+      _sum: { amountCents: true }
     })
   ]);
 
-  const canViewAttendance = perms["ATTENDANCE"] ? atLeastLevel(perms["ATTENDANCE"], "VIEW") : false;
+  const totalInvoicedCents = feeInvoicedTotals._sum.amountCents ?? 0;
+  const totalRevenueCents = feeCollectedTotals._sum.amountCents ?? 0;
+  const pendingFeeCents = Math.max(0, totalInvoicedCents - totalRevenueCents);
 
-  const attendanceScopeLabel = "School-wide students";
-  const scopedStudentIds = (
-    await prisma.student.findMany({
-      where: { schoolId: session.schoolId },
-      select: { id: true }
-    })
-  ).map((s) => s.id);
+  const paidEntries =
+    feeView === "paid"
+      ? await prisma.feePayment.findMany({
+          where: { invoice: { schoolId: session.schoolId } },
+          select: {
+            amountCents: true,
+            paidAt: true,
+            invoice: {
+              select: {
+                student: {
+                  select: {
+                    id: true,
+                    fullName: true,
+                    studentId: true,
+                    class: { select: { name: true, section: true } }
+                  }
+                }
+              }
+            }
+          },
+          orderBy: { paidAt: "desc" },
+          take: 1200
+        })
+      : [];
 
-  const trendDays: TrendPoint[] = [];
-  const today = startOfDay(new Date());
-  const trendStart = addDays(today, -13);
+  const pendingEntries =
+    feeView === "pending"
+      ? await prisma.feeInvoice.findMany({
+          where: { schoolId: session.schoolId, status: { not: "PAID" } },
+          select: {
+            id: true,
+            amountCents: true,
+            status: true,
+            dueOn: true,
+            payments: { select: { amountCents: true } },
+            student: {
+              select: {
+                id: true,
+                fullName: true,
+                studentId: true,
+                class: { select: { name: true, section: true } }
+              }
+            }
+          },
+          orderBy: [{ dueOn: "asc" }, { createdAt: "desc" }],
+          take: 1000
+        })
+      : [];
 
-  if (canViewAttendance && scopedStudentIds.length > 0) {
-    const records = await prisma.attendanceRecord.findMany({
-      where: {
-        schoolId: session.schoolId,
-        studentId: { in: scopedStudentIds },
-        date: { gte: trendStart, lte: addDays(today, 1) }
-      },
-      select: { date: true, status: true }
-    });
-
-    const byDay = new Map<string, TrendPoint>();
-    for (let i = 0; i < 14; i++) {
-      const day = addDays(trendStart, i);
-      byDay.set(dayKey(day), { day, marked: 0, present: 0, absent: 0, late: 0, leave: 0 });
+  const paidByStudent = new Map<
+    string,
+    {
+      studentId: string;
+      fullName: string;
+      studentCode: string;
+      classLabel: string;
+      totalPaidCents: number;
+      paymentCount: number;
+      lastPaidAt: Date;
     }
-
-    for (const r of records) {
-      const key = dayKey(startOfDay(r.date));
-      const bucket = byDay.get(key);
-      if (!bucket) continue;
-      bucket.marked += 1;
-      if (r.status === "PRESENT") bucket.present += 1;
-      if (r.status === "ABSENT") bucket.absent += 1;
-      if (r.status === "LATE") bucket.late += 1;
-      if (r.status === "LEAVE") bucket.leave += 1;
+  >();
+  for (const entry of paidEntries) {
+    const student = entry.invoice.student;
+    const classLabel = student.class ? `${student.class.name}${student.class.section ? `-${student.class.section}` : ""}` : "No class";
+    const existing = paidByStudent.get(student.id);
+    if (!existing) {
+      paidByStudent.set(student.id, {
+        studentId: student.id,
+        fullName: student.fullName,
+        studentCode: student.studentId,
+        classLabel,
+        totalPaidCents: entry.amountCents,
+        paymentCount: 1,
+        lastPaidAt: entry.paidAt,
+      });
+      continue;
     }
-
-    trendDays.push(...Array.from(byDay.values()));
+    existing.totalPaidCents += entry.amountCents;
+    existing.paymentCount += 1;
+    if (entry.paidAt > existing.lastPaidAt) existing.lastPaidAt = entry.paidAt;
   }
+  const paidStudents = Array.from(paidByStudent.values()).sort((a, b) => b.totalPaidCents - a.totalPaidCents);
 
-  const todayPoint = trendDays.find((d) => dayKey(d.day) === dayKey(today)) ?? {
-    day: today,
-    marked: 0,
-    present: 0,
-    absent: 0,
-    late: 0,
-    leave: 0
-  };
+  const pendingByStudent = new Map<
+    string,
+    {
+      studentId: string;
+      fullName: string;
+      studentCode: string;
+      classLabel: string;
+      pendingCents: number;
+      invoiceCount: number;
+      overdueCount: number;
+      nearestDueOn: Date | null;
+    }
+  >();
+  for (const entry of pendingEntries) {
+    const paidCents = entry.payments.reduce((sum, payment) => sum + payment.amountCents, 0);
+    const balanceCents = Math.max(0, entry.amountCents - paidCents);
+    if (balanceCents <= 0) continue;
+    const student = entry.student;
+    const classLabel = student.class ? `${student.class.name}${student.class.section ? `-${student.class.section}` : ""}` : "No class";
+    const existing = pendingByStudent.get(student.id);
+    if (!existing) {
+      pendingByStudent.set(student.id, {
+        studentId: student.id,
+        fullName: student.fullName,
+        studentCode: student.studentId,
+        classLabel,
+        pendingCents: balanceCents,
+        invoiceCount: 1,
+        overdueCount: entry.status === "OVERDUE" ? 1 : 0,
+        nearestDueOn: entry.dueOn ?? null,
+      });
+      continue;
+    }
+    existing.pendingCents += balanceCents;
+    existing.invoiceCount += 1;
+    if (entry.status === "OVERDUE") existing.overdueCount += 1;
+    if (entry.dueOn && (!existing.nearestDueOn || entry.dueOn < existing.nearestDueOn)) {
+      existing.nearestDueOn = entry.dueOn;
+    }
+  }
+  const pendingStudents = Array.from(pendingByStudent.values()).sort((a, b) => b.pendingCents - a.pendingCents);
+
   const normalizedQuery = query.toLowerCase();
   const matchedStudents = query
     ? quickSearchStudents
@@ -159,6 +228,12 @@ export default async function DashboardPage({
         )
         .slice(0, 12)
     : [];
+  const revenueHref = query
+    ? `/dashboard?q=${encodeURIComponent(query)}&fees=paid#fee-insights`
+    : "/dashboard?fees=paid#fee-insights";
+  const pendingHref = query
+    ? `/dashboard?q=${encodeURIComponent(query)}&fees=pending#fee-insights`
+    : "/dashboard?fees=pending#fee-insights";
 
   return (
     <div className="space-y-6 animate-fade-up">
@@ -244,22 +319,90 @@ export default async function DashboardPage({
       {/* Stat grid */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
-          icon="👥" label="Students" value={students}
-          color="indigo" delay="stagger-1" href="/students"
+          icon="💰" label="Total Revenue" value={centsToUsd(totalRevenueCents)}
+          color={totalRevenueCents > 0 ? "emerald" : "indigo"} delay="stagger-1" href={revenueHref} active={feeView === "paid"}
         />
         <StatCard
           icon="🏫" label="Teachers" value={teachers}
           color="teal" delay="stagger-2" href="/admin/users"
         />
         <StatCard
-          icon="💳" label="Pending Fees" value={pendingFees}
-          color={pendingFees > 0 ? "amber" : "emerald"} delay="stagger-3" href="/fees"
+          icon="🧾" label="Pending Fee Amount" value={centsToUsd(pendingFeeCents)}
+          color={pendingFeeCents > 0 ? "amber" : "emerald"} delay="stagger-3" href={pendingHref} active={feeView === "pending"}
         />
         <StatCard
           icon="📢" label="Feed Posts" value={posts}
           color="violet" delay="stagger-4" href="/feed"
         />
       </div>
+
+      {feeView === "paid" && (
+        <Card
+          title={`Paid Students · ${paidStudents.length}`}
+          description="Students who contributed to collected fee revenue"
+          accent="emerald"
+          className="scroll-mt-24"
+        >
+          <div id="fee-insights" className="space-y-2">
+            {paidStudents.length === 0 ? (
+              <p className="py-6 text-center text-sm text-white/45">No paid fee records yet.</p>
+            ) : (
+              paidStudents.slice(0, 120).map((student) => (
+                <Link
+                  key={student.studentId}
+                  href={`/students/${student.studentId}`}
+                  className="flex items-center justify-between gap-3 rounded-[12px] border border-white/[0.06] bg-white/[0.03] px-3 py-2.5 hover:bg-white/[0.06] transition"
+                >
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium text-white/90">{student.fullName}</p>
+                    <p className="truncate text-xs text-white/45">
+                      {student.studentCode} · {student.classLabel} · {student.paymentCount} payment{student.paymentCount > 1 ? "s" : ""} · Last paid {student.lastPaidAt.toDateString()}
+                    </p>
+                  </div>
+                  <div className="shrink-0 text-sm font-bold text-emerald-300 tabular-nums">
+                    {centsToUsd(student.totalPaidCents)}
+                  </div>
+                </Link>
+              ))
+            )}
+          </div>
+        </Card>
+      )}
+
+      {feeView === "pending" && (
+        <Card
+          title={`Pending Students · ${pendingStudents.length}`}
+          description="Students with due or partial fee balances"
+          accent="amber"
+          className="scroll-mt-24"
+        >
+          <div id="fee-insights" className="space-y-2">
+            {pendingStudents.length === 0 ? (
+              <p className="py-6 text-center text-sm text-white/45">No pending fee balances.</p>
+            ) : (
+              pendingStudents.slice(0, 120).map((student) => (
+                <Link
+                  key={student.studentId}
+                  href={`/students/${student.studentId}`}
+                  className="flex items-center justify-between gap-3 rounded-[12px] border border-white/[0.06] bg-white/[0.03] px-3 py-2.5 hover:bg-white/[0.06] transition"
+                >
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium text-white/90">{student.fullName}</p>
+                    <p className="truncate text-xs text-white/45">
+                      {student.studentCode} · {student.classLabel} · {student.invoiceCount} pending invoice{student.invoiceCount > 1 ? "s" : ""}
+                      {student.overdueCount > 0 ? ` · ${student.overdueCount} overdue` : ""}
+                      {student.nearestDueOn ? ` · Due ${student.nearestDueOn.toDateString()}` : ""}
+                    </p>
+                  </div>
+                  <div className="shrink-0 text-sm font-bold text-amber-300 tabular-nums">
+                    {centsToUsd(student.pendingCents)}
+                  </div>
+                </Link>
+              ))
+            )}
+          </div>
+        </Card>
+      )}
 
       <Card title="Quick Access" accent="teal">
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
@@ -281,79 +424,20 @@ export default async function DashboardPage({
           ))}
         </div>
       </Card>
-
-      <Card
-        title="Attendance Trend (Last 14 Days)"
-        description={`Scope: ${attendanceScopeLabel}`}
-        accent="emerald"
-      >
-        {!canViewAttendance ? (
-          <p className="text-sm text-white/50">Attendance access is not enabled for your role.</p>
-        ) : scopedStudentIds.length === 0 ? (
-          <p className="text-sm text-white/50">No students are currently in your attendance scope.</p>
-        ) : (
-          <div className="space-y-4">
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2 sm:gap-3">
-              <Metric label="In Scope" value={scopedStudentIds.length} tone="text-white/85" href="/students" />
-              <Metric label="Marked Today" value={todayPoint.marked} tone="text-indigo-300" href="/attendance" />
-              <Metric label="Present" value={todayPoint.present} tone="text-emerald-300" href="/attendance" />
-              <Metric label="Absent" value={todayPoint.absent} tone="text-rose-300" href="/attendance" />
-              <Metric label="Late / Leave" value={todayPoint.late + todayPoint.leave} tone="text-amber-300" href="/attendance" />
-            </div>
-
-            <div className="rounded-[16px] border border-white/[0.07] bg-black/20 p-4">
-              <div className="flex items-end gap-0.5 sm:gap-1 h-24 sm:h-36">
-                {trendDays.map((d) => {
-                  const coverage = scopedStudentIds.length ? Math.round((d.marked / scopedStudentIds.length) * 100) : 0;
-                  const presentRate = scopedStudentIds.length ? Math.round((d.present / scopedStudentIds.length) * 100) : 0;
-                  const h = Math.max(8, Math.min(100, coverage));
-                  return (
-                    <div key={dayKey(d.day)} className="group flex-1 min-w-0 flex flex-col items-center justify-end gap-1">
-                      <div className="w-full rounded-t-md bg-white/[0.08] relative overflow-hidden" style={{ height: `${h}%` }}>
-                        <div className="absolute inset-x-0 bottom-0 bg-emerald-500/80" style={{ height: `${presentRate}%` }} />
-                      </div>
-                      <span className="text-[10px] text-white/35">{d.day.getDate()}</span>
-                    </div>
-                  );
-                })}
-              </div>
-              <div className="mt-3 flex items-center gap-4 text-[11px] text-white/45">
-                <span className="inline-flex items-center gap-1"><i className="h-2.5 w-2.5 rounded-sm bg-white/[0.16] inline-block" /> Marked coverage</span>
-                <span className="inline-flex items-center gap-1"><i className="h-2.5 w-2.5 rounded-sm bg-emerald-500/80 inline-block" /> Present share</span>
-              </div>
-            </div>
-
-            <div className="text-xs text-white/40">
-              Teachers see assigned-class students; parents see linked children; admins and leadership see school-wide scope.
-            </div>
-          </div>
-        )}
-      </Card>
     </div>
   );
 }
 
-function Metric({ label, value, tone, href }: { label: string; value: number; tone: string; href: string }) {
-  return (
-    <Link
-      href={href}
-      className="block rounded-[12px] border border-white/[0.07] bg-white/[0.03] px-3 py-3 text-center hover:bg-white/[0.07] hover:border-white/[0.12] transition-all duration-150"
-    >
-      <div className={`text-lg sm:text-xl font-bold ${tone}`}>{value.toLocaleString()}</div>
-      <div className="mt-0.5 text-[11px] text-white/35 font-medium uppercase tracking-wider">{label}</div>
-    </Link>
-  );
-}
-
 function StatCard({
-  icon, label, value, color, delay, href
+  icon, label, value, color, delay, href, active = false
 }: {
   icon: string;
   label: string;
-  value: number;
+  value: number | string;
   color: "indigo" | "teal" | "amber" | "emerald" | "violet";
   delay: string;
   href: string;
+  active?: boolean;
 }) {
   const colorMap = {
     indigo:  { bg: "bg-indigo-500/10",  text: "text-indigo-400",  border: "border-indigo-500/20" },
@@ -368,12 +452,14 @@ function StatCard({
       href={href}
       className={`block animate-fade-up ${delay} rounded-[16px] sm:rounded-[18px] border border-white/[0.08] bg-white/[0.04]
                   p-3.5 sm:p-5 hover:bg-white/[0.06] hover:border-white/[0.14] transition-all duration-200
-                  shadow-[0_1px_3px_rgba(0,0,0,0.4)]`}
+                  shadow-[0_1px_3px_rgba(0,0,0,0.4)] ${active ? "ring-2 ring-indigo-400/35 border-indigo-400/30 bg-indigo-500/[0.08]" : ""}`}
     >
       <div className={`mb-2 sm:mb-3 inline-flex items-center justify-center w-9 h-9 sm:w-10 sm:h-10 rounded-[10px] sm:rounded-[11px] ${colorMap.bg} ${colorMap.border} border`}>
         <span className="text-lg leading-none">{icon}</span>
       </div>
-      <div className="text-xl sm:text-2xl font-bold text-white/95 tracking-tight">{value.toLocaleString()}</div>
+      <div className="text-xl sm:text-2xl font-bold text-white/95 tracking-tight">
+        {typeof value === "number" ? value.toLocaleString() : value}
+      </div>
       <div className="mt-1 text-[12px] font-medium text-white/45 uppercase tracking-wider">{label}</div>
     </Link>
   );
