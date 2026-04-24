@@ -15,10 +15,10 @@
     "mobile:sync": "cap sync",
     "mobile:open:ios": "cap open ios",
     "mobile:open:android": "cap open android",
-    "mobile:build": "next build && cap sync",
-    "mobile:build:ios": "next build && cap sync ios",
-    "mobile:build:android": "next build && cap sync android",
-    "mobile:build:android:clean": "next build && cap sync android && cd android && ./gradlew clean assembleDebug"
+    "mobile:build": "rm -rf .next && next build && cap sync",
+    "mobile:build:ios": "rm -rf .next && next build && cap sync ios",
+    "mobile:build:android": "rm -rf .next && next build && cap sync android",
+    "mobile:build:android:clean": "rm -rf .next && next build && cap sync android && cd android && ./gradlew clean assembleDebug"
   },
   "dependencies": {
     "@capacitor/android": "^7.0.0",
