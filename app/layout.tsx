@@ -3,6 +3,7 @@ import "./globals.css";
 import { CapacitorInit } from "@/components/capacitor-init";
 import { NetworkBanner } from "@/components/network-banner";
 import { ScrollPreserver } from "@/components/scroll-preserver";
+import { ScrollUnlocker } from "@/components/scroll-unlocker";
 
 export const metadata: Metadata = {
   title: { default: "EduHub", template: "%s · EduHub" },
@@ -49,6 +50,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <CapacitorInit />
         <NetworkBanner />
         <ScrollPreserver />
+        <ScrollUnlocker />
         {children}
       </body>
     </html>
