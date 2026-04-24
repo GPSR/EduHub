@@ -82,8 +82,8 @@ export function ProfileAvatarUploader({
           ) : (
             <div
               className="grid h-14 w-14 sm:h-16 sm:w-16 shrink-0 place-items-center rounded-[16px] sm:rounded-[18px]
-                         bg-gradient-to-b from-blue-400 to-blue-600 text-xl font-bold text-white
-                         shadow-[0_8px_24px_-8px_rgba(24,119,242,0.6)]"
+                         bg-gradient-to-b from-[#67b4ff] to-[#4f8dfd] text-xl font-bold text-white
+                         shadow-[0_8px_24px_-8px_rgba(79,141,253,0.7)]"
             >
               {avatar}
             </div>

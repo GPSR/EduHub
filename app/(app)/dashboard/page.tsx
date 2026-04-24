@@ -239,7 +239,7 @@ export default async function DashboardPage({
     <div className="space-y-6 animate-fade-up">
       <SectionHeader title="Dashboard" subtitle={`Welcome back — ${school?.name ?? "your school"}`} />
 
-      <Card>
+      <Card className="relative z-[110] overflow-visible">
         <DashboardGlobalSearch
           initialQuery={query}
           students={quickSearchStudents.map((s) => ({
@@ -410,7 +410,7 @@ export default async function DashboardPage({
             { href: "/admin/users", icon: "🏫", label: "Teachers"   },
             { href: "/attendance", icon: "✅", label: "Attendance" },
             { href: "/academics",  icon: "📚", label: "Academics"  },
-            { href: "/reports",    icon: "📊", label: "Reports"    },
+            { href: "/transport",  icon: "🚌", label: "Transport"  },
           ].map(item => (
             <a
               key={item.href}

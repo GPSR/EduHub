@@ -9,19 +9,20 @@ export function Card({
   children: React.ReactNode; className?: string; action?: React.ReactNode;
 }) {
   const accentBar: Record<string, string> = {
-    indigo:  "before:bg-blue-500",
+    indigo:  "before:bg-blue-400",
     emerald: "before:bg-emerald-500",
     amber:   "before:bg-amber-500",
     rose:    "before:bg-rose-500",
     teal:    "before:bg-teal-500",
-    violet:  "before:bg-blue-600",
+    violet:  "before:bg-cyan-400",
   };
   return (
     <div className={clsx(
-      "relative rounded-[14px] sm:rounded-[16px] border border-white/[0.08] bg-[#242526]",
-      "backdrop-blur-sm p-4 sm:p-6 transition-all duration-200",
-      "hover:border-white/[0.14]",
-      "shadow-[0_1px_2px_rgba(0,0,0,0.3)]",
+      "relative rounded-[16px] sm:rounded-[18px] border border-white/[0.10]",
+      "bg-[linear-gradient(180deg,rgba(255,255,255,0.07),rgba(255,255,255,0.025))]",
+      "backdrop-blur-xl p-4 sm:p-6 transition-all duration-200",
+      "hover:border-white/[0.18] hover:shadow-[0_16px_34px_-24px_rgba(79,141,253,0.65)]",
+      "shadow-[0_12px_28px_-24px_rgba(0,0,0,0.95)]",
       accent && [
         "before:absolute before:left-0 before:top-5 before:bottom-5 sm:before:top-6 sm:before:bottom-6",
         "before:w-[3px] before:rounded-r-full before:opacity-80",
@@ -47,8 +48,8 @@ export function Card({
 export function SectionHeader({ title, subtitle }: { title: string; subtitle?: string }) {
   return (
     <div className="mb-4 sm:mb-5">
-      <h1 className="text-lg sm:text-xl font-semibold tracking-tight text-white/92">{title}</h1>
-      {subtitle && <p className="mt-0.5 text-xs sm:text-sm text-white/60">{subtitle}</p>}
+      <h1 className="text-lg sm:text-xl font-semibold tracking-tight text-white/95">{title}</h1>
+      {subtitle && <p className="mt-0.5 text-xs sm:text-sm text-white/65">{subtitle}</p>}
     </div>
   );
 }
@@ -56,7 +57,7 @@ export function SectionHeader({ title, subtitle }: { title: string; subtitle?: s
 /* ─── Label ─────────────────────────────────────── */
 export function Label({ children, required }: { children: React.ReactNode; required?: boolean }) {
   return (
-    <label className="block text-[13px] font-medium text-white/75 mb-1.5">
+    <label className="block text-[13px] font-medium text-white/78 mb-1.5">
       {children}
       {required && <span className="ml-0.5 text-rose-400">*</span>}
     </label>
@@ -67,12 +68,12 @@ export function Label({ children, required }: { children: React.ReactNode; requi
 export function Input(props: React.InputHTMLAttributes<HTMLInputElement>) {
   return (
     <input {...props} className={clsx(
-      "w-full rounded-[12px] bg-[#3a3b3c] border border-white/[0.10]",
+      "w-full rounded-[12px] bg-[#0f1728]/75 border border-white/[0.12]",
       "px-3.5 py-3 sm:py-2.5",   // taller tap target on mobile
-      "text-[16px] sm:text-sm text-white placeholder:text-white/45 outline-none",
+      "text-[16px] sm:text-sm text-white placeholder:text-white/42 outline-none",
       "transition-all duration-150",
-      "hover:border-white/[0.20]",
-      "focus:border-blue-400/60 focus:bg-[#3a3b3c] focus:ring-4 focus:ring-blue-500/20",
+      "hover:border-white/[0.24]",
+      "focus:border-blue-300/70 focus:bg-[#131e33]/90 focus:ring-4 focus:ring-blue-500/22",
       props.className
     )} />
   );
@@ -82,12 +83,12 @@ export function Input(props: React.InputHTMLAttributes<HTMLInputElement>) {
 export function Select(props: React.SelectHTMLAttributes<HTMLSelectElement>) {
   return (
     <select {...props} className={clsx(
-      "w-full rounded-[12px] bg-[#3a3b3c] border border-white/[0.10]",
+      "w-full rounded-[12px] bg-[#0f1728]/75 border border-white/[0.12]",
       "px-3.5 py-3 sm:py-2.5",
       "text-[16px] sm:text-sm text-white outline-none appearance-none",
       "transition-all duration-150",
-      "hover:border-white/[0.20]",
-      "focus:border-blue-400/60 focus:ring-4 focus:ring-blue-500/20",
+      "hover:border-white/[0.24]",
+      "focus:border-blue-300/70 focus:ring-4 focus:ring-blue-500/22",
       props.className
     )} />
   );
@@ -97,12 +98,12 @@ export function Select(props: React.SelectHTMLAttributes<HTMLSelectElement>) {
 export function Textarea(props: React.TextareaHTMLAttributes<HTMLTextAreaElement>) {
   return (
     <textarea {...props} className={clsx(
-      "w-full rounded-[12px] bg-[#3a3b3c] border border-white/[0.10]",
+      "w-full rounded-[12px] bg-[#0f1728]/75 border border-white/[0.12]",
       "px-3.5 py-3 sm:py-2.5",
-      "text-[16px] sm:text-sm text-white placeholder:text-white/45 outline-none resize-none",
+      "text-[16px] sm:text-sm text-white placeholder:text-white/42 outline-none resize-none",
       "transition-all duration-150",
-      "hover:border-white/[0.20]",
-      "focus:border-blue-400/60 focus:ring-4 focus:ring-blue-500/20",
+      "hover:border-white/[0.24]",
+      "focus:border-blue-300/70 focus:ring-4 focus:ring-blue-500/22",
       props.className
     )} />
   );
@@ -122,10 +123,10 @@ export function Button({
   }[size];
 
   const variantStyles = {
-    primary:   "bg-[#1877f2] text-white font-semibold shadow-[0_8px_20px_-8px_rgba(24,119,242,0.55)] hover:bg-[#2d88ff] focus:ring-4 focus:ring-blue-500/25",
-    secondary: "bg-[#3a3b3c] text-white/95 border border-white/[0.10] font-medium hover:bg-white/[0.15] hover:border-white/[0.18] focus:ring-4 focus:ring-white/10",
+    primary:   "bg-gradient-to-b from-[#67b4ff] to-[#4f8dfd] text-white font-semibold shadow-[0_12px_24px_-12px_rgba(79,141,253,0.75)] hover:from-[#7ac0ff] hover:to-[#5a95ff] focus:ring-4 focus:ring-blue-500/30",
+    secondary: "bg-[#111c30]/90 text-white/95 border border-white/[0.14] font-medium hover:bg-[#16233a] hover:border-white/[0.22] focus:ring-4 focus:ring-white/10",
     danger:    "bg-gradient-to-b from-rose-400 to-rose-600 text-white font-semibold shadow-[0_8px_20px_-8px_rgba(244,63,94,0.4)] hover:from-rose-300 hover:to-rose-500 focus:ring-4 focus:ring-rose-500/25",
-    ghost:     "text-white/70 font-medium hover:bg-white/[0.07] hover:text-white focus:ring-4 focus:ring-white/10",
+    ghost:     "text-white/75 font-medium hover:bg-white/[0.08] hover:text-white focus:ring-4 focus:ring-white/10",
   }[variant];
 
   return (
@@ -143,11 +144,11 @@ export function Badge({ tone = "neutral", dot, children }: {
   tone?: "neutral"|"success"|"danger"|"info"|"warning"; dot?: boolean; children: React.ReactNode;
 }) {
   const styles = {
-    neutral: "border-white/10   bg-white/[0.08]   text-white/80",
-    success: "border-emerald-500/25 bg-emerald-500/12 text-emerald-300",
-    danger:  "border-rose-500/25    bg-rose-500/12    text-rose-300",
-    info:    "border-blue-500/30  bg-blue-500/16  text-blue-300",
-    warning: "border-amber-500/25   bg-amber-500/12   text-amber-300",
+    neutral: "border-slate-300/20 bg-slate-200/[0.08] text-slate-100/85",
+    success: "border-emerald-500/30 bg-emerald-500/15 text-emerald-200",
+    danger:  "border-rose-500/30 bg-rose-500/15 text-rose-200",
+    info:    "border-blue-400/35 bg-blue-500/18 text-blue-200",
+    warning: "border-amber-500/30 bg-amber-500/15 text-amber-200",
   }[tone];
   const dotColor = {
     neutral: "bg-white/40", success: "bg-emerald-400", danger: "bg-rose-400",

@@ -1,6 +1,6 @@
 import { requireUser } from "@/lib/require";
 import { prisma } from "@/lib/db";
-import { Badge, SectionHeader } from "@/components/ui";
+import { Badge } from "@/components/ui";
 import { ProfileSettings } from "@/components/profile-settings";
 import { getUserProfileImageUrl } from "@/lib/uploads";
 import { ProfileAvatarUploader } from "@/components/profile-avatar-uploader";
@@ -24,22 +24,25 @@ export default async function ProfilePage() {
 
   return (
     <div className="space-y-5 animate-fade-up">
-      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
-        <SectionHeader title="Profile" subtitle="Manage your account details" />
-        <form action="/logout" method="post" className="shrink-0">
-          <button
-            type="submit"
-            className="rounded-[13px] border border-rose-500/25 bg-rose-500/[0.10]
-                       px-4 py-2 text-sm font-medium text-rose-300
-                       hover:bg-rose-500/[0.20] hover:border-rose-500/35 transition-all"
-          >
-            Sign out
-          </button>
-        </form>
+      <div className="space-y-0.5">
+        <div className="flex items-center justify-between gap-3">
+          <h1 className="min-w-0 text-lg sm:text-xl font-semibold tracking-tight text-white/92">Profile</h1>
+          <form action="/logout" method="post" className="shrink-0">
+            <button
+              type="submit"
+              className="rounded-[13px] border border-rose-500/25 bg-rose-500/[0.10]
+                         px-4 py-2 text-sm font-medium text-rose-300
+                         hover:bg-rose-500/[0.20] hover:border-rose-500/35 transition-all"
+            >
+              Sign out
+            </button>
+          </form>
+        </div>
+        <p className="text-xs sm:text-sm text-white/60">Manage your account details</p>
       </div>
 
       {/* Profile hero */}
-      <div className="rounded-[22px] border border-white/[0.10] bg-[#242526] p-6">
+      <div className="rounded-[22px] border border-white/[0.12] bg-[#121a2a]/88 p-6 backdrop-blur-xl">
         <div className="flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-5">
           <ProfileAvatarUploader userName={user.name} photoUrl={profilePhotoUrl ?? undefined} />
           <div className="min-w-0">

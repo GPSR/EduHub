@@ -25,9 +25,9 @@ export function BrandLogo({
         className
       )}
     >
-      <span className="pointer-events-none absolute -inset-6 rounded-[32px] bg-gradient-to-b from-blue-500/24 via-blue-400/10 to-transparent blur-2xl opacity-80 group-hover:opacity-100 transition" />
+      <span className="pointer-events-none absolute -inset-6 rounded-[32px] bg-gradient-to-b from-blue-400/30 via-cyan-300/12 to-transparent blur-2xl opacity-80 group-hover:opacity-100 transition" />
       <span className="absolute inset-0 rounded-[28px] bg-gradient-to-b from-white/12 to-white/4 opacity-70" />
-      <span className="relative inline-flex items-center justify-center rounded-[27px] bg-[#242526]/90 backdrop-blur px-4 py-3">
+      <span className="relative inline-flex items-center justify-center rounded-[27px] bg-[#111a2d]/90 backdrop-blur px-4 py-3">
         <span className="inline-flex items-center gap-3">
           <Image
             src="/brand/eduhub-icon.png"
@@ -57,8 +57,8 @@ export function BrandIcon({
   return (
     <Link href={href} aria-label="Go to home">
       <span className="group relative inline-flex rounded-2xl p-[1px] shadow-[0_18px_45px_-28px_rgba(0,0,0,0.9)]">
-        <span className="pointer-events-none absolute -inset-3 rounded-3xl bg-gradient-to-b from-blue-500/24 via-blue-400/10 to-transparent blur-xl opacity-70 group-hover:opacity-100 transition" />
-        <span className="relative inline-flex overflow-hidden rounded-2xl border border-white/10 bg-[#242526]/90 p-1.5 backdrop-blur">
+        <span className="pointer-events-none absolute -inset-3 rounded-3xl bg-gradient-to-b from-blue-400/30 via-cyan-300/12 to-transparent blur-xl opacity-70 group-hover:opacity-100 transition" />
+        <span className="relative inline-flex overflow-hidden rounded-2xl border border-white/10 bg-[#111a2d]/90 p-1.5 backdrop-blur">
           <Image
             src="/brand/eduhub-icon.png"
             alt="EduHub"

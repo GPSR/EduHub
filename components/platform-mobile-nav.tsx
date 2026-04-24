@@ -76,13 +76,13 @@ export function PlatformMobileNav({
           />
 
           <div
-            className="relative animate-slide-up overflow-hidden rounded-t-[28px] border-t border-white/[0.10]
-                       bg-[#242526]/98 backdrop-blur-2xl shadow-[0_-24px_60px_rgba(0,0,0,0.7)]"
+            className="relative animate-slide-up overflow-hidden rounded-t-[28px] border-t border-white/[0.12]
+                       bg-[#111a2d]/95 backdrop-blur-2xl shadow-[0_-24px_60px_rgba(0,0,0,0.7)]"
             style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
           >
             <div className="mx-auto mb-1 mt-3 h-1 w-10 rounded-full bg-white/20" />
 
-            <div className="border-b border-white/[0.10] px-5 py-4">
+            <div className="border-b border-white/[0.12] px-5 py-4">
               <div className="flex items-center justify-between gap-2">
                 <div className="flex items-center gap-3 min-w-0">
                   {photoUrl ? (
@@ -96,7 +96,7 @@ export function PlatformMobileNav({
                   ) : (
                     <div
                       className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[13px]
-                                 bg-gradient-to-b from-blue-400 to-blue-600 text-sm font-bold text-white shadow"
+                                 bg-gradient-to-b from-[#67b4ff] to-[#4f8dfd] text-sm font-bold text-white shadow"
                     >
                       {initials}
                     </div>
@@ -104,7 +104,7 @@ export function PlatformMobileNav({
                   <button
                     type="button"
                     onClick={() => setShowUserInfo((value) => !value)}
-                    className="inline-flex items-center gap-1.5 rounded-[10px] border border-white/[0.12] bg-[#3a3b3c] px-3 py-1.5 text-[12px] font-semibold text-white/85 transition hover:bg-white/[0.18]"
+                    className="inline-flex items-center gap-1.5 rounded-[10px] border border-white/[0.14] bg-[#0f1728]/90 px-3 py-1.5 text-[12px] font-semibold text-white/85 transition hover:bg-[#1a2945]"
                   >
                     {showUserInfo ? "Hide info" : "Show info"}
                     <span className="text-[10px]">{showUserInfo ? "▲" : "▼"}</span>
@@ -122,7 +122,7 @@ export function PlatformMobileNav({
                   <button
                     type="button"
                     onClick={() => setOpen(false)}
-                    className="rounded-[10px] border border-white/[0.10] bg-[#3a3b3c] p-2 text-white/55 transition hover:text-white/90 active:bg-white/[0.18]"
+                    className="rounded-[10px] border border-white/[0.12] bg-[#0f1728]/90 p-2 text-white/55 transition hover:text-white/90 active:bg-[#1a2945]"
                   >
                     <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
                       <path d="M2 2l10 10M12 2L2 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
@@ -132,7 +132,7 @@ export function PlatformMobileNav({
               </div>
 
               {showUserInfo && (
-                <div className="mt-3 rounded-[12px] border border-white/[0.10] bg-[#3a3b3c] px-3 py-2.5">
+                <div className="mt-3 rounded-[12px] border border-white/[0.12] bg-[#0f1728]/88 px-3 py-2.5">
                   <p className="truncate text-[14px] font-semibold text-white/95">{userName}</p>
                   <p className="truncate text-[12px] text-white/45">{userEmail}</p>
                 </div>
@@ -145,8 +145,8 @@ export function PlatformMobileNav({
                 className={clsx(
                   "col-span-4 flex items-center gap-3 rounded-[14px] border px-4 py-3.5 transition",
                   pathname === "/platform/profile" || pathname.startsWith("/platform/profile/")
-                    ? "border-blue-400/40 bg-blue-500/20 text-white"
-                    : "border-white/[0.10] bg-[#3a3b3c] text-white/80 active:bg-white/[0.18]"
+                    ? "border-blue-300/45 bg-gradient-to-r from-blue-500/[0.24] to-cyan-400/[0.18] text-white"
+                    : "border-white/[0.12] bg-[#0f1728]/88 text-white/80 active:bg-[#1a2945]"
                 )}
               >
                 <span className="text-xl">👤</span>
@@ -162,8 +162,8 @@ export function PlatformMobileNav({
                     className={clsx(
                       "flex flex-col items-center gap-2 rounded-[14px] border py-4 px-1 transition",
                       active
-                        ? "border-blue-400/40 bg-blue-500/[0.20] text-white"
-                        : "border-white/[0.10] bg-[#3a3b3c] text-white/75 active:bg-white/[0.18]"
+                        ? "border-blue-300/45 bg-gradient-to-r from-blue-500/[0.24] to-cyan-400/[0.18] text-white"
+                        : "border-white/[0.12] bg-[#0f1728]/88 text-white/75 active:bg-[#1a2945]"
                     )}
                   >
                     <span className="text-[22px] leading-none">{item.icon}</span>
@@ -177,7 +177,7 @@ export function PlatformMobileNav({
         </div>
       )}
 
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 border-t border-white/[0.10] bg-[#242526]/98 backdrop-blur-2xl">
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 border-t border-white/[0.12] bg-[#0f1728]/94 backdrop-blur-2xl">
         <div
           className="grid pt-2"
           style={{

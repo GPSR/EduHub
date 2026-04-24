@@ -83,7 +83,7 @@ export default async function PlatformHomePage({
 
   return (
     <div className="space-y-6 animate-fade-up">
-      <Card>
+      <Card className="relative z-[110] overflow-visible">
         <PlatformGlobalSearch
           initialQuery={query}
           schools={quickSearchSchools}

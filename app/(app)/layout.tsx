@@ -53,7 +53,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     <PullToRefresh>
       <div className="min-h-dvh md:min-h-screen overflow-x-clip">
         {/* ── Top header with iOS safe-area top ── */}
-        <header className="header-safe sticky top-0 z-20 border-b border-white/[0.08] bg-[#242526]/96 backdrop-blur-xl">
+        <header className="header-safe sticky top-0 z-20 border-b border-white/[0.10] bg-[#0f1728]/80 backdrop-blur-2xl">
           <div className="relative mx-auto max-w-[1320px] px-4 md:px-6 h-[62px] flex items-center justify-between gap-4">
             <div className="flex items-center gap-2 shrink-0 md:hidden">
               <MobileProfileTrigger userName={user.name} photoUrl={userPhotoUrl ?? undefined} />
@@ -104,10 +104,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
           {/* ── Sidebar (desktop only) ── */}
           <aside className="hidden md:flex flex-col gap-1 h-fit sticky top-[78px]">
-            <div className="mb-3 px-3 py-3 rounded-[16px] border border-white/[0.10] bg-[#242526]">
+            <div className="mb-3 px-3 py-3 rounded-[16px] border border-white/[0.12] bg-[#121a2a]/88 backdrop-blur-xl">
               <div className="flex items-center gap-2.5">
                 <div className="grid h-8 w-8 place-items-center rounded-[10px]
-                                bg-gradient-to-b from-blue-400 to-blue-600
+                                bg-gradient-to-b from-[#67b4ff] to-[#4f8dfd]
                                 text-xs font-bold text-white shadow-sm shrink-0">
                   {userPhotoUrl ? (
                     <Image

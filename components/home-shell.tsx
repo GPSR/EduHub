@@ -58,9 +58,9 @@ export function HomeShell({ isSignedIn }: { isSignedIn: boolean }) {
           <Link
             href="/dashboard"
             className="inline-flex items-center gap-2 px-5 py-2.5 rounded-[13px]
-                       bg-[#1877f2] text-white text-sm font-medium
-                       shadow-[0_10px_28px_-12px_rgba(24,119,242,0.6)]
-                       hover:bg-[#2d88ff] transition-colors"
+                       bg-gradient-to-b from-[#67b4ff] to-[#4f8dfd] text-white text-sm font-medium
+                       shadow-[0_10px_28px_-12px_rgba(79,141,253,0.72)]
+                       hover:from-[#7ac0ff] hover:to-[#5a95ff] transition-colors"
           >
             Open dashboard →
           </Link>
@@ -76,8 +76,8 @@ export function HomeShell({ isSignedIn }: { isSignedIn: boolean }) {
               <Link
                 key={item.href}
                 href={item.href}
-                className="flex items-center gap-2 rounded-[13px] border border-white/[0.10] bg-[#3a3b3c]
-                           px-3.5 py-3 hover:bg-white/[0.14] hover:border-white/[0.18] transition-all text-sm font-medium text-white/85"
+                className="flex items-center gap-2 rounded-[13px] border border-white/[0.12] bg-[#101a2d]/90
+                           px-3.5 py-3 hover:bg-[#17253d] hover:border-white/[0.20] transition-all text-sm font-medium text-white/85"
               >
                 <span className="text-base">{item.icon}</span> {item.label}
               </Link>
@@ -101,8 +101,8 @@ export function HomeShell({ isSignedIn }: { isSignedIn: boolean }) {
             {FEATURES.map(f => (
               <div
                 key={f.label}
-                className="rounded-[13px] border border-white/[0.10] bg-[#3a3b3c] px-3 py-3
-                           hover:bg-white/[0.14] transition-colors"
+                className="rounded-[13px] border border-white/[0.12] bg-[#101a2d]/90 px-3 py-3
+                           hover:bg-[#17253d] transition-colors"
               >
                 <div className="text-xl mb-1.5">{f.icon}</div>
                 <div className="text-[13px] font-semibold text-white/85">{f.label}</div>
@@ -125,8 +125,8 @@ export function HomeShell({ isSignedIn }: { isSignedIn: boolean }) {
         <Link
           href="/onboard"
           className="inline-flex items-center gap-2 px-4 py-2.5 rounded-[13px]
-                     border border-white/[0.10] bg-[#3a3b3c] text-sm font-medium text-white/85
-                     hover:bg-white/[0.16] hover:text-white transition-all"
+                     border border-white/[0.12] bg-[#101a2d]/90 text-sm font-medium text-white/85
+                     hover:bg-[#17253d] hover:text-white transition-all"
         >
           Onboard School
         </Link>

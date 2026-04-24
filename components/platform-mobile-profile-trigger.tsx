@@ -23,7 +23,7 @@ export function PlatformMobileProfileTrigger({
   return (
     <Link
       href="/platform/profile"
-      className="md:hidden inline-flex items-center justify-center rounded-[12px] border border-white/[0.10] bg-[#3a3b3c] p-1.5 text-white/90"
+      className="md:hidden inline-flex items-center justify-center rounded-[12px] border border-white/[0.12] bg-[#101a2d]/90 p-1.5 text-white/90"
       aria-label="Open profile"
     >
       {photoUrl ? (
@@ -35,7 +35,7 @@ export function PlatformMobileProfileTrigger({
           className="h-[26px] w-[26px] rounded-[8px] object-cover border border-white/[0.12]"
         />
       ) : (
-        <span className="grid h-[26px] w-[26px] place-items-center rounded-[8px] bg-gradient-to-b from-blue-400 to-blue-600 text-[10px] font-bold text-white">
+        <span className="grid h-[26px] w-[26px] place-items-center rounded-[8px] bg-gradient-to-b from-[#67b4ff] to-[#4f8dfd] text-[10px] font-bold text-white">
           {initials(userName)}
         </span>
       )}

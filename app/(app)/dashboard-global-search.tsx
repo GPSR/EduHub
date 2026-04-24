@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { clsx } from "clsx";
 
 type StudentSuggestion = {
   id: string;
@@ -103,7 +104,7 @@ export function DashboardGlobalSearch({
   };
 
   return (
-    <div className="space-y-2" ref={boxRef}>
+    <div className={clsx("relative space-y-2", open && "z-[120]")} ref={boxRef}>
       <label className="text-[12px] font-medium text-white/70">Global Search (teachers + students)</label>
       <div className="relative">
         <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-white/45" aria-hidden="true">
@@ -128,11 +129,11 @@ export function DashboardGlobalSearch({
             }
             if (e.key === "Escape") setOpen(false);
           }}
-          className="w-full rounded-full bg-[#3a3b3c] border border-white/10 pl-10 pr-4 py-2.5 outline-none focus:border-blue-400 focus:ring-4 focus:ring-blue-500/20 transition text-sm"
+          className="w-full rounded-full bg-[#0f1728]/90 border border-white/[0.14] pl-10 pr-4 py-2.5 outline-none focus:border-blue-300 focus:ring-4 focus:ring-blue-500/24 transition text-sm"
         />
 
         {open && normalized && (
-          <div className="absolute z-30 mt-2 w-full max-h-[55vh] overflow-y-auto rounded-[16px] border border-white/[0.12] bg-[#242526]/98 backdrop-blur-2xl shadow-[0_16px_50px_-20px_rgba(0,0,0,0.8)]">
+          <div className="absolute z-[130] mt-2 w-full max-h-[55vh] overflow-y-auto rounded-[16px] border border-white/[0.14] bg-[#111a2d]/95 backdrop-blur-2xl shadow-[0_16px_50px_-20px_rgba(0,0,0,0.8)]">
             {suggestions.length > 0 ? (
               suggestions.map((item) => (
                 <button

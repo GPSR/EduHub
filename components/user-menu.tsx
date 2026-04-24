@@ -37,8 +37,8 @@ export function UserMenu({ userName, userEmail, photoUrl }: { userName: string; 
         className={clsx(
           "flex items-center gap-2.5 rounded-[13px] border px-3 py-2 transition-all",
           open
-            ? "border-blue-400/40 bg-blue-500/[0.20]"
-            : "border-white/[0.10] bg-[#3a3b3c] hover:bg-white/[0.14] hover:border-white/[0.18]"
+            ? "border-blue-300/45 bg-gradient-to-r from-blue-500/[0.24] to-cyan-400/[0.18]"
+            : "border-white/[0.12] bg-[#101a2d]/88 hover:bg-[#17253d] hover:border-white/[0.22]"
         )}
       >
         {photoUrl ? (
@@ -51,7 +51,7 @@ export function UserMenu({ userName, userEmail, photoUrl }: { userName: string; 
           />
         ) : (
           <div className="grid h-8 w-8 place-items-center rounded-[10px]
-                          bg-gradient-to-b from-blue-400 to-blue-600
+                          bg-gradient-to-b from-[#67b4ff] to-[#4f8dfd]
                           text-xs font-bold text-white shadow-sm">
             {avatar}
           </div>
@@ -69,7 +69,7 @@ export function UserMenu({ userName, userEmail, photoUrl }: { userName: string; 
         <div
           role="menu"
           className="absolute right-0 mt-2 w-[min(20rem,calc(100vw-1rem))] max-w-[calc(100vw-1rem)] overflow-hidden rounded-[16px]
-                     border border-white/[0.12] bg-[#242526]/98 backdrop-blur-2xl
+                     border border-white/[0.12] bg-[#111a2d]/95 backdrop-blur-2xl
                      shadow-[0_20px_60px_-20px_rgba(0,0,0,0.8),0_0_0_1px_rgba(255,255,255,0.06)]
                      animate-fade-up"
           style={{ animationDuration: "0.15s" }}
@@ -93,7 +93,7 @@ export function UserMenu({ userName, userEmail, photoUrl }: { userName: string; 
             role="menuitem"
             href="/profile"
             onClick={() => setOpen(false)}
-            className="flex items-center gap-2.5 px-3.5 py-2.5 text-sm text-white/78 hover:bg-white/[0.12] hover:text-white transition"
+            className="flex items-center gap-2.5 px-3.5 py-2.5 text-sm text-white/82 hover:bg-white/[0.09] hover:text-white transition"
           >
             <span>👤</span> Profile settings
           </Link>
