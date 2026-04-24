@@ -20,7 +20,7 @@ const FEATURES = [
   { icon: "📊", label: "Reports", desc: "Academic and fee analytics" },
   { icon: "📚", label: "Academics", desc: "Subjects, terms and curriculum" },
   { icon: "🔔", label: "Notifications", desc: "Alerts, reminders and updates" },
-  { icon: "🚌", label: "Transport", desc: "Routes, buses and live trips" },
+  { icon: "🚌", label: "Transport", desc: "Live bus tracking, student safety, and pickup/drop alerts for parents." },
   { icon: "⚙️", label: "School Settings", desc: "Branding and configuration" },
   { icon: "🧑‍💼", label: "Users", desc: "Role-based staff and parent access" },
 ];
@@ -45,7 +45,7 @@ export function HomeShell({ isSignedIn }: { isSignedIn: boolean }) {
   /* Skeleton while checking localStorage */
   if (onboarded === null && !isSignedIn) {
     return (
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+      <div className="space-y-5">
         <Card>
           <div className="space-y-3">
             <div className="h-4 w-32 rounded-full bg-white/[0.06] animate-pulse" />
@@ -53,9 +53,9 @@ export function HomeShell({ isSignedIn }: { isSignedIn: boolean }) {
           </div>
         </Card>
         <Card>
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-3">
             {Array.from({ length: FEATURES.length }).map((_, i) => (
-              <div key={i} className="h-16 rounded-[13px] bg-white/[0.04] animate-pulse" />
+              <div key={i} className="h-16 lg:h-14 rounded-[13px] bg-white/[0.04] animate-pulse" />
             ))}
           </div>
         </Card>
@@ -105,7 +105,7 @@ export function HomeShell({ isSignedIn }: { isSignedIn: boolean }) {
   /* New user — onboarding */
   if (!onboarded) {
     return (
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+      <div className="space-y-5">
         <Card title="Get started" description="Create your school & admin account in minutes" accent="indigo">
           <div className="rounded-[14px] border border-white/[0.14] bg-[radial-gradient(circle_at_15%_15%,rgba(96,165,250,0.25),transparent_45%),linear-gradient(180deg,rgba(10,18,35,0.72),rgba(8,14,28,0.9))] p-4">
             <p className="text-sm text-white/80 leading-relaxed">
@@ -134,18 +134,23 @@ export function HomeShell({ isSignedIn }: { isSignedIn: boolean }) {
               {FEATURES.length} modules
             </span>
           </div>
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-2.5">
             {FEATURES.map(f => (
               <div
                 key={f.label}
                 className="rounded-[13px] border border-white/[0.12] bg-[linear-gradient(180deg,rgba(21,34,58,0.95),rgba(11,18,33,0.96))]
-                           px-3 py-3 hover:border-white/[0.20] hover:bg-[#17253d] transition-colors"
+                           px-3 py-3 lg:px-2.5 lg:py-2.5 hover:border-white/[0.20] hover:bg-[#17253d] transition-colors"
               >
-                <div className="mb-1.5 inline-flex h-7 w-7 items-center justify-center rounded-[9px] border border-white/[0.14] bg-white/[0.06] text-base">
+                <div className="mb-1.5 inline-flex h-7 w-7 lg:h-6 lg:w-6 items-center justify-center rounded-[9px] border border-white/[0.14] bg-white/[0.06] text-base lg:text-sm">
                   {f.icon}
                 </div>
-                <div className="text-[13px] font-semibold text-white/85">{f.label}</div>
-                <div className="mt-0.5 text-[11px] text-white/45 leading-snug">{f.desc}</div>
+                <div
+                  className="text-[13px] lg:text-[12px] font-semibold text-white/85 leading-snug whitespace-nowrap"
+                  title={f.label}
+                >
+                  {f.label}
+                </div>
+                <div className="mt-0.5 text-[11px] text-white/45 leading-snug lg:hidden">{f.desc}</div>
               </div>
             ))}
           </div>

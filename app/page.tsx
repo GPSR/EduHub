@@ -7,7 +7,7 @@ export default async function HomePage() {
   const session = await getSession();
   return (
     <main className="min-h-dvh md:min-h-screen flex items-start md:items-center justify-center px-4 sm:px-6 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))]">
-      <div className="w-full max-w-4xl">
+      <div className="w-full max-w-4xl lg:max-w-6xl xl:max-w-7xl">
 
         {/* Hero */}
         <header className="text-center mb-8 sm:mb-8 sm:mb-12 animate-fade-up">
