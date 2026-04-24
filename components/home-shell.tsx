@@ -7,7 +7,6 @@ import { SchoolSlugCheck } from "@/components/school-slug-check";
 import { HomeCTA } from "@/components/home-cta";
 
 const STORAGE_KEY = "eduhub_onboarded_v1";
-const STORAGE_SLUG_KEY = "eduhub_school_slug_v1";
 
 const FEATURES = [
   { icon: "👥", label: "Students",    desc: "Profiles, parents, guardians"  },
@@ -20,12 +19,10 @@ const FEATURES = [
 
 export function HomeShell({ isSignedIn }: { isSignedIn: boolean }) {
   const [onboarded, setOnboarded] = useState<boolean | null>(null);
-  const [slug, setSlug] = useState<string | undefined>(undefined);
 
   useEffect(() => {
     try {
       setOnboarded(localStorage.getItem(STORAGE_KEY) === "1");
-      setSlug(localStorage.getItem(STORAGE_SLUG_KEY) || undefined);
     } catch {
       setOnboarded(false);
     }
@@ -119,34 +116,23 @@ export function HomeShell({ isSignedIn }: { isSignedIn: boolean }) {
   }
 
   /* Returning user — login */
-  const loginHref = slug ? `/login?schoolSlug=${encodeURIComponent(slug)}` : "/login";
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-      <Card title="Sign in" description="Enter your school code to continue" accent="indigo">
-        <SchoolSlugCheck />
-      </Card>
       <Card title="New school?" description="Manage multiple schools from one device" accent="teal">
         <p className="text-sm text-white/55 mb-4">
           Each school has its own isolated data and user accounts.
         </p>
-        <div className="flex flex-wrap gap-2">
-          <Link
-            href={loginHref}
-            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-[13px]
-                       bg-gradient-to-b from-indigo-400 to-indigo-600 text-white text-sm font-medium
-                       hover:from-indigo-300 hover:to-indigo-500 transition-all"
-          >
-            Login
-          </Link>
-          <Link
-            href="/onboard"
-            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-[13px]
-                       border border-white/[0.10] bg-white/[0.07] text-sm font-medium text-white/80
-                       hover:bg-white/[0.12] hover:text-white transition-all"
-          >
-            Onboard another school
-          </Link>
-        </div>
+        <Link
+          href="/onboard"
+          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-[13px]
+                     border border-white/[0.10] bg-white/[0.07] text-sm font-medium text-white/80
+                     hover:bg-white/[0.12] hover:text-white transition-all"
+        >
+          Onboard School
+        </Link>
+      </Card>
+      <Card title="Sign in" description="Enter your school code to continue" accent="indigo">
+        <SchoolSlugCheck />
       </Card>
     </div>
   );
