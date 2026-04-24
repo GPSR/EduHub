@@ -40,7 +40,7 @@ export function HomeCTA({ isSignedIn }: { isSignedIn: boolean }) {
     return (
       <Link
         href="/dashboard"
-        className="px-5 py-3 rounded-2xl bg-gradient-to-b from-indigo-400 to-indigo-600 hover:from-indigo-300 hover:to-indigo-500 text-white shadow-[0_12px_30px_-18px_rgba(99,102,241,0.65)]"
+        className="px-5 py-3 rounded-2xl bg-[#1877f2] hover:bg-[#2d88ff] text-white shadow-[0_12px_30px_-18px_rgba(24,119,242,0.65)] transition-colors"
       >
         Open dashboard
       </Link>
@@ -60,13 +60,13 @@ export function HomeCTA({ isSignedIn }: { isSignedIn: boolean }) {
       <div className="flex flex-wrap gap-3">
         <Link
           href="/onboard"
-          className="px-5 py-3 rounded-2xl bg-gradient-to-b from-indigo-400 to-indigo-600 hover:from-indigo-300 hover:to-indigo-500 text-white shadow-[0_12px_30px_-18px_rgba(99,102,241,0.65)]"
+          className="px-5 py-3 rounded-2xl bg-[#1877f2] hover:bg-[#2d88ff] text-white shadow-[0_12px_30px_-18px_rgba(24,119,242,0.65)] transition-colors"
         >
           Onboard school
         </Link>
         <Link
           href={loginHref}
-          className="px-5 py-3 rounded-2xl bg-white/10 hover:bg-white/15 text-white border border-white/10"
+          className="px-5 py-3 rounded-2xl bg-[#3a3b3c] hover:bg-white/15 text-white border border-white/10 transition-colors"
         >
           Login
         </Link>
@@ -80,11 +80,11 @@ export function HomeCTA({ isSignedIn }: { isSignedIn: boolean }) {
     <div className="flex flex-wrap gap-3">
       <Link
         href={loginHref}
-        className="px-5 py-3 rounded-2xl bg-gradient-to-b from-indigo-400 to-indigo-600 hover:from-indigo-300 hover:to-indigo-500 text-white shadow-[0_12px_30px_-18px_rgba(99,102,241,0.65)]"
+        className="px-5 py-3 rounded-2xl bg-[#1877f2] hover:bg-[#2d88ff] text-white shadow-[0_12px_30px_-18px_rgba(24,119,242,0.65)] transition-colors"
       >
         Login
       </Link>
-      <Link href="/onboard" className="px-5 py-3 rounded-2xl bg-white/10 hover:bg-white/15 text-white border border-white/10">
+      <Link href="/onboard" className="px-5 py-3 rounded-2xl bg-[#3a3b3c] hover:bg-white/15 text-white border border-white/10 transition-colors">
         Create another school
       </Link>
     </div>

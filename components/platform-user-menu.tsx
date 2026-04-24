@@ -55,8 +55,8 @@ export function PlatformUserMenu({
         className={clsx(
           "flex items-center gap-2.5 rounded-[13px] border px-3 py-2 transition-all",
           open
-            ? "border-indigo-400/35 bg-indigo-500/[0.16]"
-            : "border-white/[0.10] bg-white/[0.05] hover:bg-white/[0.09] hover:border-white/[0.14]"
+            ? "border-blue-400/40 bg-blue-500/[0.20]"
+            : "border-white/[0.10] bg-[#3a3b3c] hover:bg-white/[0.14] hover:border-white/[0.18]"
         )}
       >
         {photoUrl ? (
@@ -70,7 +70,7 @@ export function PlatformUserMenu({
         ) : (
           <div
             className="grid h-8 w-8 place-items-center rounded-[10px]
-                       bg-gradient-to-b from-indigo-400 to-indigo-600 text-xs font-bold text-white shadow-sm"
+                       bg-gradient-to-b from-blue-400 to-blue-600 text-xs font-bold text-white shadow-sm"
           >
             {avatar}
           </div>
@@ -94,12 +94,12 @@ export function PlatformUserMenu({
         <div
           role="menu"
           className="absolute right-0 z-[90] mt-2 w-[min(22rem,calc(100vw-1rem))] max-w-[calc(100vw-1rem)] overflow-hidden rounded-[16px]
-                     border border-indigo-300/30 bg-[#111a31]/98
-                     shadow-[0_18px_50px_-18px_rgba(0,0,0,0.88),0_0_0_1px_rgba(129,140,248,0.18)]
+                     border border-white/[0.12] bg-[#242526]/98
+                     shadow-[0_18px_50px_-18px_rgba(0,0,0,0.88),0_0_0_1px_rgba(255,255,255,0.08)]
                      animate-fade-up"
           style={{ animationDuration: "0.15s" }}
         >
-          <div className="flex items-start justify-between gap-3 border-b border-white/[0.08] px-3.5 py-3">
+          <div className="flex items-start justify-between gap-3 border-b border-white/[0.10] px-3.5 py-3">
             <div className="min-w-0">
               <div className="mb-0.5 text-[12px] font-medium text-white/40">Signed in as</div>
               <div className="break-words text-[13px] font-semibold text-white/85">{email}</div>
@@ -119,7 +119,7 @@ export function PlatformUserMenu({
             role="menuitem"
             href="/platform/profile"
             onClick={() => setOpen(false)}
-            className="flex items-center gap-2.5 px-3.5 py-2.5 text-sm text-white/70 transition hover:bg-white/[0.07] hover:text-white"
+            className="flex items-center gap-2.5 px-3.5 py-2.5 text-sm text-white/78 transition hover:bg-white/[0.12] hover:text-white"
           >
             <span>👤</span>
             Profile settings

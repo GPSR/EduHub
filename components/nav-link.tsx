@@ -40,10 +40,10 @@ export function NavLink({
     <Link
       href={href}
       className={clsx(
-        "flex items-center justify-between gap-2.5 rounded-[11px] px-3 py-2 text-[13.5px] font-medium transition-all duration-150",
+        "flex items-center justify-between gap-2.5 rounded-[10px] px-3 py-2 text-[13.5px] font-medium transition-all duration-150 border border-transparent",
         active
-          ? "bg-indigo-500/[0.18] text-white border border-indigo-400/20"
-          : "text-white/60 hover:text-white/90 hover:bg-white/[0.06] border border-transparent"
+          ? "bg-blue-500/[0.24] text-white border-blue-400/40"
+          : "text-white/75 hover:text-white hover:bg-white/[0.10]"
       )}
     >
       <span className="inline-flex items-center gap-2.5">

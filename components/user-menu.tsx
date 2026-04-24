@@ -37,8 +37,8 @@ export function UserMenu({ userName, userEmail, photoUrl }: { userName: string; 
         className={clsx(
           "flex items-center gap-2.5 rounded-[13px] border px-3 py-2 transition-all",
           open
-            ? "border-indigo-400/30 bg-indigo-500/[0.12]"
-            : "border-white/[0.09] bg-white/[0.05] hover:bg-white/[0.09] hover:border-white/[0.14]"
+            ? "border-blue-400/40 bg-blue-500/[0.20]"
+            : "border-white/[0.10] bg-[#3a3b3c] hover:bg-white/[0.14] hover:border-white/[0.18]"
         )}
       >
         {photoUrl ? (
@@ -51,7 +51,7 @@ export function UserMenu({ userName, userEmail, photoUrl }: { userName: string; 
           />
         ) : (
           <div className="grid h-8 w-8 place-items-center rounded-[10px]
-                          bg-gradient-to-b from-indigo-400 to-indigo-600
+                          bg-gradient-to-b from-blue-400 to-blue-600
                           text-xs font-bold text-white shadow-sm">
             {avatar}
           </div>
@@ -69,12 +69,12 @@ export function UserMenu({ userName, userEmail, photoUrl }: { userName: string; 
         <div
           role="menu"
           className="absolute right-0 mt-2 w-[min(20rem,calc(100vw-1rem))] max-w-[calc(100vw-1rem)] overflow-hidden rounded-[16px]
-                     border border-white/[0.10] bg-[#0c1121]/97 backdrop-blur-2xl
+                     border border-white/[0.12] bg-[#242526]/98 backdrop-blur-2xl
                      shadow-[0_20px_60px_-20px_rgba(0,0,0,0.8),0_0_0_1px_rgba(255,255,255,0.06)]
                      animate-fade-up"
           style={{ animationDuration: "0.15s" }}
         >
-          <div className="px-3.5 py-3 border-b border-white/[0.07] flex items-start justify-between gap-3">
+          <div className="px-3.5 py-3 border-b border-white/[0.10] flex items-start justify-between gap-3">
             <div className="min-w-0">
               <div className="text-[12px] text-white/40 font-medium mb-0.5">Signed in as</div>
               <div className="text-[13px] font-semibold text-white/85 break-all">{userEmail}</div>
@@ -93,7 +93,7 @@ export function UserMenu({ userName, userEmail, photoUrl }: { userName: string; 
             role="menuitem"
             href="/profile"
             onClick={() => setOpen(false)}
-            className="flex items-center gap-2.5 px-3.5 py-2.5 text-sm text-white/70 hover:bg-white/[0.07] hover:text-white transition"
+            className="flex items-center gap-2.5 px-3.5 py-2.5 text-sm text-white/78 hover:bg-white/[0.12] hover:text-white transition"
           >
             <span>👤</span> Profile settings
           </Link>

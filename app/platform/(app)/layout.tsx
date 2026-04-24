@@ -31,9 +31,9 @@ export default async function PlatformAppLayout({ children }: { children: React.
           { href: "/platform/schools", label: "Schools", icon: "🏫" },
           { href: "/platform/onboarding-requests", label: "Approvals", icon: "📋" },
           { href: "/platform/users", label: "Users", icon: "🛡" },
+          { href: "/platform/settings", label: "Settings", icon: "⚙️" },
           { href: "/platform/subscriptions", label: "Plans", icon: "💎" },
-          { href: "/platform/audit", label: "Audit", icon: "🧾" },
-          { href: "/platform/settings", label: "Settings", icon: "⚙️" }
+          { href: "/platform/audit", label: "Audit", icon: "🧾" }
         ]
       : [{ href: "/platform", label: "Home", icon: "◈" }];
 
@@ -47,7 +47,7 @@ export default async function PlatformAppLayout({ children }: { children: React.
 
   return (
     <div className="min-h-dvh md:min-h-screen overflow-x-clip">
-      <header className="sticky top-0 z-20 border-b border-white/[0.08] bg-[#060912]/88 backdrop-blur-xl pt-[max(0px,env(safe-area-inset-top))]">
+      <header className="sticky top-0 z-20 border-b border-white/[0.08] bg-[#242526]/96 backdrop-blur-xl pt-[max(0px,env(safe-area-inset-top))]">
         <div className="mx-auto max-w-[1320px] px-3 sm:px-4 md:px-6">
           <div className="relative flex min-h-[60px] items-center justify-between py-2 md:hidden">
             <PlatformMobileProfileTrigger userName={user.name} photoUrl={profilePhotoUrl} />
@@ -62,8 +62,8 @@ export default async function PlatformAppLayout({ children }: { children: React.
               <BrandIcon size={28} href="/platform" />
               <div className="h-6 w-px bg-white/[0.10]" />
               <span
-                className="inline-flex rounded-full border border-indigo-500/20 bg-indigo-500/10 px-2.5 py-1
-                           text-[11px] font-semibold uppercase tracking-widest text-indigo-300/80"
+                className="inline-flex rounded-full border border-blue-500/30 bg-blue-500/15 px-2.5 py-1
+                           text-[11px] font-semibold uppercase tracking-widest text-blue-200/85"
               >
                 Platform
               </span>
@@ -83,7 +83,7 @@ export default async function PlatformAppLayout({ children }: { children: React.
                    pb-[calc(5.5rem+env(safe-area-inset-bottom,0px))] md:pb-8"
       >
         <aside className="hidden md:flex flex-col gap-1 h-fit sticky top-[78px]">
-          <div className="mb-3 rounded-[16px] border border-white/[0.08] bg-white/[0.03] px-3 py-3">
+          <div className="mb-3 rounded-[16px] border border-white/[0.10] bg-[#242526] px-3 py-3">
             <div className="flex items-center gap-2.5">
               {profilePhotoUrl ? (
                 <Image
@@ -96,7 +96,7 @@ export default async function PlatformAppLayout({ children }: { children: React.
               ) : (
                 <div
                   className="grid h-8 w-8 place-items-center rounded-[10px]
-                             bg-gradient-to-b from-indigo-400 to-indigo-600 text-xs font-bold text-white shadow-sm shrink-0"
+                             bg-gradient-to-b from-blue-400 to-blue-600 text-xs font-bold text-white shadow-sm shrink-0"
                 >
                   {initials}
                 </div>

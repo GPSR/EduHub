@@ -82,8 +82,8 @@ export function PlatformProfileAvatarUploader({
           ) : (
             <div
               className="grid h-14 w-14 sm:h-16 sm:w-16 shrink-0 place-items-center rounded-[16px] sm:rounded-[18px]
-                         bg-gradient-to-b from-indigo-400 to-indigo-600 text-xl font-bold text-white
-                         shadow-[0_8px_24px_-8px_rgba(99,102,241,0.6)]"
+                         bg-gradient-to-b from-blue-400 to-blue-600 text-xl font-bold text-white
+                         shadow-[0_8px_24px_-8px_rgba(24,119,242,0.6)]"
             >
               {avatar}
             </div>

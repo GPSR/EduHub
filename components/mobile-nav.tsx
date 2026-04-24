@@ -78,8 +78,8 @@ export function MobileNav({
     if (open) setShowUserInfo(false);
   }, [open]);
 
-  const tabItems   = items.slice(0, 4);
-  const allMore    = [...items.slice(4), ...moreItems];
+  const tabItems   = items.slice(0, 5);
+  const allMore    = [...items.slice(5), ...moreItems];
   const moreActive = !open && allMore.some(i => isActive(pathname, i));
   const initials   = userName.trim().split(/\s+/).map(p => p[0]).slice(0,2).join("").toUpperCase();
 
@@ -103,7 +103,7 @@ export function MobileNav({
 
           {/* Sheet */}
           <div className="relative animate-slide-up rounded-t-[28px] border-t border-white/10
-                          bg-[#070b16]/97 backdrop-blur-2xl overflow-hidden
+                          bg-[#242526]/98 backdrop-blur-2xl overflow-hidden
                           shadow-[0_-24px_60px_rgba(0,0,0,0.7)]"
             style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}>
 
@@ -111,17 +111,17 @@ export function MobileNav({
             <div className="mx-auto mt-3 mb-1 h-1 w-10 rounded-full bg-white/20" />
 
             {/* User row */}
-            <div className="px-5 py-4 border-b border-white/[0.07]">
+            <div className="px-5 py-4 border-b border-white/[0.10]">
               <div className="flex items-center justify-between gap-2">
                 <div className="flex items-center gap-3 min-w-0">
-                  <div className="h-11 w-11 shrink-0 rounded-[13px] bg-gradient-to-b from-indigo-400 to-indigo-600
+                  <div className="h-11 w-11 shrink-0 rounded-[13px] bg-gradient-to-b from-blue-400 to-blue-600
                                   flex items-center justify-center text-sm font-bold text-white shadow">
                     {initials}
                   </div>
                   <button
                     type="button"
                     onClick={() => setShowUserInfo(v => !v)}
-                    className="inline-flex items-center gap-1.5 rounded-[10px] border border-white/[0.10] bg-white/[0.05] px-3 py-1.5 text-[12px] font-semibold text-white/80 transition hover:bg-white/[0.09]"
+                    className="inline-flex items-center gap-1.5 rounded-[10px] border border-white/[0.12] bg-[#3a3b3c] px-3 py-1.5 text-[12px] font-semibold text-white/85 transition hover:bg-white/[0.18]"
                   >
                     {showUserInfo ? "Hide info" : "Show info"}
                     <span className="text-[10px]">{showUserInfo ? "▲" : "▼"}</span>
@@ -131,14 +131,14 @@ export function MobileNav({
                   <form action="/logout" method="post">
                     <button
                       type="submit"
-                      className="inline-flex items-center gap-1.5 rounded-[10px] border border-rose-500/25 bg-rose-500/[0.10] px-2.5 py-1.5 text-[11px] font-semibold text-rose-300 transition hover:bg-rose-500/[0.20]"
+                      className="inline-flex items-center gap-1.5 rounded-[10px] border border-rose-500/30 bg-rose-500/[0.18] px-2.5 py-1.5 text-[11px] font-semibold text-rose-200 transition hover:bg-rose-500/[0.28]"
                     >
                       ↗ Sign out
                     </button>
                   </form>
                   <button onClick={() => setOpen(false)}
-                    className="p-2 rounded-[10px] bg-white/[0.06] border border-white/[0.08]
-                               text-white/40 hover:text-white/80 active:bg-white/[0.12] transition">
+                    className="p-2 rounded-[10px] bg-[#3a3b3c] border border-white/[0.10]
+                               text-white/55 hover:text-white/90 active:bg-white/[0.18] transition">
                     <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
                       <path d="M2 2l10 10M12 2L2 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
                     </svg>
@@ -147,7 +147,7 @@ export function MobileNav({
               </div>
 
               {showUserInfo && (
-                <div className="mt-3 rounded-[12px] border border-white/[0.08] bg-white/[0.03] px-3 py-2.5">
+                <div className="mt-3 rounded-[12px] border border-white/[0.10] bg-[#3a3b3c] px-3 py-2.5">
                   <p className="text-[14px] font-semibold text-white/95 truncate">{userName}</p>
                   <p className="text-[12px] text-white/45 truncate">{userEmail}</p>
                 </div>
@@ -161,8 +161,8 @@ export function MobileNav({
                 className={clsx(
                   "col-span-4 flex items-center gap-3 rounded-[14px] border px-4 py-3.5 transition",
                   pathname.startsWith("/profile")
-                    ? "border-indigo-400/30 bg-indigo-500/15 text-white"
-                    : "border-white/[0.07] bg-white/[0.03] text-white/65 active:bg-white/[0.10]"
+                    ? "border-blue-400/40 bg-blue-500/20 text-white"
+                    : "border-white/[0.10] bg-[#3a3b3c] text-white/80 active:bg-white/[0.18]"
                 )}>
                 <span className="text-xl">👤</span>
                 <span className="text-[14px] font-semibold">Profile & Settings</span>
@@ -176,8 +176,8 @@ export function MobileNav({
                     className={clsx(
                       "flex flex-col items-center gap-2 rounded-[14px] border py-4 px-1 transition relative",
                       isActive(pathname, item)
-                        ? "border-indigo-400/25 bg-indigo-500/[0.14] text-white"
-                        : "border-white/[0.07] bg-white/[0.03] text-white/55 active:bg-white/[0.10]"
+                        ? "border-blue-400/40 bg-blue-500/[0.20] text-white"
+                        : "border-white/[0.10] bg-[#3a3b3c] text-white/75 active:bg-white/[0.18]"
                     )}>
                     <span className="text-[22px] leading-none relative">
                       {ICONS[item.href] ?? "•"}
@@ -200,7 +200,7 @@ export function MobileNav({
 
       {/* ── Bottom tab bar ───────────────────────── */}
       <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40
-                      border-t border-white/[0.08] bg-[#060912]/96 backdrop-blur-2xl">
+                      border-t border-white/[0.10] bg-[#242526]/98 backdrop-blur-2xl">
         <div className="grid pt-2"
           style={{
             gridTemplateColumns: `repeat(${tabItems.length + 1}, 1fr)`,
@@ -214,11 +214,11 @@ export function MobileNav({
               <Link key={item.href} href={item.href}
                 className={clsx(
                   "flex flex-col items-center gap-0.5 py-1.5 px-1 mx-0.5 rounded-[10px] transition-all",
-                  active ? "text-white" : "text-white/38 active:text-white/75"
+                  active ? "text-white" : "text-white/55 active:text-white/90"
                 )}>
                 {/* Active pill indicator */}
                 {active && (
-                  <span className="absolute h-0.5 w-6 rounded-full bg-indigo-400 -top-0.5 left-1/2 -translate-x-1/2" />
+                  <span className="absolute h-0.5 w-6 rounded-full bg-blue-400 -top-0.5 left-1/2 -translate-x-1/2" />
                 )}
                 <span className="relative text-[21px] leading-none">
                   {ICONS[item.href] ?? "•"}
@@ -231,7 +231,7 @@ export function MobileNav({
                 </span>
                 <span className={clsx(
                   "text-[10px] font-semibold truncate w-full text-center",
-                  active ? "text-white" : "text-white/38"
+                  active ? "text-white" : "text-white/55"
                 )}>{item.label}</span>
               </Link>
             );
@@ -241,12 +241,12 @@ export function MobileNav({
           <button onClick={() => setOpen(v => !v)}
             className={clsx(
               "flex flex-col items-center gap-0.5 py-1.5 px-1 mx-0.5 rounded-[10px] transition-all",
-              (open || moreActive) ? "text-white" : "text-white/38 active:text-white/75"
+              (open || moreActive) ? "text-white" : "text-white/55 active:text-white/90"
             )}>
             <span className="text-[21px] leading-none">{open ? "✕" : moreActive ? "●" : "⋯"}</span>
             <span className={clsx(
               "text-[10px] font-semibold",
-              (open || moreActive) ? "text-white" : "text-white/38"
+              (open || moreActive) ? "text-white" : "text-white/55"
             )}>More</span>
           </button>
         </div>

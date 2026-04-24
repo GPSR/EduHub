@@ -117,11 +117,11 @@ export function PlatformGlobalSearch({
             }
             if (e.key === "Escape") setOpen(false);
           }}
-          className="w-full rounded-full bg-black/25 border border-white/10 pl-10 pr-4 py-2.5 outline-none focus:border-indigo-400 focus:ring-4 focus:ring-indigo-500/15 transition text-sm"
+          className="w-full rounded-full bg-[#3a3b3c] border border-white/10 pl-10 pr-4 py-2.5 outline-none focus:border-blue-400 focus:ring-4 focus:ring-blue-500/20 transition text-sm"
         />
 
         {open && normalized && (
-          <div className="absolute z-30 mt-2 w-full overflow-hidden rounded-[16px] border border-white/[0.10] bg-[#060912]/95 backdrop-blur-2xl shadow-[0_16px_50px_-20px_rgba(0,0,0,0.8)]">
+          <div className="absolute z-30 mt-2 w-full overflow-hidden rounded-[16px] border border-white/[0.12] bg-[#242526]/98 backdrop-blur-2xl shadow-[0_16px_50px_-20px_rgba(0,0,0,0.8)]">
             {suggestions.length > 0 ? (
               suggestions.map((item) => (
                 <button

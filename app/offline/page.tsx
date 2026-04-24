@@ -20,11 +20,11 @@ export default function OfflinePage() {
   }, []);
 
   return (
-    <main className="min-h-dvh md:min-h-screen flex items-center justify-center px-4 sm:px-6 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))] bg-[#060912]">
+    <main className="min-h-dvh md:min-h-screen flex items-center justify-center px-4 sm:px-6 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))] bg-[#18191a]">
       <div className="max-w-sm w-full text-center space-y-6 animate-fade-up">
         {/* Icon */}
         <div className="flex justify-center">
-          <div className="w-20 h-20 rounded-[24px] bg-white/[0.06] border border-white/[0.08]
+          <div className="w-20 h-20 rounded-[24px] bg-[#242526] border border-white/[0.10]
                           flex items-center justify-center text-4xl">
             📡
           </div>
@@ -43,9 +43,9 @@ export default function OfflinePage() {
         <button
           onClick={retry}
           disabled={retrying}
-          className="w-full py-3.5 rounded-[14px] bg-gradient-to-b from-indigo-400 to-indigo-600
+          className="w-full py-3.5 rounded-[14px] bg-[#1877f2]
                      text-white font-semibold text-sm
-                     disabled:opacity-60 active:scale-[0.98] transition-all"
+                     disabled:opacity-60 active:scale-[0.98] transition-colors hover:bg-[#2d88ff]"
         >
           {retrying ? (
             <span className="flex items-center justify-center gap-2">

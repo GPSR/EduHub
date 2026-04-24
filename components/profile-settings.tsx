@@ -91,14 +91,14 @@ export function ProfileSettings({
             <button
               type="button"
               onClick={() => setProfileExpanded((value) => !value)}
-              className="inline-flex items-center gap-1.5 rounded-[10px] border border-white/[0.10] bg-white/[0.05] px-3 py-1.5 text-xs font-semibold text-white/80 hover:bg-white/[0.10] transition"
+              className="inline-flex items-center gap-1.5 rounded-[10px] border border-white/[0.12] bg-[#3a3b3c] px-3 py-1.5 text-xs font-semibold text-white/85 hover:bg-white/[0.16] transition"
             >
               {profileExpanded ? "▴ Hide" : "▾ View"}
             </button>
             <button
               type="button"
               onClick={() => setEditingProfile(true)}
-              className="inline-flex items-center gap-1.5 rounded-[10px] border border-white/[0.10] bg-white/[0.05] px-3 py-1.5 text-xs font-semibold text-white/80 hover:bg-white/[0.10] transition"
+              className="inline-flex items-center gap-1.5 rounded-[10px] border border-white/[0.12] bg-[#3a3b3c] px-3 py-1.5 text-xs font-semibold text-white/85 hover:bg-white/[0.16] transition"
             >
               ✎ Edit
             </button>
@@ -230,14 +230,14 @@ export function ProfileSettings({
             <button
               type="button"
               onClick={() => setPasswordExpanded((value) => !value)}
-              className="inline-flex items-center gap-1.5 rounded-[10px] border border-white/[0.10] bg-white/[0.05] px-3 py-1.5 text-xs font-semibold text-white/80 hover:bg-white/[0.10] transition"
+              className="inline-flex items-center gap-1.5 rounded-[10px] border border-white/[0.12] bg-[#3a3b3c] px-3 py-1.5 text-xs font-semibold text-white/85 hover:bg-white/[0.16] transition"
             >
               {passwordExpanded ? "▴ Hide" : "▾ View"}
             </button>
             <button
               type="button"
               onClick={() => setEditingPassword(true)}
-              className="inline-flex items-center gap-1.5 rounded-[10px] border border-white/[0.10] bg-white/[0.05] px-3 py-1.5 text-xs font-semibold text-white/80 hover:bg-white/[0.10] transition"
+              className="inline-flex items-center gap-1.5 rounded-[10px] border border-white/[0.12] bg-[#3a3b3c] px-3 py-1.5 text-xs font-semibold text-white/85 hover:bg-white/[0.16] transition"
             >
               ✎ Edit
             </button>

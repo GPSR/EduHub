@@ -28,7 +28,7 @@ export default async function PlatformLoginPage() {
         {!hasSuperAdmin && (
           <p className="text-center text-sm text-white/40">
             First time?{" "}
-            <Link href="/platform/onboard" className="text-indigo-300 hover:text-indigo-200 transition">
+            <Link href="/platform/onboard" className="text-blue-300 hover:text-blue-200 transition">
               Create Super Admin →
             </Link>
           </p>

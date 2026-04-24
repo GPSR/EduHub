@@ -24,10 +24,22 @@ export default async function ProfilePage() {
 
   return (
     <div className="space-y-5 animate-fade-up">
-      <SectionHeader title="Profile" subtitle="Manage your account details" />
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+        <SectionHeader title="Profile" subtitle="Manage your account details" />
+        <form action="/logout" method="post" className="shrink-0">
+          <button
+            type="submit"
+            className="rounded-[13px] border border-rose-500/25 bg-rose-500/[0.10]
+                       px-4 py-2 text-sm font-medium text-rose-300
+                       hover:bg-rose-500/[0.20] hover:border-rose-500/35 transition-all"
+          >
+            Sign out
+          </button>
+        </form>
+      </div>
 
       {/* Profile hero */}
-      <div className="rounded-[22px] border border-white/[0.08] bg-white/[0.04] p-6">
+      <div className="rounded-[22px] border border-white/[0.10] bg-[#242526] p-6">
         <div className="flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-5">
           <ProfileAvatarUploader userName={user.name} photoUrl={profilePhotoUrl ?? undefined} />
           <div className="min-w-0">
@@ -65,18 +77,6 @@ export default async function ProfilePage() {
         notes={user.notes}
       />
 
-      <div className="flex justify-end">
-        <form action="/logout" method="post">
-          <button
-            type="submit"
-            className="rounded-[13px] border border-rose-500/25 bg-rose-500/[0.10]
-                       px-5 py-2.5 text-sm font-medium text-rose-300
-                       hover:bg-rose-500/[0.20] hover:border-rose-500/35 transition-all"
-          >
-            Sign out
-          </button>
-        </form>
-      </div>
     </div>
   );
 }

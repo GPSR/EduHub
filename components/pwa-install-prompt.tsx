@@ -61,7 +61,7 @@ export function PWAInstallPrompt() {
   if (isIOS) {
     return (
       <div className="fixed bottom-[calc(5rem+env(safe-area-inset-bottom,0px)+0.5rem)] left-4 right-4 z-50 md:hidden">
-        <div className="rounded-[20px] border border-white/[0.12] bg-[#0c1121]/97 backdrop-blur-2xl
+        <div className="rounded-[20px] border border-white/[0.12] bg-[#242526]/98 backdrop-blur-2xl
                         p-4 shadow-[0_-8px_40px_rgba(0,0,0,0.6)] animate-slide-up">
           <div className="flex items-start gap-3">
             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -69,7 +69,7 @@ export function PWAInstallPrompt() {
             <div className="flex-1 min-w-0">
               <p className="text-[14px] font-bold text-white/95">Install EduHub</p>
               <p className="text-[12px] text-white/55 mt-0.5 leading-relaxed">
-                Tap <span className="inline-block px-1.5 py-0.5 rounded bg-white/10 text-white/80 text-[11px] font-mono">Share</span> then{" "}
+                Tap <span className="inline-block px-1.5 py-0.5 rounded bg-[#3a3b3c] text-white/80 text-[11px] font-mono">Share</span> then{" "}
                 <span className="text-white/80 font-medium">"Add to Home Screen"</span> for the best experience.
               </p>
             </div>
@@ -86,7 +86,7 @@ export function PWAInstallPrompt() {
 
   return (
     <div className="fixed bottom-[calc(5rem+env(safe-area-inset-bottom,0px)+0.5rem)] left-4 right-4 z-50 md:hidden">
-      <div className="rounded-[20px] border border-indigo-500/20 bg-[#0c1121]/97 backdrop-blur-2xl
+      <div className="rounded-[20px] border border-blue-500/30 bg-[#242526]/98 backdrop-blur-2xl
                       p-4 shadow-[0_-8px_40px_rgba(0,0,0,0.6)] animate-slide-up">
         <div className="flex items-center gap-3">
           {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -101,8 +101,8 @@ export function PWAInstallPrompt() {
               Later
             </button>
             <button onClick={install}
-              className="text-[12px] font-semibold text-white bg-indigo-600 hover:bg-indigo-500
-                         active:bg-indigo-700 transition rounded-[10px] px-3.5 py-1.5">
+              className="text-[12px] font-semibold text-white bg-[#1877f2] hover:bg-[#2d88ff]
+                         active:bg-[#166fe5] transition rounded-[10px] px-3.5 py-1.5">
               Install
             </button>
           </div>
