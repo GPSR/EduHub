@@ -7,6 +7,7 @@ import { atLeastLevel, getEffectivePermissions } from "@/lib/permissions";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { formatSchoolId } from "@/lib/id-sequence";
+import { auditLog } from "@/lib/audit";
 import { clearUserProfileImages, deleteUploadedImageByUrl, saveUploadedImage, saveUserProfileImage } from "@/lib/uploads";
 
 const StudentCreateSchema = z.object({
@@ -153,6 +154,15 @@ function parseDateInput(value: string | null) {
   return Number.isNaN(date.getTime()) ? null : date;
 }
 
+function firstCsvValue(value?: string | null) {
+  if (!value) return null;
+  const first = value
+    .split(",")
+    .map((item) => item.trim())
+    .find((item) => item.length > 0);
+  return first ?? null;
+}
+
 function safeReturnPath(value: FormDataEntryValue | null, fallback: string) {
   const raw = String(value ?? "").trim();
   if (!raw) return fallback;
@@ -220,8 +230,25 @@ export async function updateStudentAction(formData: FormData) {
       fullName: true,
       classId: true,
       rollNumber: true,
+      gender: true,
+      dateOfBirth: true,
+      bloodGroup: true,
       address: true,
-      parentAddress: true
+      transportDetails: true,
+      medicalNotes: true,
+      fatherName: true,
+      motherName: true,
+      parentMobiles: true,
+      parentEmails: true,
+      parentOccupation: true,
+      parentAddress: true,
+      emergencyContact: true,
+      guardianName: true,
+      guardianRelationship: true,
+      guardianMobile: true,
+      guardianAltContact: true,
+      guardianAddress: true,
+      pickupAuthDetails: true
     }
   });
   if (!existing) redirect("/students");
@@ -265,7 +292,7 @@ export async function updateStudentAction(formData: FormData) {
         : (existing.address ?? null))
     : normalizeOptional(formData.get("parentAddress"));
 
-  await prisma.student.update({
+  const updated = await prisma.student.update({
     where: { id: parsed.data.id },
     data: {
       // Identity + academic fields are admin-controlled.
@@ -293,6 +320,91 @@ export async function updateStudentAction(formData: FormData) {
       guardianAltContact: normalizeOptional(formData.get("guardianAltContact")),
       guardianAddress: normalizeOptional(formData.get("guardianAddress")),
       pickupAuthDetails: normalizeOptional(formData.get("pickupAuthDetails"))
+    },
+    select: {
+      id: true,
+      fullName: true,
+      classId: true,
+      rollNumber: true,
+      gender: true,
+      dateOfBirth: true,
+      bloodGroup: true,
+      address: true,
+      transportDetails: true,
+      medicalNotes: true,
+      fatherName: true,
+      motherName: true,
+      parentMobiles: true,
+      parentEmails: true,
+      parentOccupation: true,
+      parentAddress: true,
+      emergencyContact: true,
+      guardianName: true,
+      guardianRelationship: true,
+      guardianMobile: true,
+      guardianAltContact: true,
+      guardianAddress: true,
+      pickupAuthDetails: true
+    }
+  });
+
+  if (!canEditStudents && session.roleKey === "PARENT") {
+    await prisma.user.update({
+      where: { id: session.userId },
+      data: {
+        phoneNumber: firstCsvValue(updated.parentMobiles),
+        address: updated.parentAddress,
+        emergencyContactPhone: updated.emergencyContact
+      }
+    });
+  }
+
+  const changed: Record<string, { before: string; after: string }> = {};
+  const toAuditString = (value: unknown) => {
+    if (value === null || value === undefined) return "—";
+    if (value instanceof Date) return value.toISOString().slice(0, 10);
+    return String(value);
+  };
+  const track = (key: string, before: unknown, after: unknown) => {
+    const beforeStr = toAuditString(before);
+    const afterStr = toAuditString(after);
+    if (beforeStr !== afterStr) changed[key] = { before: beforeStr, after: afterStr };
+  };
+
+  track("fullName", existing.fullName, updated.fullName);
+  track("classId", existing.classId, updated.classId);
+  track("rollNumber", existing.rollNumber, updated.rollNumber);
+  track("gender", existing.gender, updated.gender);
+  track("dateOfBirth", existing.dateOfBirth, updated.dateOfBirth);
+  track("bloodGroup", existing.bloodGroup, updated.bloodGroup);
+  track("address", existing.address, updated.address);
+  track("transportDetails", existing.transportDetails, updated.transportDetails);
+  track("medicalNotes", existing.medicalNotes, updated.medicalNotes);
+  track("fatherName", existing.fatherName, updated.fatherName);
+  track("motherName", existing.motherName, updated.motherName);
+  track("parentMobiles", existing.parentMobiles, updated.parentMobiles);
+  track("parentEmails", existing.parentEmails, updated.parentEmails);
+  track("parentOccupation", existing.parentOccupation, updated.parentOccupation);
+  track("parentAddress", existing.parentAddress, updated.parentAddress);
+  track("emergencyContact", existing.emergencyContact, updated.emergencyContact);
+  track("guardianName", existing.guardianName, updated.guardianName);
+  track("guardianRelationship", existing.guardianRelationship, updated.guardianRelationship);
+  track("guardianMobile", existing.guardianMobile, updated.guardianMobile);
+  track("guardianAltContact", existing.guardianAltContact, updated.guardianAltContact);
+  track("guardianAddress", existing.guardianAddress, updated.guardianAddress);
+  track("pickupAuthDetails", existing.pickupAuthDetails, updated.pickupAuthDetails);
+
+  await auditLog({
+    actor: { type: "SCHOOL_USER", id: session.userId, schoolId: session.schoolId },
+    action: canEditStudents ? "STUDENT_UPDATED" : "STUDENT_PARENT_DETAILS_UPDATED",
+    entityType: "Student",
+    entityId: updated.id,
+    schoolId: session.schoolId,
+    metadata: {
+      studentName: updated.fullName,
+      updatedByRole: session.roleKey,
+      changedFields: Object.keys(changed),
+      changes: changed
     }
   });
 

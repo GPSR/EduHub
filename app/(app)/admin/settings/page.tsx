@@ -1,4 +1,5 @@
 import { Card, Input, Label, Button, Select, Badge, SectionHeader, Textarea } from "@/components/ui";
+import { CroppedImageUploadForm } from "@/components/cropped-image-upload-form";
 import { prisma } from "@/lib/db";
 import { requirePermission } from "@/lib/require-permission";
 import { IdSettingsClientForm, RenameRoleClientForm, SchoolModulesClientForm } from "@/components/admin-settings-forms";
@@ -98,7 +99,7 @@ export default async function AdminSettingsPage({
 async function SchoolLogoPanel({ logoUrl }: { logoUrl?: string | null }) {
   const { uploadSchoolLogoAction } = await import("./actions");
   return (
-    <form action={uploadSchoolLogoAction} className="grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
       <div className="flex items-center gap-3">
         {logoUrl ? (
           <Image src={logoUrl} alt="School logo" width={56} height={56} className="h-14 w-14 rounded-[12px] object-cover border border-white/[0.10]" />
@@ -107,14 +108,17 @@ async function SchoolLogoPanel({ logoUrl }: { logoUrl?: string | null }) {
         )}
         <div className="min-w-0">
           <Label required>Upload logo</Label>
-          <Input name="logo" type="file" accept="image/png,image/jpeg,image/webp" required />
-          <p className="mt-1 text-[11px] text-white/35">JPG/PNG/WEBP, max 3MB</p>
+          <p className="mt-1 text-[11px] text-white/35">Crop and upload JPG/PNG/WEBP, max 3MB</p>
         </div>
       </div>
       <div className="md:justify-self-end">
-        <Button type="submit">Upload logo</Button>
+        <CroppedImageUploadForm
+          action={uploadSchoolLogoAction}
+          fileFieldName="logo"
+          triggerLabel="Choose & Crop Logo"
+        />
       </div>
-    </form>
+    </div>
   );
 }
 

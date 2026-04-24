@@ -4,6 +4,7 @@ import Image from "next/image";
 import { useActionState, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { uploadPlatformProfilePhotoAction, type PlatformProfileState } from "@/app/platform/(app)/profile/actions";
+import { ImageCropperDialog } from "@/components/image-cropper-dialog";
 
 const initialState: PlatformProfileState = { ok: true };
 
@@ -29,6 +30,8 @@ export function PlatformProfileAvatarUploader({
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [state, action, pending] = useActionState(uploadPlatformProfilePhotoAction, initialState);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [cropFile, setCropFile] = useState<File | null>(null);
+  const [cropOpen, setCropOpen] = useState(false);
 
   const avatar = useMemo(() => initials(userName), [userName]);
   const effectiveUrl = previewUrl ?? photoUrl ?? null;
@@ -61,8 +64,8 @@ export function PlatformProfileAvatarUploader({
           onChange={() => {
             const file = inputRef.current?.files?.[0];
             if (!file) return;
-            setPreviewUrl(URL.createObjectURL(file));
-            formRef.current?.requestSubmit();
+            setCropFile(file);
+            setCropOpen(true);
           }}
         />
         <button
@@ -109,6 +112,27 @@ export function PlatformProfileAvatarUploader({
           {state.message}
         </div>
       ) : null}
+
+      <ImageCropperDialog
+        open={cropOpen}
+        file={cropFile}
+        onCancel={() => {
+          setCropOpen(false);
+          setCropFile(null);
+          if (inputRef.current) inputRef.current.value = "";
+        }}
+        onApply={(croppedFile) => {
+          if (!inputRef.current) return;
+          const dt = new DataTransfer();
+          dt.items.add(croppedFile);
+          inputRef.current.files = dt.files;
+          if (previewUrl) URL.revokeObjectURL(previewUrl);
+          setPreviewUrl(URL.createObjectURL(croppedFile));
+          setCropOpen(false);
+          setCropFile(null);
+          formRef.current?.requestSubmit();
+        }}
+      />
     </div>
   );
 }

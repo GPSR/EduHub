@@ -1,15 +1,10 @@
 import Link from "next/link";
-import { Badge, Card, SectionHeader, EmptyState } from "@/components/ui";
+import { Card, EmptyState, SectionHeader } from "@/components/ui";
 import { prisma } from "@/lib/db";
 import { requireSession } from "@/lib/require";
 
-export default async function StudentProfileRequestPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ submitted?: string }>;
-}) {
+export default async function StudentProfileRequestPage() {
   const session = await requireSession();
-  const { submitted } = await searchParams;
 
   if (session.roleKey !== "PARENT") {
     return (
@@ -23,6 +18,7 @@ export default async function StudentProfileRequestPage({
 
   const students = await prisma.student.findMany({
     where: { schoolId: session.schoolId, parents: { some: { userId: session.userId } } },
+    include: { class: true },
     orderBy: { fullName: "asc" },
   });
 
@@ -31,27 +27,43 @@ export default async function StudentProfileRequestPage({
       <div className="flex items-center gap-3">
         <Link href="/students" className="text-sm text-white/40 hover:text-white/70 transition">← Students</Link>
         <span className="text-white/20">/</span>
-        <SectionHeader title="Request Profile Update" subtitle="Submit changes for admin approval" />
+        <SectionHeader title="Update Profile Details" subtitle="Changes save instantly and are visible to school admin." />
       </div>
 
-      {submitted && (
-        <div className="flex items-start gap-3 rounded-[16px] border border-emerald-500/25 bg-emerald-500/[0.08] p-4">
-          <span className="text-xl">✅</span>
-          <div>
-            <p className="text-[14px] font-semibold text-emerald-200">Request submitted</p>
-            <p className="text-sm text-emerald-300/70 mt-0.5">Your changes have been sent to the school admin for review.</p>
+      <Card
+        title="Select Student"
+        description="Open the student update form to edit parent and guardian information directly in the database."
+        accent="indigo"
+      >
+        {students.length === 0 ? (
+          <EmptyState icon="👤" title="No linked students" description="No students are linked to this parent account." />
+        ) : (
+          <div className="space-y-2.5">
+            {students.map((student) => {
+              const classLabel = student.class
+                ? `${student.class.name}${student.class.section ? `-${student.class.section}` : ""}`
+                : "Class not set";
+              return (
+                <div
+                  key={student.id}
+                  className="flex flex-col gap-2 rounded-[14px] border border-white/[0.10] bg-white/[0.03] p-3.5 sm:flex-row sm:items-center sm:justify-between"
+                >
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-semibold text-white/90">{student.fullName}</p>
+                    <p className="mt-0.5 text-xs text-white/50">{classLabel} · {student.studentId}</p>
+                  </div>
+                  <Link
+                    href={`/students/${student.id}/edit`}
+                    className="inline-flex items-center justify-center rounded-[11px] border border-white/[0.14] bg-[#111c30]/90 px-3 py-2 text-xs font-semibold text-white/85 transition hover:bg-[#17253d] hover:text-white"
+                  >
+                    Update details
+                  </Link>
+                </div>
+              );
+            })}
           </div>
-        </div>
-      )}
-
-      <Card title="Submit Changes" description="Your request will be reviewed by the school admin before being applied." accent="indigo">
-        <RequestForm students={students.map(s => ({ id: s.id, name: s.fullName }))} />
+        )}
       </Card>
     </div>
   );
-}
-
-async function RequestForm({ students }: { students: { id: string; name: string }[] }) {
-  const { StudentUpdateRequestForm } = await import("./ui");
-  return <StudentUpdateRequestForm students={students} />;
 }

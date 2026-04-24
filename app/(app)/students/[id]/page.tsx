@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { Badge, Button } from "@/components/ui";
+import { StudentPhotoAvatarUploader } from "@/components/student-photo-avatar-uploader";
 import { prisma } from "@/lib/db";
 import { requireSession } from "@/lib/require";
 import { atLeastLevel, getEffectivePermissions } from "@/lib/permissions";
@@ -85,7 +86,8 @@ export default async function StudentProfilePage({
   const authorNameById = new Map(authorRows.map((row) => [row.id, row.name]));
 
   const canSendFeeReminder = perms["FEES"] ? atLeastLevel(perms["FEES"], "EDIT") : false;
-  const canUploadStudentPhoto = session.roleKey === "PARENT" || (perms["STUDENTS"] ? atLeastLevel(perms["STUDENTS"], "EDIT") : false);
+  const canEditStudents = perms["STUDENTS"] ? atLeastLevel(perms["STUDENTS"], "EDIT") : false;
+  const canUploadStudentPhoto = session.roleKey === "PARENT" || canEditStudents;
   const feeRows = invoices.map((invoice) => {
     const paidCents = invoice.payments.reduce((sum, payment) => sum + payment.amountCents, 0);
     const pendingCents = Math.max(0, invoice.amountCents - paidCents);
@@ -123,7 +125,7 @@ export default async function StudentProfilePage({
         </div>
       )}
 
-      {session.roleKey !== "PARENT" && (
+      {canEditStudents && (
         <div className="flex gap-2 flex-wrap">
           <Link href={`/students/${student.id}/edit`}>
             <Button variant="secondary" size="sm">Edit Student</Button>
@@ -146,21 +148,31 @@ export default async function StudentProfilePage({
 
       <div className="rounded-[22px] border border-white/[0.08] bg-white/[0.04] p-6">
         <div className="flex items-start sm:items-center gap-3 sm:gap-4">
-          <div className="h-16 w-16 shrink-0 overflow-hidden rounded-[18px] border border-white/[0.12] bg-white/[0.04]">
-            {student.photoUrl ? (
-              <Image
-                src={student.photoUrl}
-                alt={student.fullName}
-                width={64}
-                height={64}
-                className="h-16 w-16 object-cover"
-              />
-            ) : (
-              <div className="grid h-16 w-16 place-items-center bg-gradient-to-b from-indigo-400 to-indigo-600 text-xl font-bold text-white shadow-lg">
-                {initials}
-              </div>
-            )}
-          </div>
+          {canUploadStudentPhoto ? (
+            <StudentPhotoAvatarUploader
+              action={uploadStudentPhotoAction}
+              studentId={student.id}
+              studentName={student.fullName}
+              photoUrl={student.photoUrl}
+              returnTo={`/students/${student.id}`}
+            />
+          ) : (
+            <div className="h-16 w-16 shrink-0 overflow-hidden rounded-[18px] border border-white/[0.12] bg-white/[0.04]">
+              {student.photoUrl ? (
+                <Image
+                  src={student.photoUrl}
+                  alt={student.fullName}
+                  width={64}
+                  height={64}
+                  className="h-16 w-16 object-cover"
+                />
+              ) : (
+                <div className="grid h-16 w-16 place-items-center bg-gradient-to-b from-indigo-400 to-indigo-600 text-xl font-bold text-white shadow-lg">
+                  {initials}
+                </div>
+              )}
+            </div>
+          )}
           <div className="min-w-0 flex-1">
             <h1 className="text-xl font-bold text-white/95 tracking-tight">{student.fullName}</h1>
             <div className="mt-1.5 flex flex-wrap items-center gap-2">
@@ -168,23 +180,7 @@ export default async function StudentProfilePage({
               {student.rollNumber && <Badge tone="neutral">Roll {student.rollNumber}</Badge>}
               <Badge tone="neutral">ID: {student.studentId}</Badge>
             </div>
-            {canUploadStudentPhoto && (
-              <form action={uploadStudentPhotoAction} className="mt-3 flex flex-wrap items-end gap-2">
-                <input type="hidden" name="id" value={student.id} />
-                <input type="hidden" name="returnTo" value={`/students/${student.id}`} />
-                <div className="min-w-[210px]">
-                  <input
-                    name="photo"
-                    type="file"
-                    accept="image/png,image/jpeg,image/webp"
-                    required
-                    className="w-full rounded-[10px] border border-white/[0.12] bg-[#0f1728]/75 px-2.5 py-2 text-xs text-white/80 file:mr-2 file:rounded-md file:border-0 file:bg-blue-500/25 file:px-2 file:py-1 file:text-xs file:font-medium file:text-blue-100"
-                  />
-                  <p className="mt-1 text-[11px] text-white/40">Upload student photo for Virtual ID card</p>
-                </div>
-                <Button type="submit" variant="secondary" size="sm">Upload</Button>
-              </form>
-            )}
+            {canUploadStudentPhoto ? <p className="mt-2 text-[11px] text-white/40">Tap the avatar to crop and upload photo.</p> : null}
           </div>
         </div>
       </div>
@@ -216,10 +212,13 @@ export default async function StudentProfilePage({
             <Field label="Mobile(s)" value={student.parentMobiles ?? "—"} />
             <Field label="Email(s)" value={student.parentEmails ?? "—"} />
             <Field label="Occupation" value={student.parentOccupation ?? "—"} />
+            <Field label="Parent Address" value={student.parentAddress ?? "—"} />
             <Field label="Emergency Contact" value={student.emergencyContact ?? "—"} />
             <Field label="Guardian Name" value={student.guardianName ?? "—"} />
             <Field label="Relationship" value={student.guardianRelationship ?? "—"} />
             <Field label="Guardian Mobile" value={student.guardianMobile ?? "—"} />
+            <Field label="Guardian Alt Contact" value={student.guardianAltContact ?? "—"} />
+            <Field label="Guardian Address" value={student.guardianAddress ?? "—"} />
             <Field label="Pickup Authorization" value={student.pickupAuthDetails ?? "—"} />
           </div>
         </CollapsibleSection>

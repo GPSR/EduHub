@@ -28,15 +28,6 @@ function barcodePattern(value: string) {
   return source.split("").map((char, index) => ((char.charCodeAt(0) + index) % 4) + 1);
 }
 
-function firstCsvValue(value?: string | null) {
-  if (!value) return null;
-  const first = value
-    .split(",")
-    .map((v) => v.trim())
-    .find((v) => v.length > 0);
-  return first ?? null;
-}
-
 export default async function StudentVirtualIdCardPage({ params }: { params: Promise<{ id: string }> }) {
   await requirePermission("STUDENTS", "VIEW");
   const session = await requireSession();
@@ -83,11 +74,7 @@ export default async function StudentVirtualIdCardPage({ params }: { params: Pro
   const guardianContact = student.guardianMobile ?? student.guardianAltContact ?? "—";
   const parentPhotoUrl = parentUserId ? await getUserProfileImageUrl(session.schoolId, parentUserId) : null;
   const hasContactCards = template.showParent || template.showGuardian;
-  const primaryParentPhone = firstCsvValue(student.parentMobiles);
-  const schoolReturnLabel = footerText ? `${school.name}, ${footerText}` : school.name;
-  const foundCardMessage = primaryParentPhone
-    ? `If found, please return this card to ${schoolReturnLabel}, or call parent at ${primaryParentPhone}.`
-    : `If found, please return this card to ${schoolReturnLabel}, or contact school administration.`;
+  const foundCardMessage = "If found, please return this card to the above school address or call parent.";
 
   return (
     <div className="space-y-5 animate-fade-up">

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Card, Input, Label, Button, SectionHeader } from "@/components/ui";
+import { ConfirmableServerForm } from "@/components/confirmable-server-form";
 import { requirePermission } from "@/lib/require-permission";
 import { prisma } from "@/lib/db";
 import { createStudentAction } from "../actions";
@@ -46,7 +47,12 @@ export default async function NewStudentPage() {
       <SectionHeader title="Add Student" subtitle="Fill in the student's details below" />
 
       <Card>
-        <form action={createStudentAction} className="grid grid-cols-1 md:grid-cols-2 gap-5">
+        <ConfirmableServerForm
+          action={createStudentAction}
+          className="grid grid-cols-1 md:grid-cols-2 gap-5"
+          enabled={session.roleKey === "ADMIN"}
+          confirmMessage="Please confirm student admission details before creating this student record."
+        >
 
           {/* ── Identity ── */}
           <div className="md:col-span-2">
@@ -165,7 +171,7 @@ export default async function NewStudentPage() {
             </Link>
             <Button type="submit">Create student →</Button>
           </div>
-        </form>
+        </ConfirmableServerForm>
       </Card>
     </div>
   );
