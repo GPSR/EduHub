@@ -3,7 +3,6 @@ import { Badge, Card, Button } from "@/components/ui";
 import { prisma } from "@/lib/db";
 import { requirePlatformUser } from "@/lib/platform-require";
 import { ImpersonateLauncher } from "./ui";
-import { PlatformControls } from "./ui-controls";
 
 function centsToUsd(cents: number) {
   return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(cents / 100);
@@ -168,9 +167,6 @@ export default async function PlatformHomePage({
           </div>
         ))}
       </div>
-
-      {/* ── Filters ── */}
-      <PlatformControls q={query} />
 
       {query && matchedSchoolUsers.length > 0 && (
         <Card title={`Matched School Users · ${matchedSchoolUsers.length}`}>

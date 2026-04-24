@@ -1,15 +1,30 @@
 import Link from "next/link";
-import { Card } from "@/components/ui";
+import { Button, Card } from "@/components/ui";
 import { OnboardForm } from "@/components/onboard-form";
 import { BrandIcon } from "@/components/brand";
+import { getSession } from "@/lib/session";
 
-export default function OnboardPage() {
+export default async function OnboardPage() {
+  const session = await getSession();
+
   return (
     <main className="min-h-dvh md:min-h-screen flex items-start md:items-center justify-center px-4 sm:px-6 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))]">
       <div className="w-full max-w-2xl space-y-4 sm:space-y-5 animate-fade-up">
-        <Link href="/" className="inline-flex items-center gap-1.5 text-sm text-white/45 hover:text-white/80 transition-colors">
-          ← Back to home
-        </Link>
+        <div className="flex items-center justify-between gap-2">
+          <Link href="/" className="inline-flex items-center gap-1.5 text-sm text-white/45 hover:text-white/80 transition-colors">
+            ← Back to home
+          </Link>
+          <div className="flex items-center gap-2">
+            {session && (
+              <Link href="/dashboard">
+                <Button variant="secondary" size="sm">Dashboard</Button>
+              </Link>
+            )}
+            <Link href="/login">
+              <Button variant="secondary" size="sm">School Login</Button>
+            </Link>
+          </div>
+        </div>
         <div className="flex justify-center">
           <BrandIcon size={72} />
         </div>

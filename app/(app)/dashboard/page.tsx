@@ -1,4 +1,4 @@
-import { Card, SectionHeader, Badge } from "@/components/ui";
+import { Card, SectionHeader, Badge, Button } from "@/components/ui";
 import { prisma } from "@/lib/db";
 import { requireSession } from "@/lib/require";
 import { atLeastLevel, getEffectivePermissions } from "@/lib/permissions";
@@ -31,11 +31,18 @@ type TrendPoint = {
   leave: number;
 };
 
-export default async function DashboardPage() {
+export default async function DashboardPage({
+  searchParams
+}: {
+  searchParams: Promise<{ q?: string }>;
+}) {
   await requirePermission("DASHBOARD", "VIEW");
   const session = await requireSession();
   if (session.roleKey !== "ADMIN") redirect("/students");
-  const [students, teachers, pendingFees, posts, school, perms] = await Promise.all([
+  const { q } = await searchParams;
+  const query = (q ?? "").trim();
+
+  const [students, teachers, pendingFees, posts, school, perms, quickSearchStudents, quickSearchTeachers] = await Promise.all([
     prisma.student.count({ where: { schoolId: session.schoolId } }),
     prisma.user.count({
       where: { schoolId: session.schoolId, schoolRole: { key: { in: ["TEACHER", "CLASS_TEACHER"] } } }
@@ -50,6 +57,33 @@ export default async function DashboardPage() {
       schoolId: session.schoolId,
       userId: session.userId,
       roleId: session.roleId
+    }),
+    prisma.student.findMany({
+      where: { schoolId: session.schoolId },
+      select: {
+        id: true,
+        fullName: true,
+        studentId: true,
+        admissionNo: true,
+        rollNumber: true,
+        class: { select: { name: true, section: true } }
+      },
+      orderBy: { createdAt: "desc" },
+      take: 220
+    }),
+    prisma.user.findMany({
+      where: {
+        schoolId: session.schoolId,
+        schoolRole: { key: { in: ["TEACHER", "CLASS_TEACHER"] } }
+      },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        schoolRole: { select: { name: true } }
+      },
+      orderBy: { createdAt: "desc" },
+      take: 180
     })
   ]);
 
@@ -107,10 +141,62 @@ export default async function DashboardPage() {
     late: 0,
     leave: 0
   };
+  const normalizedQuery = query.toLowerCase();
+  const matchedStudents = query
+    ? quickSearchStudents
+        .filter((s) =>
+          `${s.fullName} ${s.studentId} ${s.admissionNo ?? ""} ${s.rollNumber ?? ""} ${s.class ? `${s.class.name} ${s.class.section ?? ""}` : ""}`
+            .toLowerCase()
+            .includes(normalizedQuery)
+        )
+        .slice(0, 12)
+    : [];
+  const matchedTeachers = query
+    ? quickSearchTeachers
+        .filter((t) =>
+          `${t.name} ${t.email} ${t.schoolRole.name}`
+            .toLowerCase()
+            .includes(normalizedQuery)
+        )
+        .slice(0, 12)
+    : [];
 
   return (
     <div className="space-y-6 animate-fade-up">
       <SectionHeader title="Dashboard" subtitle={`Welcome back — ${school?.name ?? "your school"}`} />
+
+      <Card>
+        <form action="/dashboard" method="get" className="grid grid-cols-1 lg:grid-cols-[1fr_auto] gap-3 items-end">
+          <div>
+            <label className="text-[12px] font-medium text-white/70">Global Search (teachers + students)</label>
+            <input
+              name="q"
+              defaultValue={query}
+              list="school-dashboard-global-search"
+              placeholder="Search teacher name/email or student name/ID"
+              className="mt-1 w-full rounded-xl bg-black/25 border border-white/10 px-3 py-2.5 outline-none focus:border-indigo-400 focus:ring-4 focus:ring-indigo-500/15 transition text-sm"
+            />
+            <datalist id="school-dashboard-global-search">
+              {quickSearchStudents.map((s) => (
+                <option key={`student-name-${s.id}`} value={s.fullName}>{`Student · ${s.studentId}`}</option>
+              ))}
+              {quickSearchStudents.map((s) => (
+                <option key={`student-id-${s.id}`} value={s.studentId}>{`Student ID · ${s.fullName}`}</option>
+              ))}
+              {quickSearchTeachers.map((t) => (
+                <option key={`teacher-email-${t.id}`} value={t.email}>{`Teacher · ${t.name}`}</option>
+              ))}
+              {quickSearchTeachers.map((t) => (
+                <option key={`teacher-name-${t.id}`} value={t.name}>{`Teacher · ${t.email}`}</option>
+              ))}
+            </datalist>
+          </div>
+          <div className="flex gap-2">
+            <Button type="submit">Search</Button>
+            <Link href="/dashboard"><Button type="button" variant="secondary">Clear</Button></Link>
+          </div>
+        </form>
+      </Card>
 
       {/* Stat grid */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -131,6 +217,59 @@ export default async function DashboardPage() {
           color="violet" delay="stagger-4" href="/feed"
         />
       </div>
+
+      {query && (matchedStudents.length > 0 || matchedTeachers.length > 0) && (
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+          <Card title={`Matched Students · ${matchedStudents.length}`} accent="indigo">
+            <div className="divide-y divide-white/[0.06]">
+              {matchedStudents.map((s) => {
+                const classLabel = s.class ? `${s.class.name}${s.class.section ? `-${s.class.section}` : ""}` : "No class";
+                return (
+                  <Link
+                    key={s.id}
+                    href={`/students/${s.id}`}
+                    className="py-3 flex items-center justify-between gap-3 hover:bg-white/[0.03] transition rounded-[10px] px-2 -mx-2"
+                  >
+                    <div className="min-w-0">
+                      <div className="text-sm font-medium text-white/90 truncate">{s.fullName}</div>
+                      <div className="text-xs text-white/45 truncate">
+                        {s.studentId} · {s.admissionNo ?? "No admission no."} · {classLabel}
+                      </div>
+                    </div>
+                    <span className="text-xs text-indigo-300/80 shrink-0">Open</span>
+                  </Link>
+                );
+              })}
+            </div>
+          </Card>
+
+          <Card title={`Matched Teachers · ${matchedTeachers.length}`} accent="teal">
+            <div className="divide-y divide-white/[0.06]">
+              {matchedTeachers.map((t) => (
+                <Link
+                  key={t.id}
+                  href="/admin/users"
+                  className="py-3 flex items-center justify-between gap-3 hover:bg-white/[0.03] transition rounded-[10px] px-2 -mx-2"
+                >
+                  <div className="min-w-0">
+                    <div className="text-sm font-medium text-white/90 truncate">{t.name}</div>
+                    <div className="text-xs text-white/45 truncate">{t.email} · {t.schoolRole.name}</div>
+                  </div>
+                  <span className="text-xs text-teal-300/80 shrink-0">Manage</span>
+                </Link>
+              ))}
+            </div>
+          </Card>
+        </div>
+      )}
+
+      {query && matchedStudents.length === 0 && matchedTeachers.length === 0 && (
+        <Card title="Search Results">
+          <p className="text-sm text-white/50">
+            No teachers or students matched <span className="text-white/75">&quot;{query}&quot;</span>.
+          </p>
+        </Card>
+      )}
 
       {/* School info */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
