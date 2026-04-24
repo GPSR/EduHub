@@ -34,8 +34,6 @@ export async function onboardAction(_prev: OnboardState, formData: FormData): Pr
 
     const slug = parsed.data.schoolSlug.toLowerCase();
     const email = parsed.data.adminEmail.toLowerCase();
-    const fullPhone = `${parsed.data.adminPhoneCountryCode}${parsed.data.adminPhone}`;
-
     const existing = await prisma.school.findUnique({ where: { slug } });
     if (existing) return { ok: false, message: "School slug already exists. Try another one." };
 
@@ -53,8 +51,7 @@ export async function onboardAction(_prev: OnboardState, formData: FormData): Pr
           adminName: parsed.data.adminName,
           adminEmail: email,
           adminPhoneCountryCode: parsed.data.adminPhoneCountryCode,
-          adminPhone: fullPhone,
-          status: "PENDING"
+          adminPhone: parsed.data.adminPhone
         }
       });
     } catch {
@@ -65,14 +62,24 @@ export async function onboardAction(_prev: OnboardState, formData: FormData): Pr
           schoolName: parsed.data.schoolName,
           schoolSlug: slug,
           adminName: parsed.data.adminName,
-          adminEmail: email,
-          status: "PENDING"
+          adminEmail: email
         }
       });
     }
-    return { ok: true, message: "Request submitted. Super admin approval is required before onboarding." };
+    return {
+      ok: true,
+      message:
+        "Request submitted successfully. Our team will respond within 24 hours after reviewing your onboarding details. You will receive an approval status update by email."
+    };
   } catch (e) {
-    console.error(e);
-    return { ok: false, message: "Request submission failed. Please try again." };
+    console.error("onboardAction error:", e);
+    const raw = e instanceof Error ? e.message : "unknown_error";
+    if (raw.toLowerCase().includes("database_url")) {
+      return { ok: false, message: "Server is missing DATABASE_URL configuration." };
+    }
+    if (raw.toLowerCase().includes("unique constraint")) {
+      return { ok: false, message: "A similar onboarding request already exists." };
+    }
+    return { ok: false, message: `Request submission failed: ${raw}` };
   }
 }
