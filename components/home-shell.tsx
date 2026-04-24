@@ -45,7 +45,7 @@ export function HomeShell({ isSignedIn }: { isSignedIn: boolean }) {
   /* Skeleton while checking localStorage */
   if (onboarded === null && !isSignedIn) {
     return (
-      <div className="space-y-5">
+      <div className="space-y-4 lg:space-y-2.5">
         <Card>
           <div className="space-y-3">
             <div className="h-4 w-32 rounded-full bg-white/[0.06] animate-pulse" />
@@ -105,52 +105,54 @@ export function HomeShell({ isSignedIn }: { isSignedIn: boolean }) {
   /* New user — onboarding */
   if (!onboarded) {
     return (
-      <div className="space-y-5">
-        <Card title="Get started" description="Create your school & admin account in minutes" accent="indigo">
-          <div className="rounded-[14px] border border-white/[0.14] bg-[radial-gradient(circle_at_15%_15%,rgba(96,165,250,0.25),transparent_45%),linear-gradient(180deg,rgba(10,18,35,0.72),rgba(8,14,28,0.9))] p-4">
-            <p className="text-sm text-white/80 leading-relaxed">
+      <div className="space-y-4 lg:space-y-2.5">
+        <Card title="Get started" description="Create your school & admin account in minutes" accent="indigo" className="lg:p-3">
+          <div className="rounded-[14px] border border-white/[0.14] bg-[radial-gradient(circle_at_15%_15%,rgba(96,165,250,0.25),transparent_45%),linear-gradient(180deg,rgba(10,18,35,0.72),rgba(8,14,28,0.9))] p-4 lg:p-2.5">
+            <p className="text-sm lg:text-[12px] text-white/80 leading-relaxed">
               Launch your digital school operations with fast onboarding, secure access, and ready-to-use modules.
             </p>
-            <div className="mt-3 flex flex-wrap gap-2">
+            <div className="mt-3 lg:hidden flex flex-wrap gap-2">
               {ONBOARDING_HIGHLIGHTS.map((item) => (
                 <span
                   key={item}
-                  className="inline-flex rounded-full border border-blue-300/25 bg-blue-500/12 px-2.5 py-1 text-[11px] font-medium text-blue-100/95"
+                  className="inline-flex rounded-full border border-blue-300/25 bg-blue-500/12 px-2.5 py-1 lg:px-2 lg:py-0.5 text-[11px] lg:text-[10px] font-medium text-blue-100/95"
                 >
                   {item}
                 </span>
               ))}
             </div>
           </div>
-          <div className="mt-4">
+          <div className="mt-4 lg:mt-2">
             <HomeCTA isSignedIn={false} />
           </div>
-          <p className="mt-4 text-xs text-white/40">Free to start · No credit card required</p>
+          <p className="mt-4 lg:mt-2 text-xs lg:text-[11px] text-white/40">Free to start · No credit card required</p>
         </Card>
-        <Card title="Everything you need" description="Core modules included" accent="teal">
-          <div className="mb-3 flex items-center justify-between rounded-[12px] border border-white/[0.10] bg-[#0d1629]/70 px-3 py-2">
+        <Card title="Everything you need" description="Core modules included" accent="teal" className="lg:p-3">
+          <div className="mb-3 lg:mb-2 flex items-center justify-between rounded-[12px] border border-white/[0.10] bg-[#0d1629]/70 px-3 py-2 lg:py-1.5">
             <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-white/55">All-in-one school suite</p>
             <span className="rounded-full border border-teal-300/30 bg-teal-400/14 px-2.5 py-1 text-[11px] font-semibold text-teal-100">
               {FEATURES.length} modules
             </span>
           </div>
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-2.5">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-2 lg:gap-1.5">
             {FEATURES.map(f => (
               <div
                 key={f.label}
                 className="rounded-[13px] border border-white/[0.12] bg-[linear-gradient(180deg,rgba(21,34,58,0.95),rgba(11,18,33,0.96))]
-                           px-3 py-3 lg:px-2.5 lg:py-2.5 hover:border-white/[0.20] hover:bg-[#17253d] transition-colors"
+                           px-3 py-3 lg:px-2 lg:py-1.5 hover:border-white/[0.20] hover:bg-[#17253d] transition-colors"
               >
-                <div className="mb-1.5 inline-flex h-7 w-7 lg:h-6 lg:w-6 items-center justify-center rounded-[9px] border border-white/[0.14] bg-white/[0.06] text-base lg:text-sm">
+                <div className="mb-1.5 lg:mb-1 inline-flex h-7 w-7 lg:h-5 lg:w-5 items-center justify-center rounded-[9px] border border-white/[0.14] bg-white/[0.06] text-base lg:text-[11px]">
                   {f.icon}
                 </div>
                 <div
-                  className="text-[13px] lg:text-[12px] font-semibold text-white/85 leading-snug whitespace-nowrap"
+                  className="text-[13px] lg:text-[11px] font-semibold text-white/85 leading-snug whitespace-nowrap"
                   title={f.label}
                 >
                   {f.label}
                 </div>
-                <div className="mt-0.5 text-[11px] text-white/45 leading-snug lg:hidden">{f.desc}</div>
+                <div className="mt-0.5 text-[11px] lg:text-[9px] text-white/45 leading-snug truncate" title={f.desc}>
+                  {f.desc}
+                </div>
               </div>
             ))}
           </div>
