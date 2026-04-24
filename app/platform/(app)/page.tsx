@@ -4,7 +4,6 @@ import { prisma } from "@/lib/db";
 import { requirePlatformUser } from "@/lib/platform-require";
 import { ImpersonateLauncher } from "./ui";
 import { PlatformControls } from "./ui-controls";
-import { redirect } from "next/navigation";
 
 function centsToUsd(cents: number) {
   return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(cents / 100);
@@ -23,9 +22,6 @@ export default async function PlatformHomePage({
   searchParams: Promise<{ q?: string }>;
 }) {
   const { user } = await requirePlatformUser();
-  if (user.role === "SUPER_ADMIN") {
-    redirect("/platform/schools");
-  }
   const { q } = await searchParams;
   const query         = (q ?? "").trim();
 
