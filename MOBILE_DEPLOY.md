@@ -28,9 +28,14 @@ cp .env.example .env
 npm run mobile:build
 ```
 
-This runs `next build && cap sync` which:
-1. Builds the Next.js app into `capacitor_www/`
-2. Syncs web assets to iOS and Android native projects
+This runs `next build && cap sync`.
+
+Important: this app uses a live backend (Prisma + Server Actions), so native apps
+must load your hosted web URL (default: `https://schools.softlanetech.com`).
+The URL is configured in `capacitor.config.ts` via:
+
+- `CAPACITOR_PROD_URL` (preferred override)
+- fallback to `SCHOOL_APP_BASE_URL` / `NEXT_PUBLIC_SCHOOL_APP_BASE_URL`
 
 ---
 
@@ -63,6 +68,7 @@ npm run mobile:open:android
 In Android Studio:
 - Sync Gradle
 - Run on device or emulator
+- App package id: `com.softlanetech.schools`
 
 **For production builds:**
 - Build → Generate Signed Bundle/APK
@@ -80,13 +86,10 @@ The app is PWA-ready. Users can install it from:
 
 ## 6. Development with live reload
 
-Update `capacitor.config.ts` with your local IP:
+Set your local dev URL:
 
 ```typescript
-server: {
-  url: 'http://YOUR_LOCAL_IP:3000',
-  cleartext: true,
-}
+CAPACITOR_SERVER_URL=http://YOUR_LOCAL_IP:3000
 ```
 
 Then run:

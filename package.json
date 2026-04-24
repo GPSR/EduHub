@@ -20,11 +20,11 @@
     "mobile:build:android": "next build && cap sync android"
   },
   "dependencies": {
-    "@capacitor/android": "^8.3.1",
+    "@capacitor/android": "^7.0.0",
     "@capacitor/app": "^7.0.0",
-    "@capacitor/core": "^8.3.1",
+    "@capacitor/core": "^7.0.0",
     "@capacitor/haptics": "^7.0.0",
-    "@capacitor/ios": "^8.3.1",
+    "@capacitor/ios": "^7.0.0",
     "@capacitor/keyboard": "^7.0.0",
     "@capacitor/network": "^7.0.0",
     "@capacitor/splash-screen": "^7.0.0",
@@ -45,7 +45,7 @@
   },
   "devDependencies": {
     "@capacitor/assets": "^3.0.5",
-    "@capacitor/cli": "^8.3.1",
+    "@capacitor/cli": "^7.0.0",
     "@types/bcryptjs": "^2.4.6",
     "@types/node": "^22.14.0",
     "@types/nodemailer": "^8.0.0",

@@ -1,20 +1,24 @@
-import type { CapacitorConfig } from '@capacitor/cli';
+import type { CapacitorConfig } from "@capacitor/cli";
 
-const isProduction = process.env.NODE_ENV === 'production';
+const prodServerUrl =
+  process.env.CAPACITOR_PROD_URL ??
+  process.env.SCHOOL_APP_BASE_URL ??
+  process.env.NEXT_PUBLIC_SCHOOL_APP_BASE_URL ??
+  "https://schools.softlanetech.com";
+const serverUrl = process.env.CAPACITOR_SERVER_URL ?? prodServerUrl;
+const isCleartext = serverUrl.startsWith("http://");
 
 const config: CapacitorConfig = {
-  appId: 'com.softlanetech.eduhub',
-  appName: 'EduHub',
+  appId: 'com.softlanetech.schools',
+  appName: 'Schools',
   webDir: 'capacitor_www',
 
-  // In development, point to your local server
-  // In production, use the bundled web assets
-  ...(isProduction ? {} : {
-    server: {
-      url: process.env.CAPACITOR_SERVER_URL ?? 'http://localhost:3000',
-      cleartext: true,
-    }
-  }),
+  // This app relies on a live Next.js backend (Prisma/Auth/Server Actions),
+  // so native builds should point to a hosted HTTPS URL.
+  server: {
+    url: serverUrl,
+    cleartext: isCleartext
+  },
 
   ios: {
     contentInset: 'automatic',
@@ -27,7 +31,7 @@ const config: CapacitorConfig = {
     backgroundColor: '#060912',
     allowMixedContent: false,
     captureInput: true,
-    webContentsDebuggingEnabled: !isProduction,
+    webContentsDebuggingEnabled: isCleartext,
   },
 
   plugins: {
