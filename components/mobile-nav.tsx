@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { clsx } from "clsx";
 import { useState, useEffect } from "react";
+import { MOBILE_BOTTOM_PRIMARY_LIMIT } from "@/lib/mobile-nav-config";
 
 type NavItem = { href: string; label: string; activeStartsWith?: boolean };
 
@@ -78,8 +79,8 @@ export function MobileNav({
     if (open) setShowUserInfo(false);
   }, [open]);
 
-  const tabItems   = items.slice(0, 5);
-  const allMore    = [...items.slice(5), ...moreItems];
+  const tabItems   = items.slice(0, MOBILE_BOTTOM_PRIMARY_LIMIT);
+  const allMore    = [...items.slice(MOBILE_BOTTOM_PRIMARY_LIMIT), ...moreItems];
   const moreActive = !open && allMore.some(i => isActive(pathname, i));
   const initials   = userName.trim().split(/\s+/).map(p => p[0]).slice(0,2).join("").toUpperCase();
 

@@ -24,7 +24,7 @@ export default async function PlatformAppLayout({ children }: { children: React.
         ]
       : [{ href: "/platform", label: "Dashboard", icon: "◈" }];
 
-  const mobileItems =
+  const mobileNavCandidates =
     user.role === "SUPER_ADMIN"
       ? [
           { href: "/platform", label: "Home", icon: "◈" },
@@ -36,6 +36,7 @@ export default async function PlatformAppLayout({ children }: { children: React.
           { href: "/platform/audit", label: "Audit", icon: "🧾" }
         ]
       : [{ href: "/platform", label: "Home", icon: "◈" }];
+  const mobileItems = mobileNavCandidates;
 
   const initials = user.name
     .trim()

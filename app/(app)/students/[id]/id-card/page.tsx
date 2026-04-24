@@ -150,7 +150,7 @@ export default async function StudentVirtualIdCardPage({ params }: { params: Pro
                       {initials(student.fullName)}
                     </div>
                   )}
-                  <p className="mt-2 text-center text-[10px] font-semibold uppercase tracking-[0.2em] opacity-70">Card Holder</p>
+                  <p className="mt-2 text-center text-[10px] font-semibold uppercase tracking-[0.2em] opacity-70">Student Photo</p>
                 </div>
               ) : null}
 
@@ -202,11 +202,12 @@ export default async function StudentVirtualIdCardPage({ params }: { params: Pro
               <p className="text-[10px] uppercase tracking-[0.16em] opacity-65">Authorized Signatory</p>
               <p className="mt-1 text-[12px] font-semibold">{school.name}</p>
               <p className="mt-1 text-[11px] opacity-80">{footerText || "—"}</p>
+              <div className="mt-3 border-t pt-2.5 text-[11px] leading-relaxed opacity-80" style={{ borderColor: "rgba(255,255,255,0.16)" }}>
+                {foundCardMessage}
+              </div>
             </div>
           </div>
         </div>
-
-        <p className="mt-3 text-center text-xs text-white/45">{foundCardMessage}</p>
       </div>
     </div>
   );

@@ -13,6 +13,7 @@ import { getEffectivePermissions, atLeastLevel } from "@/lib/permissions";
 import { prisma } from "@/lib/db";
 import { getUserProfileImageUrl } from "@/lib/uploads";
 import { getUnreadFeedCount } from "@/lib/feed-unread";
+import { MOBILE_BOTTOM_PRIMARY_LIMIT } from "@/lib/mobile-nav-config";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const { user, session } = await requireUser();
@@ -32,7 +33,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     return level ? atLeastLevel(level, "VIEW") : false;
   };
 
-  const mobileItems = [
+  const mobilePrimaryCandidates = [
     canView("DASHBOARD")     ? { href: "/dashboard",  label: "Home"       }                          : null,
     canView("STUDENTS")      ? { href: "/students",   label: "Students",  activeStartsWith: true }   : null,
     canView("FEES")          ? { href: "/fees",        label: "Fees",      activeStartsWith: true }   : null,
@@ -40,7 +41,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     canView("REPORTS")       ? { href: "/reports",     label: "Reports",   activeStartsWith: true }   : null,
   ].filter(Boolean) as { href: string; label: string; activeStartsWith?: boolean }[];
 
-  const mobileMore = [
+  const mobileSecondaryCandidates = [
     canView("ATTENDANCE")    ? { href: "/attendance",   label: "Attendance",   activeStartsWith: true } : null,
     canView("ACADEMICS")     ? { href: "/academics",     label: "Academics",     activeStartsWith: true } : null,
     canView("NOTIFICATIONS") ? { href: "/notifications", label: "Notifications", activeStartsWith: true } : null,
@@ -48,6 +49,12 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     session.roleKey === "ADMIN" ? { href: "/admin/users",    label: "Users",    activeStartsWith: true } : null,
     session.roleKey === "ADMIN" ? { href: "/admin/settings", label: "Settings", activeStartsWith: true } : null,
   ].filter(Boolean) as { href: string; label: string; activeStartsWith?: boolean }[];
+
+  const mobileItems = mobilePrimaryCandidates.slice(0, MOBILE_BOTTOM_PRIMARY_LIMIT);
+  const mobileMore = [
+    ...mobilePrimaryCandidates.slice(MOBILE_BOTTOM_PRIMARY_LIMIT),
+    ...mobileSecondaryCandidates
+  ];
 
   return (
     <PullToRefresh>

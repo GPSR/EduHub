@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { clsx } from "clsx";
 import { useEffect, useState } from "react";
+import { MOBILE_BOTTOM_PRIMARY_LIMIT } from "@/lib/mobile-nav-config";
 
 type Item = { href: string; label: string; icon: string };
 
@@ -33,8 +34,8 @@ export function PlatformMobileNav({
     .slice(0, 2)
     .join("")
     .toUpperCase();
-  const tabItems = items.slice(0, 5);
-  const moreItems = items.slice(5);
+  const tabItems = items.slice(0, MOBILE_BOTTOM_PRIMARY_LIMIT);
+  const moreItems = items.slice(MOBILE_BOTTOM_PRIMARY_LIMIT);
   const moreActive = !open && (pathname === "/platform/profile" || moreItems.some((item) => isActive(pathname, item.href)));
 
   useEffect(() => {

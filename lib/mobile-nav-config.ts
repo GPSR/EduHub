@@ -1,0 +1,1 @@
+export const MOBILE_BOTTOM_PRIMARY_LIMIT = 5;
