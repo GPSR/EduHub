@@ -33,6 +33,7 @@ export default async function PlatformAppLayout({ children }: { children: React.
             {user.role === "SUPER_ADMIN" && (
               <nav className="hidden md:flex items-center gap-0.5 ml-2">
                 <PlatformNavLink href="/platform"                        label="Dashboard"   />
+                <PlatformNavLink href="/platform/schools"                label="Schools"     />
                 <PlatformNavLink href="/platform/users"                  label="Users"       />
                 <PlatformNavLink href="/platform/onboarding-requests"    label="Approvals"   />
                 <PlatformNavLink href="/platform/subscriptions"          label="Subscriptions"/>

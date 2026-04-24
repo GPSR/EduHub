@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useActionState, useEffect, useRef } from "react";
+import { usePathname } from "next/navigation";
 import { Button, Input, Label } from "@/components/ui";
 import { updatePlatformProfileAction, changePlatformPasswordAction, type PlatformProfileState } from "@/app/platform/(app)/profile/actions";
 
@@ -18,10 +19,15 @@ function FormMsg({ state }: { state: PlatformProfileState }) {
 }
 
 export function PlatformUserMenu({ name, email }: { name: string; email: string }) {
+  const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement | null>(null);
   const [profileState, profileAction, profilePending] = useActionState(updatePlatformProfileAction, initialState);
   const [pwState, pwAction, pwPending] = useActionState(changePlatformPasswordAction, initialState);
+
+  useEffect(() => {
+    setOpen(false);
+  }, [pathname]);
 
   useEffect(() => {
     if (!open) return;
@@ -38,10 +44,19 @@ export function PlatformUserMenu({ name, email }: { name: string; email: string 
 
   useEffect(() => {
     if (!open) return;
-    const original = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
+    const html = document.documentElement;
+    const body = document.body;
+    const current = Number(body.dataset.scrollLockCount ?? "0");
+    body.dataset.scrollLockCount = String(current + 1);
+    html.style.overflow = "hidden";
+    body.style.overflow = "hidden";
     return () => {
-      document.body.style.overflow = original;
+      const next = Math.max(0, Number(body.dataset.scrollLockCount ?? "1") - 1);
+      body.dataset.scrollLockCount = String(next);
+      if (next === 0) {
+        html.style.overflow = "";
+        body.style.overflow = "";
+      }
     };
   }, [open]);
 

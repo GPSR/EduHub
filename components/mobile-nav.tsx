@@ -44,9 +44,23 @@ export function MobileNav({
 
   // Lock body scroll when drawer open
   useEffect(() => {
-    if (open) document.body.style.overflow = "hidden";
-    else       document.body.style.overflow = "";
-    return () => { document.body.style.overflow = ""; };
+    const html = document.documentElement;
+    const body = document.body;
+    if (open) {
+      const current = Number(body.dataset.scrollLockCount ?? "0");
+      body.dataset.scrollLockCount = String(current + 1);
+      html.style.overflow = "hidden";
+      body.style.overflow = "hidden";
+      return () => {
+        const next = Math.max(0, Number(body.dataset.scrollLockCount ?? "1") - 1);
+        body.dataset.scrollLockCount = String(next);
+        if (next === 0) {
+          html.style.overflow = "";
+          body.style.overflow = "";
+        }
+      };
+    }
+    return undefined;
   }, [open]);
 
   const tabItems   = items.slice(0, 4);

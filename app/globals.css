@@ -45,8 +45,9 @@ body {
   font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  /* Mobile native feel */
-  overscroll-behavior: none;
+  /* Allow normal vertical page scroll while still avoiding horizontal bounce */
+  overscroll-behavior-y: auto;
+  overscroll-behavior-x: none;
   -webkit-tap-highlight-color: transparent;
 }
 

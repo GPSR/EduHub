@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useMemo } from "react";
-import { Button, Card, Input, Label, Select } from "@/components/ui";
+import { Button, Card, Input } from "@/components/ui";
 import {
   changeSchoolPlanAction,
   extendTrialAction,
@@ -10,49 +10,22 @@ import {
 } from "./actions";
 
 export function PlatformControls({
-  q,
-  status,
-  plan,
-  customPlans
+  q
 }: {
   q: string;
-  status: string;
-  plan: string;
-  customPlans: Array<{ id: string; name: string; code: string }>;
 }) {
-  const qs = useMemo(() => ({ q, status, plan }), [q, status, plan]);
+  const qs = useMemo(() => ({ q }), [q]);
   return (
-    <Card title="Filters" description="Search and filter the schools list.">
-      <form action="/platform" method="get" className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
-        <div className="md:col-span-2">
-          <Label>Search</Label>
-          <Input name="q" defaultValue={qs.q} placeholder="Search by school name or slug" />
-        </div>
-        <div>
-          <Label>Status</Label>
-          <Select name="status" defaultValue={qs.status}>
-            <option value="">All</option>
-            <option value="active">Active</option>
-            <option value="inactive">Inactive</option>
-          </Select>
-        </div>
-        <div>
-          <Label>Plan</Label>
-          <Select name="plan" defaultValue={qs.plan}>
-            <option value="">All</option>
-            <option value="PREMIUM">Premium</option>
-            <option value="DEFAULT">Default</option>
-            <option value="UNLIMITED">Unlimited</option>
-            <option value="BETA">Beta (Legacy)</option>
-            {customPlans.map((p) => (
-              <option key={p.id} value={`CUSTOM:${p.id}`}>
-                {p.name} ({p.code})
-              </option>
-            ))}
-          </Select>
-        </div>
-        <div className="md:col-span-4 flex justify-end">
-          <Button type="submit">Apply</Button>
+    <Card>
+      <form action="/platform" method="get" className="mx-auto max-w-3xl">
+        <div className="flex items-center gap-2 rounded-full border border-white/[0.12] bg-white/[0.04] px-2 py-2">
+          <Input
+            name="q"
+            defaultValue={qs.q}
+            placeholder="Search schools and users..."
+            className="!border-0 !bg-transparent !shadow-none focus:!ring-0 focus:!border-0 rounded-full"
+          />
+          <Button type="submit" className="rounded-full px-5">Search</Button>
         </div>
       </form>
     </Card>

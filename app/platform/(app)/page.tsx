@@ -3,8 +3,8 @@ import { Badge, Card, Button } from "@/components/ui";
 import { prisma } from "@/lib/db";
 import { requirePlatformUser } from "@/lib/platform-require";
 import { ImpersonateLauncher } from "./ui";
-import { PlatformControls, PlatformRowActions } from "./ui-controls";
-import type { Plan } from "@prisma/client";
+import { PlatformControls } from "./ui-controls";
+import { redirect } from "next/navigation";
 
 function centsToUsd(cents: number) {
   return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(cents / 100);
@@ -20,14 +20,14 @@ function planTone(plan: string): "success" | "info" | "warning" | "neutral" {
 export default async function PlatformHomePage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; status?: string; plan?: string }>;
+  searchParams: Promise<{ q?: string }>;
 }) {
   const { user } = await requirePlatformUser();
-  const { q, status, plan } = await searchParams;
+  if (user.role === "SUPER_ADMIN") {
+    redirect("/platform/schools");
+  }
+  const { q } = await searchParams;
   const query         = (q ?? "").trim();
-  const statusFilter  = status === "active" ? true : status === "inactive" ? false : null;
-  const customPlanId  = plan?.startsWith("CUSTOM:") ? plan.slice("CUSTOM:".length) : null;
-  const planFilter    = plan && ["PREMIUM","DEFAULT","UNLIMITED","BETA","CUSTOM"].includes(plan) ? (plan as Plan) : null;
 
   const customPlans = await prisma.customSubscriptionPlan.findMany({
     where: { isActive: true }, orderBy: { createdAt: "desc" }, select: { id: true, name: true, code: true },
@@ -36,19 +36,13 @@ export default async function PlatformHomePage({
   const monthStart  = new Date(); monthStart.setDate(1); monthStart.setHours(0,0,0,0);
   const last30Days  = new Date(Date.now() - 30 * 86400000);
 
-  const assignedIds =
-    user.role === "SUPER_ADMIN" ? null
-    : (await prisma.platformUserSchoolAssignment.findMany({
-        where: { platformUserId: user.id }, select: { schoolId: true },
-      })).map(a => a.schoolId);
+  const assignedIds = (await prisma.platformUserSchoolAssignment.findMany({
+    where: { platformUserId: user.id }, select: { schoolId: true },
+  })).map(a => a.schoolId);
 
   const schoolFilter = {
     ...(query ? { OR: [{ name: { contains: query } }, { slug: { contains: query } }] } : {}),
-    ...(statusFilter !== null ? { isActive: statusFilter } : {}),
     ...(assignedIds ? { id: { in: assignedIds } } : {}),
-    ...(customPlanId
-      ? { subscription: { is: { plan: "CUSTOM" as Plan, customPlanId: customPlanId } } }
-      : planFilter ? { subscription: { is: { plan: planFilter } } } : {}),
   };
 
   const [schools, totalSchools, totalStudents, totalTeachers, totalRev, monthlyRev, last30Rev, pendingOnboarding] =
@@ -58,13 +52,13 @@ export default async function PlatformHomePage({
         include: { subscription: { include: { customPlan: true } }, users: { select: { id: true } }, students: { select: { id: true } } },
         orderBy: { createdAt: "desc" }, take: 200,
       }),
-      prisma.school.count(assignedIds ? { where: { id: { in: assignedIds } } } : undefined),
-      prisma.student.count(assignedIds ? { where: { schoolId: { in: assignedIds } } } : undefined),
-      prisma.user.count({ where: { ...(assignedIds ? { schoolId: { in: assignedIds } } : {}), schoolRole: { key: { in: ["TEACHER","CLASS_TEACHER"] } } } }),
-      prisma.feePayment.aggregate({ where: assignedIds ? { invoice: { schoolId: { in: assignedIds } } } : undefined, _sum: { amountCents: true } }),
-      prisma.feePayment.aggregate({ where: { ...(assignedIds ? { invoice: { schoolId: { in: assignedIds } } } : {}), paidAt: { gte: monthStart } }, _sum: { amountCents: true } }),
-      prisma.feePayment.aggregate({ where: { ...(assignedIds ? { invoice: { schoolId: { in: assignedIds } } } : {}), paidAt: { gte: last30Days } }, _sum: { amountCents: true } }),
-      user.role === "SUPER_ADMIN" ? prisma.schoolOnboardingRequest.count({ where: { status: "PENDING" } }) : 0,
+      prisma.school.count({ where: { id: { in: assignedIds } } }),
+      prisma.student.count({ where: { schoolId: { in: assignedIds } } }),
+      prisma.user.count({ where: { schoolId: { in: assignedIds }, schoolRole: { key: { in: ["TEACHER","CLASS_TEACHER"] } } } }),
+      prisma.feePayment.aggregate({ where: { invoice: { schoolId: { in: assignedIds } } }, _sum: { amountCents: true } }),
+      prisma.feePayment.aggregate({ where: { invoice: { schoolId: { in: assignedIds } }, paidAt: { gte: monthStart } }, _sum: { amountCents: true } }),
+      prisma.feePayment.aggregate({ where: { invoice: { schoolId: { in: assignedIds } }, paidAt: { gte: last30Days } }, _sum: { amountCents: true } }),
+      0,
     ]);
 
   const quickSearchSchools = await prisma.school.findMany({
@@ -74,7 +68,7 @@ export default async function PlatformHomePage({
     take: 120
   });
   const quickSearchPlatformUsers = await prisma.platformUser.findMany({
-    where: user.role === "SUPER_ADMIN" ? undefined : { id: user.id },
+    where: { id: user.id },
     select: { id: true, name: true, email: true },
     orderBy: { createdAt: "desc" },
     take: 120
@@ -136,11 +130,7 @@ export default async function PlatformHomePage({
               Manage schools, subscriptions, and support operations across EduHub.
             </p>
           </div>
-          {user.role === "SUPER_ADMIN" && (
-            <Link href="/platform/schools/new">
-              <Button>+ Add school</Button>
-            </Link>
-          )}
+          <div />
         </div>
       </div>
 
@@ -167,8 +157,8 @@ export default async function PlatformHomePage({
           { label: "Schools",           value: totalSchools,       icon: "🏫", color: "text-indigo-300",  href: "/platform/schools" },
           { label: "Students",          value: totalStudents,      icon: "👥", color: "text-sky-300",     href: null },
           { label: "Teachers",          value: totalTeachers,      icon: "📚", color: "text-violet-300",  href: null },
-          { label: "Pending Approvals", value: pendingOnboarding,  icon: "📋", color: pendingOnboarding > 0 ? "text-amber-300" : "text-white/60", href: user.role === "SUPER_ADMIN" ? "/platform/onboarding-requests" : null },
-          { label: "Custom Plans",      value: customPlans.length, icon: "💎", color: "text-teal-300",    href: user.role === "SUPER_ADMIN" ? "/platform/subscriptions" : null },
+          { label: "Pending Approvals", value: pendingOnboarding,  icon: "📋", color: pendingOnboarding > 0 ? "text-amber-300" : "text-white/60", href: null },
+          { label: "Custom Plans",      value: customPlans.length, icon: "💎", color: "text-teal-300",    href: null },
         ].map(s => (
           <div key={s.label} className="rounded-[22px] border border-white/[0.08] bg-white/[0.04] p-5 hover:bg-white/[0.06] transition-all">
             <div className="text-2xl mb-3">{s.icon}</div>
@@ -184,7 +174,7 @@ export default async function PlatformHomePage({
       </div>
 
       {/* ── Filters ── */}
-      <PlatformControls q={query} status={status ?? ""} plan={plan ?? ""} customPlans={customPlans} />
+      <PlatformControls q={query} />
 
       {query && matchedSchoolUsers.length > 0 && (
         <Card title={`Matched School Users · ${matchedSchoolUsers.length}`}>
@@ -221,7 +211,7 @@ export default async function PlatformHomePage({
                                              ${i === 0 ? "rounded-t-[14px]" : ""}
                                              ${i === schools.length-1 ? "rounded-b-[14px]" : ""}`}>
                   {/* Info */}
-                  <Link href={user.role === "SUPER_ADMIN" ? `/platform/schools/${s.id}` : "/platform"} className="flex-1 min-w-0 w-full">
+                  <Link href={`/platform/schools/${s.id}`} className="flex-1 min-w-0 w-full">
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="text-[14px] font-semibold text-white/90">{s.name}</span>
                       <span className="text-[12px] text-white/35">({s.slug})</span>
@@ -241,15 +231,7 @@ export default async function PlatformHomePage({
                       <Button variant="secondary" size="sm" className="w-full sm:w-auto">School login</Button>
                     </Link>
                     <ImpersonateLauncher schoolId={s.id} schoolName={s.name} />
-                    {user.role === "SUPER_ADMIN" && (
-                      <PlatformRowActions
-                        schoolId={s.id}
-                        isActive={s.isActive}
-                        currentPlan={s.subscription?.plan === "CUSTOM" && s.subscription.customPlanId
-                          ? `CUSTOM:${s.subscription.customPlanId}` : (s.subscription?.plan ?? "TRIAL")}
-                        customPlans={customPlans}
-                      />
-                    )}
+                    
                   </div>
                 </div>
               );
