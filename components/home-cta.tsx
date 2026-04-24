@@ -57,16 +57,16 @@ export function HomeCTA({ isSignedIn }: { isSignedIn: boolean }) {
   if (!onboarded) {
     const loginHref = slug ? `/login?schoolSlug=${encodeURIComponent(slug)}` : "/login";
     return (
-      <div className="flex flex-wrap gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <Link
           href="/onboard"
-          className="px-5 py-3 rounded-2xl bg-gradient-to-b from-[#67b4ff] to-[#4f8dfd] hover:from-[#7ac0ff] hover:to-[#5a95ff] text-white shadow-[0_12px_30px_-18px_rgba(79,141,253,0.7)] transition-colors"
+          className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-2xl bg-gradient-to-b from-[#67b4ff] to-[#4f8dfd] hover:from-[#7ac0ff] hover:to-[#5a95ff] text-white shadow-[0_12px_30px_-18px_rgba(79,141,253,0.7)] transition-colors font-semibold"
         >
           Onboard school
         </Link>
         <Link
           href={loginHref}
-          className="px-5 py-3 rounded-2xl bg-[#101a2d]/90 hover:bg-[#17253d] text-white border border-white/[0.12] transition-colors"
+          className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-2xl bg-[#101a2d]/90 hover:bg-[#17253d] text-white border border-white/[0.12] transition-colors font-semibold"
         >
           Login
         </Link>
@@ -77,14 +77,14 @@ export function HomeCTA({ isSignedIn }: { isSignedIn: boolean }) {
   const loginHref = slug ? `/login?schoolSlug=${encodeURIComponent(slug)}` : "/login";
 
   return (
-    <div className="flex flex-wrap gap-3">
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
       <Link
         href={loginHref}
-        className="px-5 py-3 rounded-2xl bg-gradient-to-b from-[#67b4ff] to-[#4f8dfd] hover:from-[#7ac0ff] hover:to-[#5a95ff] text-white shadow-[0_12px_30px_-18px_rgba(79,141,253,0.7)] transition-colors"
+        className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-2xl bg-gradient-to-b from-[#67b4ff] to-[#4f8dfd] hover:from-[#7ac0ff] hover:to-[#5a95ff] text-white shadow-[0_12px_30px_-18px_rgba(79,141,253,0.7)] transition-colors font-semibold"
       >
         Login
       </Link>
-      <Link href="/onboard" className="px-5 py-3 rounded-2xl bg-[#101a2d]/90 hover:bg-[#17253d] text-white border border-white/[0.12] transition-colors">
+      <Link href="/onboard" className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-2xl bg-[#101a2d]/90 hover:bg-[#17253d] text-white border border-white/[0.12] transition-colors font-semibold">
         Create another school
       </Link>
     </div>
