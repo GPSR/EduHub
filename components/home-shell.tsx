@@ -9,26 +9,33 @@ import { HomeCTA } from "@/components/home-cta";
 const STORAGE_KEY = "eduhub_onboarded_v1";
 
 const FEATURES = [
-  { icon: "🏠", label: "Dashboard", desc: "School-wide overview at a glance" },
-  { icon: "👥", label: "Students", desc: "Admissions, profiles & guardians" },
-  { icon: "💳", label: "Fees", desc: "Invoices, dues & payment tracking" },
-  { icon: "✅", label: "Attendance", desc: "Daily marking with trends" },
-  { icon: "🗓️", label: "Timetable", desc: "Class schedules and periods" },
-  { icon: "📢", label: "Communication", desc: "Announcements and school feed" },
-  { icon: "📝", label: "Homework", desc: "Assignments and submissions" },
-  { icon: "🎓", label: "Progress Card", desc: "Marks, grades and report cards" },
-  { icon: "📊", label: "Reports", desc: "Academic and fee analytics" },
-  { icon: "📚", label: "Academics", desc: "Subjects, terms and curriculum" },
-  { icon: "🔔", label: "Notifications", desc: "Alerts, reminders and updates" },
-  { icon: "🚌", label: "Transport", desc: "Live bus tracking, student safety, and pickup/drop alerts for parents." },
-  { icon: "⚙️", label: "School Settings", desc: "Branding and configuration" },
-  { icon: "🧑‍💼", label: "Users", desc: "Role-based staff and parent access" },
+  { icon: "🏠", label: "Dashboard", desc: "Live school insights" },
+  { icon: "👥", label: "Students", desc: "Admissions and profiles" },
+  { icon: "💳", label: "Fees", desc: "Billing and collections" },
+  { icon: "✅", label: "Attendance", desc: "Daily records and trends" },
+  { icon: "🗓️", label: "Timetable", desc: "Class schedule planning" },
+  { icon: "📢", label: "Communication", desc: "Broadcasts and feed" },
+  { icon: "📝", label: "Homework", desc: "Assignments and follow-up" },
+  { icon: "🎓", label: "Progress Card", desc: "Report cards and marks" },
+  { icon: "📊", label: "Reports", desc: "Analytics and exports" },
+  { icon: "📚", label: "Academics", desc: "Subjects and curriculum" },
+  { icon: "🔔", label: "Notifications", desc: "Alerts and reminders" },
+  { icon: "🚌", label: "Transport", desc: "Live bus tracking alerts" },
+  { icon: "⚙️", label: "School Settings", desc: "Branding and control" },
+  { icon: "🧑‍💼", label: "Users", desc: "Role and access control" },
 ];
 
 const ONBOARDING_HIGHLIGHTS = [
-  "School onboarding workflow",
-  "Role-based access control",
-  "Works on web + mobile app"
+  { icon: "🚀", text: "Setup in minutes" },
+  { icon: "🔐", text: "Secure permissions" },
+  { icon: "📱", text: "Mobile-first experience" },
+];
+
+const PROOF_POINTS = [
+  { value: "14", label: "Core modules" },
+  { value: "1", label: "Unified platform" },
+  { value: "24/7", label: "Parent visibility" },
+  { value: "Role-based", label: "Secure access" },
 ];
 
 export function HomeShell({ isSignedIn }: { isSignedIn: boolean }) {
@@ -105,52 +112,87 @@ export function HomeShell({ isSignedIn }: { isSignedIn: boolean }) {
   /* New user — onboarding */
   if (!onboarded) {
     return (
-      <div className="space-y-4 lg:space-y-2.5">
-        <Card title="Get started" description="Create your school & admin account in minutes" accent="indigo" className="lg:p-3">
-          <div className="rounded-[14px] border border-white/[0.14] bg-[radial-gradient(circle_at_15%_15%,rgba(96,165,250,0.25),transparent_45%),linear-gradient(180deg,rgba(10,18,35,0.72),rgba(8,14,28,0.9))] p-4 lg:p-2.5">
-            <p className="text-sm lg:text-[12px] text-white/80 leading-relaxed">
-              Launch your digital school operations with fast onboarding, secure access, and ready-to-use modules.
-            </p>
-            <div className="mt-3 lg:hidden flex flex-wrap gap-2">
-              {ONBOARDING_HIGHLIGHTS.map((item) => (
-                <span
-                  key={item}
-                  className="inline-flex rounded-full border border-blue-300/25 bg-blue-500/12 px-2.5 py-1 lg:px-2 lg:py-0.5 text-[11px] lg:text-[10px] font-medium text-blue-100/95"
-                >
-                  {item}
-                </span>
-              ))}
+      <div className="space-y-4 lg:space-y-3">
+        <Card
+          title="Get started"
+          description="Create your school and admin account in minutes"
+          accent="indigo"
+          className="lg:p-4"
+        >
+          <div className="rounded-[14px] border border-white/[0.14] bg-[radial-gradient(circle_at_15%_15%,rgba(96,165,250,0.25),transparent_45%),linear-gradient(180deg,rgba(10,18,35,0.72),rgba(8,14,28,0.92))] p-4 lg:p-3.5">
+            <div className="grid grid-cols-1 lg:grid-cols-[1.45fr_1fr] gap-4 lg:gap-3">
+              <div>
+                <p className="text-sm lg:text-[13px] text-white/80 leading-relaxed">
+                  Launch your digital school operations with fast onboarding, secure access, and ready-to-use modules for admissions, fees, attendance, communication, and transport.
+                </p>
+                <div className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-2">
+                  {ONBOARDING_HIGHLIGHTS.map((item) => (
+                    <span
+                      key={item.text}
+                      className="inline-flex items-center gap-1.5 rounded-[10px] border border-blue-300/25 bg-blue-500/12 px-2.5 py-1 text-[11px] font-medium text-blue-100/95"
+                    >
+                      <span>{item.icon}</span>
+                      <span>{item.text}</span>
+                    </span>
+                  ))}
+                </div>
+                <div className="mt-4">
+                  <HomeCTA isSignedIn={false} />
+                </div>
+                <p className="mt-3 text-xs text-white/40">Free to start · No credit card required</p>
+              </div>
+
+              <div className="rounded-[12px] border border-white/[0.12] bg-[#0d162a]/70 p-3">
+                <p className="text-[11px] uppercase tracking-[0.14em] text-white/50">
+                  Why schools choose EduHub
+                </p>
+                <div className="mt-2.5 grid grid-cols-2 gap-2">
+                  {PROOF_POINTS.map((item) => (
+                    <div key={item.label} className="rounded-[10px] border border-white/[0.10] bg-white/[0.03] px-2.5 py-2">
+                      <p className="text-sm font-bold text-white/90">{item.value}</p>
+                      <p className="mt-0.5 text-[10px] text-white/55 leading-snug">{item.label}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
           </div>
-          <div className="mt-4 lg:mt-2">
-            <HomeCTA isSignedIn={false} />
-          </div>
-          <p className="mt-4 lg:mt-2 text-xs lg:text-[11px] text-white/40">Free to start · No credit card required</p>
         </Card>
-        <Card title="Everything you need" description="Core modules included" accent="teal" className="lg:p-3">
-          <div className="mb-3 lg:mb-2 flex items-center justify-between rounded-[12px] border border-white/[0.10] bg-[#0d1629]/70 px-3 py-2 lg:py-1.5">
+
+        <Card title="Everything you need" description="Core modules included" accent="teal" className="lg:p-4">
+          <div className="mb-3 lg:mb-2.5 flex items-center justify-between rounded-[12px] border border-white/[0.10] bg-[#0d1629]/70 px-3 py-2">
             <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-white/55">All-in-one school suite</p>
             <span className="rounded-full border border-teal-300/30 bg-teal-400/14 px-2.5 py-1 text-[11px] font-semibold text-teal-100">
               {FEATURES.length} modules
             </span>
           </div>
+
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-2 lg:gap-1.5">
-            {FEATURES.map(f => (
+            {FEATURES.map((f) => (
               <div
                 key={f.label}
-                className="rounded-[13px] border border-white/[0.12] bg-[linear-gradient(180deg,rgba(21,34,58,0.95),rgba(11,18,33,0.96))]
-                           px-3 py-3 lg:px-2 lg:py-1.5 hover:border-white/[0.20] hover:bg-[#17253d] transition-colors"
+                className="group rounded-[13px] border border-white/[0.12] bg-[linear-gradient(180deg,rgba(21,34,58,0.95),rgba(11,18,33,0.96))]
+                           px-3 py-3 lg:px-2.5 lg:py-2 hover:border-white/[0.22] hover:bg-[#17253d] hover:-translate-y-[1px] transition-all"
               >
-                <div className="mb-1.5 lg:mb-1 inline-flex h-7 w-7 lg:h-5 lg:w-5 items-center justify-center rounded-[9px] border border-white/[0.14] bg-white/[0.06] text-base lg:text-[11px]">
+                <div className="mb-1.5 inline-flex h-7 w-7 lg:h-6 lg:w-6 items-center justify-center rounded-[9px] border border-white/[0.14] bg-white/[0.06] text-base lg:text-[13px] group-hover:border-white/[0.24]">
                   {f.icon}
                 </div>
                 <div
-                  className="text-[13px] lg:text-[11px] font-semibold text-white/85 leading-snug whitespace-nowrap"
+                  className="text-[13px] lg:text-[11.5px] font-semibold text-white/90 leading-snug whitespace-nowrap"
                   title={f.label}
                 >
                   {f.label}
                 </div>
-                <div className="mt-0.5 text-[11px] lg:text-[9px] text-white/45 leading-snug truncate" title={f.desc}>
+                <div
+                  className="mt-0.5 text-[11px] lg:text-[10px] text-white/55 leading-snug min-h-[28px]"
+                  style={{
+                    display: "-webkit-box",
+                    WebkitLineClamp: 2,
+                    WebkitBoxOrient: "vertical",
+                    overflow: "hidden",
+                  }}
+                  title={f.desc}
+                >
                   {f.desc}
                 </div>
               </div>

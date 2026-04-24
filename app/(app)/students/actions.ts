@@ -153,6 +153,18 @@ function parseDateInput(value: string | null) {
   return Number.isNaN(date.getTime()) ? null : date;
 }
 
+function safeReturnPath(value: FormDataEntryValue | null, fallback: string) {
+  const raw = String(value ?? "").trim();
+  if (!raw) return fallback;
+  if (!raw.startsWith("/") || raw.startsWith("//")) return fallback;
+  return raw;
+}
+
+function withQuery(path: string, key: string, value: string) {
+  const glue = path.includes("?") ? "&" : "?";
+  return `${path}${glue}${encodeURIComponent(key)}=${encodeURIComponent(value)}`;
+}
+
 export async function updateStudentAction(formData: FormData) {
   const session = await requireSession();
   const perms = await getEffectivePermissions({
@@ -311,13 +323,14 @@ export async function uploadStudentPhotoAction(formData: FormData) {
     select: { id: true, photoUrl: true }
   });
   if (!student) redirect("/students");
+  const returnTo = safeReturnPath(formData.get("returnTo"), `/students/${student.id}/edit`);
 
   const saved = await saveUploadedImage({
     file,
     folder: `schools/${session.schoolId}/students/${student.id}`,
     prefix: "student-photo"
   });
-  if (!saved.ok) redirect(`/students/${student.id}/edit`);
+  if (!saved.ok) redirect(withQuery(returnTo, "photoError", "1"));
 
   await prisma.student.update({
     where: { id: student.id },
@@ -325,7 +338,7 @@ export async function uploadStudentPhotoAction(formData: FormData) {
   });
   await deleteUploadedImageByUrl(student.photoUrl);
 
-  redirect(`/students/${student.id}/edit`);
+  redirect(withQuery(returnTo, "photoUpdated", "1"));
 }
 
 export async function uploadParentPhotoAction(formData: FormData) {

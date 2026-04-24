@@ -1,11 +1,13 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 import { Badge, Button } from "@/components/ui";
 import { prisma } from "@/lib/db";
 import { requireSession } from "@/lib/require";
 import { atLeastLevel, getEffectivePermissions } from "@/lib/permissions";
 import { requirePermission } from "@/lib/require-permission";
 import { sendStudentFeeReminderAction } from "../../fees/actions";
+import { uploadStudentPhotoAction } from "../actions";
 
 function centsToUsd(cents: number) {
   return (cents / 100).toLocaleString("en-US", { style: "currency", currency: "USD" });
@@ -26,12 +28,12 @@ export default async function StudentProfilePage({
   searchParams
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ reminder?: string }>;
+  searchParams: Promise<{ reminder?: string; photoUpdated?: string; photoError?: string }>;
 }) {
   await requirePermission("STUDENTS", "VIEW");
   const session = await requireSession();
   const { id } = await params;
-  const { reminder } = await searchParams;
+  const { reminder, photoUpdated, photoError } = await searchParams;
 
   const student = await prisma.student.findFirst({
     where:
@@ -83,6 +85,7 @@ export default async function StudentProfilePage({
   const authorNameById = new Map(authorRows.map((row) => [row.id, row.name]));
 
   const canSendFeeReminder = perms["FEES"] ? atLeastLevel(perms["FEES"], "EDIT") : false;
+  const canUploadStudentPhoto = session.roleKey === "PARENT" || (perms["STUDENTS"] ? atLeastLevel(perms["STUDENTS"], "EDIT") : false);
   const feeRows = invoices.map((invoice) => {
     const paidCents = invoice.payments.reduce((sum, payment) => sum + payment.amountCents, 0);
     const pendingCents = Math.max(0, invoice.amountCents - paidCents);
@@ -109,6 +112,16 @@ export default async function StudentProfilePage({
           No pending fee balances found for reminder.
         </div>
       )}
+      {photoUpdated === "1" && (
+        <div className="rounded-2xl border border-emerald-500/25 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-100">
+          Student photo uploaded successfully.
+        </div>
+      )}
+      {photoError === "1" && (
+        <div className="rounded-2xl border border-rose-500/25 bg-rose-500/10 px-4 py-3 text-sm text-rose-100">
+          Unable to upload photo. Please use JPG/PNG/WEBP up to 1.5MB.
+        </div>
+      )}
 
       {session.roleKey !== "PARENT" && (
         <div className="flex gap-2 flex-wrap">
@@ -133,17 +146,45 @@ export default async function StudentProfilePage({
 
       <div className="rounded-[22px] border border-white/[0.08] bg-white/[0.04] p-6">
         <div className="flex items-start sm:items-center gap-3 sm:gap-4">
-          <div className="grid h-16 w-16 shrink-0 place-items-center rounded-[18px]
-                          bg-gradient-to-b from-indigo-400 to-indigo-600 text-xl font-bold text-white shadow-lg">
-            {initials}
+          <div className="h-16 w-16 shrink-0 overflow-hidden rounded-[18px] border border-white/[0.12] bg-white/[0.04]">
+            {student.photoUrl ? (
+              <Image
+                src={student.photoUrl}
+                alt={student.fullName}
+                width={64}
+                height={64}
+                className="h-16 w-16 object-cover"
+              />
+            ) : (
+              <div className="grid h-16 w-16 place-items-center bg-gradient-to-b from-indigo-400 to-indigo-600 text-xl font-bold text-white shadow-lg">
+                {initials}
+              </div>
+            )}
           </div>
-          <div>
+          <div className="min-w-0 flex-1">
             <h1 className="text-xl font-bold text-white/95 tracking-tight">{student.fullName}</h1>
             <div className="mt-1.5 flex flex-wrap items-center gap-2">
               {className && <Badge tone="info">{className}</Badge>}
               {student.rollNumber && <Badge tone="neutral">Roll {student.rollNumber}</Badge>}
               <Badge tone="neutral">ID: {student.studentId}</Badge>
             </div>
+            {canUploadStudentPhoto && (
+              <form action={uploadStudentPhotoAction} className="mt-3 flex flex-wrap items-end gap-2">
+                <input type="hidden" name="id" value={student.id} />
+                <input type="hidden" name="returnTo" value={`/students/${student.id}`} />
+                <div className="min-w-[210px]">
+                  <input
+                    name="photo"
+                    type="file"
+                    accept="image/png,image/jpeg,image/webp"
+                    required
+                    className="w-full rounded-[10px] border border-white/[0.12] bg-[#0f1728]/75 px-2.5 py-2 text-xs text-white/80 file:mr-2 file:rounded-md file:border-0 file:bg-blue-500/25 file:px-2 file:py-1 file:text-xs file:font-medium file:text-blue-100"
+                  />
+                  <p className="mt-1 text-[11px] text-white/40">Upload student photo for Virtual ID card</p>
+                </div>
+                <Button type="submit" variant="secondary" size="sm">Upload</Button>
+              </form>
+            )}
           </div>
         </div>
       </div>
