@@ -30,6 +30,13 @@ npm run mobile:build
 
 This runs `next build && cap sync`.
 
+For cross-platform safety before release:
+
+```bash
+# Lint + web build + iOS/Android sync check
+npm run platform:compat
+```
+
 Important: this app uses a live backend (Prisma + Server Actions), so native apps
 must load your hosted web URL (default: `https://schools.softlanetech.com`).
 The URL is configured in `capacitor.config.ts` via:
@@ -42,6 +49,9 @@ The URL is configured in `capacitor.config.ts` via:
 ## 3. iOS
 
 ```bash
+# Build and sync iOS project
+npm run mobile:build:ios
+
 # Open in Xcode
 npm run mobile:open:ios
 # or: cap open ios
@@ -49,8 +59,16 @@ npm run mobile:open:ios
 
 In Xcode:
 - Set your **Team** in Signing & Capabilities
-- Set **Bundle Identifier**: `com.softlanetech.eduhub`
+- Set **Bundle Identifier**: `com.softlanetech.schools`
 - Run on device or simulator
+- Enable **Developer Mode** on real iPhone (Settings → Privacy & Security)
+- Trust the developer certificate if prompted (Settings → General → VPN & Device Management)
+
+iOS compatibility already configured:
+- Capacitor plugins synced with iOS Package.swift
+- Status bar + safe area handling for notch devices
+- Photo/Camera permission strings in `Info.plist` for avatar/student uploads
+- Location permission string for transport live tracking
 
 **For production builds:**
 - Archive → Distribute → App Store Connect

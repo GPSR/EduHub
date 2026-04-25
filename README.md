@@ -45,6 +45,23 @@ Build outputs:
 - iOS `.ipa`: build/archive in Xcode (requires an Apple Developer account + signing)
 - Android `.apk`: build in Android Studio, or run a Gradle assemble task from `android/`
 
+## One Codebase For All Channels
+
+This project is designed so one web codebase powers:
+
+- Desktop web
+- Mobile browser view
+- Android app (Capacitor)
+- iOS app (Capacitor)
+
+Use these commands after changes:
+
+- Validate cross-platform compatibility: `npm run platform:compat`
+- Sync native shells for both mobile apps: `npm run mobile:sync:all`
+- Full release readiness (web + android + ios build/sync): `npm run platform:release-ready`
+
+This keeps behavior aligned across all platforms before deploy.
+
 ## First run
 
 - Go to `/onboard` to create a School + first Admin user.

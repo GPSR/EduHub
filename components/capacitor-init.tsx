@@ -30,8 +30,8 @@ export function CapacitorInit() {
       // Hide splash screen after app is ready
       await hideSplash();
 
-      // Dark status bar to match our theme
-      await setStatusBar("dark");
+      // Light status bar text/icons for dark app backgrounds
+      await setStatusBar("light");
 
       // Android back button — go back in history or close app
       try {
