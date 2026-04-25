@@ -16,7 +16,10 @@ npm install
 
 # Set environment variables
 cp .env.example .env
-# Edit .env with your DATABASE_URL and AUTH_SECRET
+# Edit .env with:
+# - LOCAL_DATABASE_URL for local development
+# - NEON_DATABASE_URL for production
+# - AUTH_SECRET
 ```
 
 ---
@@ -43,6 +46,11 @@ The URL is configured in `capacitor.config.ts` via:
 
 - `CAPACITOR_PROD_URL` (preferred override)
 - fallback to `SCHOOL_APP_BASE_URL` / `NEXT_PUBLIC_SCHOOL_APP_BASE_URL`
+
+Prisma DB strategy:
+
+- Local/lower: `npm run db:push` (uses `LOCAL_DATABASE_URL`)
+- Production: `npm run db:deploy` (uses `NEON_DATABASE_URL`)
 
 ---
 

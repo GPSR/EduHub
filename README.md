@@ -1,6 +1,6 @@
 # School Subscription App (MVP)
 
-A multi-tenant school management SaaS MVP built with Next.js + Prisma (SQLite).
+A multi-tenant school management SaaS MVP built with Next.js + Prisma.
 
 ## What’s included (MVP)
 
@@ -20,6 +20,7 @@ A multi-tenant school management SaaS MVP built with Next.js + Prisma (SQLite).
    - `npm install`
 2. Create `.env`
    - `cp .env.example .env`
+   - Set `LOCAL_DATABASE_URL` for local development
    - Set `AUTH_SECRET` (any long random string)
 3. Create the database
    - `npm run db:push`
@@ -27,6 +28,17 @@ A multi-tenant school management SaaS MVP built with Next.js + Prisma (SQLite).
    - `npm run dev`
 
 Open `http://localhost:3000`.
+
+## Database strategy
+
+- Local/lower environments:
+  - Prisma uses `LOCAL_DATABASE_URL` (preferred) or `DATABASE_URL`
+  - Run schema sync with `npm run db:push`
+  - This uses `prisma db push` (no migration files needed for local iteration)
+- Production:
+  - Prisma uses `NEON_DATABASE_URL` (preferred) or `DATABASE_URL`
+  - Run migrations with `npm run db:deploy`
+  - This uses `prisma migrate deploy`
 
 ## Mobile (iOS .ipa / Android .apk)
 
