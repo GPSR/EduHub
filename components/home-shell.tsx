@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Card } from "@/components/ui";
 import { BrandWordmark } from "@/components/brand";
 
@@ -151,10 +151,15 @@ const DESKTOP_WIDGET_SKINS = [
   "border-rose-300/25 bg-[linear-gradient(145deg,rgba(244,63,94,0.2),rgba(2,6,23,0.6))]"
 ] as const;
 
+const DESKTOP_MODULES_AUTOSCROLL_PX_PER_SEC = 72;
+
 export function HomeShell({ isSignedIn }: { isSignedIn: boolean }) {
   const [onboarded, setOnboarded] = useState<boolean | null>(null);
   const [slug, setSlug] = useState<string | undefined>(undefined);
   const [showAllModules, setShowAllModules] = useState(false);
+  const [showDesktopAllModulesPage, setShowDesktopAllModulesPage] = useState(false);
+  const [pauseDesktopModulesAutoscroll, setPauseDesktopModulesAutoscroll] = useState(false);
+  const desktopModulesScrollerRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     try {
@@ -165,6 +170,43 @@ export function HomeShell({ isSignedIn }: { isSignedIn: boolean }) {
       setSlug(undefined);
     }
   }, []);
+
+  useEffect(() => {
+    if (onboarded === null) return;
+    if (isSignedIn) return;
+    if (typeof window === "undefined") return;
+    if (window.matchMedia("(max-width: 767px)").matches) return;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+
+    const scroller = desktopModulesScrollerRef.current;
+    if (!scroller) return;
+    const maxScrollLeft = scroller.scrollWidth - scroller.clientWidth;
+    if (maxScrollLeft > 0) {
+      scroller.scrollLeft = Math.min(40, maxScrollLeft);
+    }
+
+    let rafId = 0;
+    let previous = performance.now();
+
+    const animate = (now: number) => {
+      const elapsedSeconds = (now - previous) / 1000;
+      previous = now;
+
+      const maxScrollLeft = scroller.scrollWidth - scroller.clientWidth;
+      if (!pauseDesktopModulesAutoscroll && maxScrollLeft > 0) {
+        const next = scroller.scrollLeft + DESKTOP_MODULES_AUTOSCROLL_PX_PER_SEC * elapsedSeconds;
+        scroller.scrollLeft = next >= maxScrollLeft ? 0 : next;
+      }
+
+      rafId = window.requestAnimationFrame(animate);
+    };
+
+    rafId = window.requestAnimationFrame(animate);
+
+    return () => {
+      window.cancelAnimationFrame(rafId);
+    };
+  }, [isSignedIn, onboarded, pauseDesktopModulesAutoscroll]);
 
   const loginHref = slug ? `/login?schoolSlug=${encodeURIComponent(slug)}` : "/login";
   const primaryHref = onboarded ? loginHref : "/onboard";
@@ -269,7 +311,7 @@ export function HomeShell({ isSignedIn }: { isSignedIn: boolean }) {
         <div className="mb-2.5 flex items-center justify-between gap-2">
           <div>
             <p className="text-[12px] font-bold text-white/78">Everything included</p>
-            <p className="text-[9px] text-white/38">{LANDING_MODULES.length} modules · one platform</p>
+            <p className="text-[9px] text-white/38">All Modules · one platform</p>
           </div>
           <button
             type="button"
@@ -277,7 +319,7 @@ export function HomeShell({ isSignedIn }: { isSignedIn: boolean }) {
             aria-expanded={showAllModules}
             className="rounded-full border border-emerald-300/35 bg-emerald-500/12 px-2 py-1 text-[9px] font-bold text-emerald-100/95 transition hover:bg-emerald-500/20"
           >
-            {showAllModules ? "Hide modules" : "All modules"}
+            {showAllModules ? "Hide Modules" : "All Modules"}
           </button>
         </div>
 
@@ -293,7 +335,7 @@ export function HomeShell({ isSignedIn }: { isSignedIn: boolean }) {
 
         {showAllModules && (
           <div className="mt-3 rounded-[14px] border border-white/[0.10] bg-[#0f1728]/70 p-2.5 md:p-3 animate-fade-up">
-            <p className="mb-2 text-[10px] uppercase tracking-[0.1em] text-white/45">All {LANDING_MODULES.length} modules</p>
+            <p className="mb-2 text-[10px] uppercase tracking-[0.1em] text-white/45">All Modules</p>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
               {LANDING_MODULES.map((module) => (
                 <article
@@ -339,27 +381,29 @@ export function HomeShell({ isSignedIn }: { isSignedIn: boolean }) {
         <div className="pointer-events-none absolute -right-20 -top-20 h-64 w-64 rounded-full bg-indigo-500/20 blur-3xl" />
         <div className="pointer-events-none absolute -bottom-20 left-1/3 h-64 w-64 rounded-full bg-violet-500/15 blur-3xl" />
 
-        <div className="relative grid grid-cols-1 gap-6 lg:grid-cols-[1.1fr_1fr] lg:gap-8">
-          <div className="space-y-5">
-            <BrandWordmark size="lg" className="pointer-events-none" />
+        <div className="relative space-y-7">
+          <div className="mx-auto max-w-[760px] text-center space-y-5">
+            <div className="flex justify-center">
+              <BrandWordmark size="lg" className="pointer-events-none" />
+            </div>
 
             <div>
               <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-cyan-100/75">
                 New School Starter Experience
               </p>
-              <h1 className="mt-2 text-[40px] leading-[0.95] font-extrabold text-white/95">
-                All modules
+              <h1 className="mt-2 text-[42px] leading-[0.95] font-extrabold text-white/95">
+                All Modules
               </h1>
-              <p className="text-[40px] leading-[0.95] font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-cyan-200 via-blue-300 to-indigo-300">
+              <p className="text-[42px] leading-[0.95] font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-cyan-200 via-blue-300 to-indigo-300">
                 visible on day one
               </p>
-              <p className="mt-3 max-w-[560px] text-[14px] leading-relaxed text-white/60">
+              <p className="mx-auto mt-3 max-w-[620px] text-[14px] leading-relaxed text-white/60">
                 Every module is highlighted with floating widgets so first-time visitors immediately see
                 the complete school platform value.
               </p>
             </div>
 
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="flex flex-wrap items-center justify-center gap-2">
               {MOBILE_HERO_CHIPS.map((chip) => (
                 <span key={chip} className="rounded-full border border-white/[0.14] bg-white/[0.05] px-3 py-1 text-[11px] text-white/72">
                   {chip}
@@ -367,7 +411,7 @@ export function HomeShell({ isSignedIn }: { isSignedIn: boolean }) {
               ))}
             </div>
 
-            <div className="flex items-center gap-2.5">
+            <div className="flex items-center justify-center gap-2.5">
               <Link
                 href={primaryHref}
                 className="inline-flex h-11 items-center justify-center rounded-[14px] bg-gradient-to-b from-[#67b4ff] to-[#4f8dfd] px-5 text-[13px] font-bold text-white shadow-[0_12px_28px_-12px_rgba(79,141,253,0.75)] hover:from-[#7ac0ff] hover:to-[#5a95ff]"
@@ -388,26 +432,78 @@ export function HomeShell({ isSignedIn }: { isSignedIn: boolean }) {
               <p className="text-[12px] font-semibold uppercase tracking-[0.14em] text-white/55">
                 Feature Modules
               </p>
-              <span className="rounded-full border border-cyan-300/35 bg-cyan-500/15 px-2.5 py-1 text-[10px] font-bold text-cyan-100/90">
-                {LANDING_MODULES.length} modules
-              </span>
+              <button
+                type="button"
+                onClick={() => setShowDesktopAllModulesPage(true)}
+                className="rounded-full border border-cyan-300/35 bg-cyan-500/15 px-2.5 py-1 text-[10px] font-bold text-cyan-100/90 transition hover:bg-cyan-500/25"
+              >
+                All Modules
+              </button>
             </div>
-            <div className="grid grid-cols-2 gap-2.5">
-              {LANDING_MODULES.map((module, idx) => (
-                <article
-                  key={module.label}
-                  className={`module-float-card rounded-[13px] border px-3 py-2.5 ${DESKTOP_WIDGET_SKINS[idx % DESKTOP_WIDGET_SKINS.length]}`}
-                  style={{ animationDelay: `${idx * 85}ms` }}
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-[17px]">{module.icon}</span>
-                    <span className="h-1.5 w-1.5 rounded-full bg-white/70" />
-                  </div>
-                  <p className="mt-1 text-[12px] font-semibold text-white/90">{module.label}</p>
-                  <p className="text-[10px] leading-snug text-white/58">{module.desc}</p>
-                </article>
-              ))}
+
+            <div
+              ref={desktopModulesScrollerRef}
+              className="overflow-x-auto py-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+              onMouseEnter={() => setPauseDesktopModulesAutoscroll(true)}
+              onMouseLeave={() => setPauseDesktopModulesAutoscroll(false)}
+              onFocusCapture={() => setPauseDesktopModulesAutoscroll(true)}
+              onBlurCapture={() => setPauseDesktopModulesAutoscroll(false)}
+            >
+              <div className="flex min-w-max gap-2.5 pr-1">
+                {LANDING_MODULES.map((module, idx) => (
+                  <article
+                    key={module.label}
+                    className={`module-float-card w-[250px] min-h-[136px] shrink-0 rounded-[15px] border px-4 py-3.5 transition-all duration-250 hover:-translate-y-0.5 hover:scale-[1.02] hover:border-cyan-200/80 hover:shadow-[0_18px_38px_-18px_rgba(125,211,252,0.95)] hover:saturate-125 hover:brightness-110 ${DESKTOP_WIDGET_SKINS[idx % DESKTOP_WIDGET_SKINS.length]}`}
+                    style={{ animationDelay: `${idx * 85}ms` }}
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-[20px]">{module.icon}</span>
+                      <span className="h-2 w-2 rounded-full bg-cyan-100/85" />
+                    </div>
+                    <p className="mt-2 text-[14px] font-semibold text-white/96">{module.label}</p>
+                    <p className="mt-1 text-[12px] leading-snug text-white/75">{module.desc}</p>
+                  </article>
+                ))}
+              </div>
             </div>
+          </div>
+        </div>
+      </section>
+    </div>
+  );
+
+  const desktopAllModulesCenterPage = (
+    <div className="space-y-4">
+      <section className="relative overflow-hidden rounded-[30px] border border-white/[0.12] bg-[linear-gradient(140deg,#091229,#060d1f_52%,#081733)] p-7 lg:p-9">
+        <div className="pointer-events-none absolute -left-16 -top-20 h-56 w-56 rounded-full bg-cyan-400/20 blur-3xl" />
+        <div className="pointer-events-none absolute -right-20 -top-20 h-64 w-64 rounded-full bg-indigo-500/20 blur-3xl" />
+        <div className="pointer-events-none absolute -bottom-20 left-1/3 h-64 w-64 rounded-full bg-violet-500/15 blur-3xl" />
+
+        <div className="relative mx-auto max-w-[980px] space-y-6">
+          <div className="flex justify-center">
+            <BrandWordmark size="lg" className="pointer-events-none" />
+          </div>
+
+          <div className="text-center">
+            <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-cyan-100/75">All Modules</p>
+            <p className="mt-1 text-[13px] text-white/60">All Modules in EduHub</p>
+            <p className="mt-1 text-[11px] text-white/40">Refresh the page to return to the default home view.</p>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {LANDING_MODULES.map((module, idx) => (
+              <article
+                key={module.label}
+                className={`rounded-[15px] border px-4 py-3.5 ${DESKTOP_WIDGET_SKINS[idx % DESKTOP_WIDGET_SKINS.length]}`}
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[20px]">{module.icon}</span>
+                  <span className="h-2 w-2 rounded-full bg-cyan-100/85" />
+                </div>
+                <p className="mt-2 text-[14px] font-semibold text-white/96">{module.label}</p>
+                <p className="mt-1 text-[12px] leading-snug text-white/75">{module.desc}</p>
+              </article>
+            ))}
           </div>
         </div>
       </section>
@@ -459,7 +555,7 @@ export function HomeShell({ isSignedIn }: { isSignedIn: boolean }) {
   return (
     <>
       <div className="md:hidden">{mobileLanding}</div>
-      <div className="hidden md:block">{desktopLanding}</div>
+      <div className="hidden md:block">{showDesktopAllModulesPage ? desktopAllModulesCenterPage : desktopLanding}</div>
     </>
   );
 }

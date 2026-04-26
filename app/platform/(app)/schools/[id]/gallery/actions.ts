@@ -20,7 +20,26 @@ const UploadPlatformGalleryItemSchema = z.object({
   caption: z.string().trim().max(600).optional()
 });
 
-const MAX_GALLERY_UPLOAD_FILES = 20;
+function redirectPlatformGalleryUploadResult({
+  schoolId,
+  folderId,
+  status,
+  message
+}: {
+  schoolId?: string;
+  folderId?: string;
+  status: "success" | "error";
+  message?: string;
+}): never {
+  if (!schoolId) {
+    redirect("/platform/gallery");
+  }
+  const params = new URLSearchParams();
+  if (folderId) params.set("folderId", folderId);
+  params.set("uploadStatus", status);
+  if (message) params.set("uploadMessage", message);
+  redirect(`/platform/schools/${encodeURIComponent(schoolId)}/gallery?${params.toString()}`);
+}
 
 function titleFromFileName(fileName: string) {
   const fallback = "Gallery image";
@@ -106,15 +125,33 @@ export async function createPlatformGalleryFolderAction(formData: FormData) {
 }
 
 export async function uploadPlatformGalleryItemAction(formData: FormData) {
+  const requestedSchoolId = String(formData.get("schoolId") ?? "") || undefined;
+  const requestedFolderId = String(formData.get("folderId") ?? "") || undefined;
+
   const parsed = UploadPlatformGalleryItemSchema.safeParse({
     schoolId: formData.get("schoolId"),
     folderId: formData.get("folderId"),
     title: String(formData.get("title") ?? "").trim() || undefined,
     caption: String(formData.get("caption") ?? "").trim() || undefined
   });
-  if (!parsed.success) throw new Error("Unable to process request.");
+  if (!parsed.success) {
+    redirectPlatformGalleryUploadResult({
+      schoolId: requestedSchoolId,
+      folderId: requestedFolderId,
+      status: "error",
+      message: "Please check folder and upload input."
+    });
+  }
 
-  const { session } = await requirePlatformSchoolAccess(parsed.data.schoolId);
+  const { session, user } = await requirePlatformSchoolAccess(parsed.data.schoolId);
+  if (user.role !== "SUPER_ADMIN") {
+    redirectPlatformGalleryUploadResult({
+      schoolId: parsed.data.schoolId,
+      folderId: parsed.data.folderId,
+      status: "error",
+      message: "Only platform super admin can upload photos."
+    });
+  }
 
   const folder = await prisma.schoolGalleryFolder.findFirst({
     where: {
@@ -124,7 +161,14 @@ export async function uploadPlatformGalleryItemAction(formData: FormData) {
     },
     select: { id: true }
   });
-  if (!folder) throw new Error("Folder not found.");
+  if (!folder) {
+    redirectPlatformGalleryUploadResult({
+      schoolId: parsed.data.schoolId,
+      folderId: parsed.data.folderId,
+      status: "error",
+      message: "Folder not found."
+    });
+  }
 
   const files = formData
     .getAll("images")
@@ -134,53 +178,54 @@ export async function uploadPlatformGalleryItemAction(formData: FormData) {
     if (single instanceof File && single.size > 0) files.push(single);
   }
 
-  if (files.length === 0) throw new Error("Please upload at least one image.");
-  if (files.length > MAX_GALLERY_UPLOAD_FILES) {
-    throw new Error(`Please upload up to ${MAX_GALLERY_UPLOAD_FILES} images at a time.`);
+  if (files.length === 0) {
+    redirectPlatformGalleryUploadResult({
+      schoolId: parsed.data.schoolId,
+      folderId: folder.id,
+      status: "error",
+      message: "Please upload at least one image."
+    });
   }
 
-  const createData: Array<{
-    schoolId: string;
-    folderId: string;
-    title: string;
-    caption?: string;
-    imageUrl: string;
-    createdByPlatformUserId: string;
-  }> = [];
-
+  let uploadedCount = 0;
   for (const [index, file] of files.entries()) {
     const saved = await saveUploadedImage({
       file,
       folder: `schools/${parsed.data.schoolId}/gallery`,
-      prefix: "platform-gallery"
+      prefix: "platform-gallery",
+      maxBytes: null
     });
-    if (!saved.ok) throw new Error(`${file.name}: ${saved.message}`);
+    if (!saved.ok) {
+      redirectPlatformGalleryUploadResult({
+        schoolId: parsed.data.schoolId,
+        folderId: folder.id,
+        status: "error",
+        message: `${file.name}: ${saved.message}`
+      });
+    }
 
-    createData.push({
-      schoolId: parsed.data.schoolId,
-      folderId: folder.id,
-      title: resolveItemTitle({
-        explicitTitle: parsed.data.title,
-        fileName: file.name,
-        index,
-        total: files.length
-      }),
-      caption: parsed.data.caption,
-      imageUrl: saved.url,
-      createdByPlatformUserId: session.platformUserId
+    await prisma.schoolGalleryItem.create({
+      data: {
+        schoolId: parsed.data.schoolId,
+        folderId: folder.id,
+        title: resolveItemTitle({
+          explicitTitle: parsed.data.title,
+          fileName: file.name,
+          index,
+          total: files.length
+        }),
+        caption: parsed.data.caption,
+        imageUrl: saved.url,
+        createdByPlatformUserId: session.platformUserId
+      }
     });
+    uploadedCount += 1;
   }
 
-  await prisma.schoolGalleryItem.createMany({
-    data: createData.map((item) => ({
-      schoolId: item.schoolId,
-      folderId: item.folderId,
-      title: item.title,
-      caption: item.caption,
-      imageUrl: item.imageUrl,
-      createdByPlatformUserId: item.createdByPlatformUserId
-    }))
+  redirectPlatformGalleryUploadResult({
+    schoolId: parsed.data.schoolId,
+    folderId: folder.id,
+    status: "success",
+    message: `Uploaded ${uploadedCount} image${uploadedCount === 1 ? "" : "s"} successfully.`
   });
-
-  redirect(`/platform/schools/${encodeURIComponent(parsed.data.schoolId)}/gallery?folderId=${encodeURIComponent(folder.id)}`);
 }

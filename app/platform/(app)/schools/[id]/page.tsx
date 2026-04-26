@@ -121,7 +121,7 @@ export default async function PlatformSchoolPage({ params }: { params: Promise<{
                 <div
                   key={u.id}
                   id={`school-admin-${u.id}`}
-                  className={`flex items-center gap-3 py-3 px-1 scroll-mt-24 target:bg-indigo-500/[0.08]
+                  className={`flex flex-wrap items-center gap-3 py-3 px-1 scroll-mt-24 target:bg-indigo-500/[0.08]
                                               ${i === 0 ? "rounded-t-[12px]" : ""}
                                               ${i === schoolAdminUsers.length - 1 ? "rounded-b-[12px]" : ""}
                                               hover:bg-white/[0.03] transition`}>
@@ -138,6 +138,15 @@ export default async function PlatformSchoolPage({ params }: { params: Promise<{
                     <input type="hidden" name="userId"   value={u.id} />
                     <Button type="submit" variant="secondary" size="sm">Sign in as</Button>
                   </form>
+
+                  <details className="w-full rounded-[12px] border border-white/[0.07] bg-white/[0.03]">
+                    <summary className="cursor-pointer list-none px-3 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-white/55">
+                      Update School Admin Password
+                    </summary>
+                    <div className="border-t border-white/[0.07] p-3">
+                      <SchoolAdminPasswordForm schoolId={school.id} userId={u.id} />
+                    </div>
+                  </details>
                 </div>
               );
             })}
@@ -180,4 +189,9 @@ async function InviteForm({ schoolId }: { schoolId: string }) {
 async function SchoolModulesForm(props: { schoolId: string; modules: Array<{ id: string; key: string; name: string; enabled: boolean }> }) {
   const { PlatformSchoolModulesForm } = await import("./ui");
   return <PlatformSchoolModulesForm schoolId={props.schoolId} modules={props.modules} />;
+}
+
+async function SchoolAdminPasswordForm({ schoolId, userId }: { schoolId: string; userId: string }) {
+  const { PlatformSchoolAdminPasswordForm } = await import("./ui");
+  return <PlatformSchoolAdminPasswordForm schoolId={schoolId} userId={userId} />;
 }

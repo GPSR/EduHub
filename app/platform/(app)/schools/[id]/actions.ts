@@ -6,6 +6,7 @@ import { requireSuperAdmin } from "@/lib/platform-require";
 import { createSessionCookie } from "@/lib/session";
 import { ensureBaseModules } from "@/lib/permissions";
 import { ensureSchoolSubscriptionActive } from "@/lib/subscription";
+import { hashPassword } from "@/lib/password";
 import { auditLog } from "@/lib/audit";
 import { sendOnboardingApprovalNotifications } from "@/lib/approval-notify";
 import { resolveSchoolAppBaseUrl } from "@/lib/app-env";
@@ -13,8 +14,16 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 
-export type InviteState = { ok: boolean; message?: string };
+export type InviteState = {
+  ok: boolean;
+  message?: string;
+  inviteUrl?: string;
+  emailSent?: boolean;
+  smsSent?: boolean;
+  errors?: string[];
+};
 export type PlatformSchoolModulesState = { ok: boolean; message?: string };
+export type UpdateSchoolAdminPasswordState = { ok: boolean; message?: string };
 
 const InviteSchema = z.object({
   schoolId: z.string().min(1),
@@ -76,7 +85,28 @@ export async function createAdminInviteAction(
     }
   });
 
-  redirect(`/platform/schools/${parsed.data.schoolId}`);
+  revalidatePath(`/platform/schools/${parsed.data.schoolId}`);
+
+  const emailErrors = notify.errors.filter((entry) => entry.startsWith("email:"));
+  const smsErrors = notify.errors.filter((entry) => entry.startsWith("sms:"));
+  const compactErrors = [...emailErrors, ...smsErrors].slice(0, 3);
+  const emailIssue = emailErrors[0]?.replace(/^email:/, "").replaceAll("_", " ");
+  const smsIssue = smsErrors[0]?.replace(/^sms:/, "").replaceAll("_", " ");
+
+  return {
+    ok: true,
+    inviteUrl,
+    emailSent: notify.emailSent,
+    smsSent: notify.smsSent,
+    errors: compactErrors,
+    message: [
+      notify.emailSent
+        ? "Invitation email sent."
+        : `Invite link created, but email was not sent${emailIssue ? ` (${emailIssue})` : ""}.`,
+      notify.smsSent ? "SMS sent." : `SMS not sent${smsIssue ? ` (${smsIssue})` : ""}.`,
+      "You can copy and share the invite link below."
+    ].join(" ")
+  };
 }
 
 export async function impersonateSchoolAction(formData: FormData) {
@@ -156,4 +186,62 @@ export async function updatePlatformSchoolModulesAction(
 
   revalidatePath(`/platform/schools/${schoolId}`);
   return { ok: true, message: "Saved." };
+}
+
+const UpdateSchoolAdminPasswordSchema = z.object({
+  schoolId: z.string().min(1),
+  userId: z.string().min(1),
+  newPassword: z.string().min(8, "Password must be at least 8 characters."),
+  confirmPassword: z.string().min(8, "Password must be at least 8 characters.")
+});
+
+export async function updateSchoolAdminPasswordAction(
+  _prev: UpdateSchoolAdminPasswordState,
+  formData: FormData
+): Promise<UpdateSchoolAdminPasswordState> {
+  const { session } = await requireSuperAdmin();
+  const parsed = UpdateSchoolAdminPasswordSchema.safeParse({
+    schoolId: formData.get("schoolId"),
+    userId: formData.get("userId"),
+    newPassword: formData.get("newPassword"),
+    confirmPassword: formData.get("confirmPassword")
+  });
+  if (!parsed.success) return { ok: false, message: parsed.error.issues[0]?.message ?? "Invalid input." };
+  if (parsed.data.newPassword !== parsed.data.confirmPassword) {
+    return { ok: false, message: "Passwords do not match." };
+  }
+
+  const target = await prisma.user.findFirst({
+    where: { id: parsed.data.userId, schoolId: parsed.data.schoolId },
+    select: { id: true, schoolId: true, schoolRole: { select: { key: true } } }
+  });
+  if (!target) return { ok: false, message: "School admin user not found." };
+  if (target.schoolRole.key !== "ADMIN") {
+    return { ok: false, message: "Only school admin users can be updated in this flow." };
+  }
+
+  const passwordHash = await hashPassword(parsed.data.newPassword);
+  const now = new Date();
+  const [, revokedTokens] = await prisma.$transaction([
+    prisma.user.update({
+      where: { id: target.id },
+      data: { passwordHash }
+    }),
+    prisma.passwordResetToken.updateMany({
+      where: { userId: target.id, subjectType: "SCHOOL_USER", usedAt: null },
+      data: { usedAt: now }
+    })
+  ]);
+
+  await auditLog({
+    actor: { type: "PLATFORM_USER", id: session.platformUserId },
+    action: "SCHOOL_ADMIN_PASSWORD_UPDATED_BY_SUPER_ADMIN",
+    entityType: "User",
+    entityId: target.id,
+    schoolId: target.schoolId,
+    metadata: { revokedResetTokens: revokedTokens.count }
+  });
+
+  revalidatePath(`/platform/schools/${parsed.data.schoolId}`);
+  return { ok: true, message: "School admin password updated successfully." };
 }

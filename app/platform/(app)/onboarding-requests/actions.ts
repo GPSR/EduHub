@@ -161,12 +161,17 @@ export async function approveOnboardingRequestAction(
     }
   });
 
+  const emailIssue = notify.errors.find((entry) => entry.startsWith("email:"))?.replace(/^email:/, "").replaceAll("_", " ");
+  const smsIssue = notify.errors.find((entry) => entry.startsWith("sms:"))?.replace(/^sms:/, "").replaceAll("_", " ");
+
   return {
     ok: true,
     message: `Approved. ${
-      notify.emailSent ? "Invitation email sent." : "Invitation email not sent."
+      notify.emailSent
+        ? "Invitation email sent."
+        : `Invitation email not sent${emailIssue ? ` (${emailIssue})` : ""}.`
     } ${
-      notify.smsSent ? "SMS sent." : "SMS not sent."
+      notify.smsSent ? "SMS sent." : `SMS not sent${smsIssue ? ` (${smsIssue})` : ""}.`
     } Share options are below.`,
     inviteUrl,
     adminEmail: request.adminEmail.toLowerCase(),

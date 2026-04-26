@@ -11,10 +11,13 @@ const withPWA = withPWAInit({
   }
 });
 
+const serverActionBodySizeLimit = "1gb";
+
 const nextConfig: NextConfig = {
   experimental: {
     serverActions: {
-      bodySizeLimit: "2mb"
+      // Allows larger gallery upload payloads for multi-file submits.
+      bodySizeLimit: serverActionBodySizeLimit
     }
   }
 };

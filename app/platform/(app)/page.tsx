@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { Badge, Card, Button } from "@/components/ui";
-import { BrandWordmark } from "@/components/brand";
 import { prisma } from "@/lib/db";
 import { requirePlatformUser } from "@/lib/platform-require";
 import { ImpersonateLauncher } from "./ui";
@@ -116,20 +115,6 @@ export default async function PlatformHomePage({
           </div>
         </Card>
       )}
-
-      {/* ── Hero ── */}
-      <div className="rounded-[24px] border border-indigo-500/20 bg-gradient-to-br from-indigo-500/10 via-sky-500/5 to-transparent p-6">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <BrandWordmark size="sm" href="/platform" className="mb-2.5" />
-            <h1 className="text-2xl font-bold tracking-tight text-white/95">Platform Dashboard</h1>
-            <p className="mt-1.5 text-sm text-white/50 max-w-xl">
-              Manage schools, subscriptions, and support operations across EduHub.
-            </p>
-          </div>
-          <div />
-        </div>
-      </div>
 
       {/* ── Revenue + stats grid ── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">

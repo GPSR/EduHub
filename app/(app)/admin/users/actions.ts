@@ -3,6 +3,7 @@
 import { prisma } from "@/lib/db";
 import { hashPassword } from "@/lib/password";
 import { requirePermission } from "@/lib/require-permission";
+import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import type { PermissionLevel } from "@prisma/client";
@@ -10,6 +11,7 @@ import { createPasswordResetToken, sendPasswordResetEmail } from "@/lib/password
 import { auditLog } from "@/lib/audit";
 
 export type CreateUserState = { ok: boolean; message?: string };
+export type UpdateUserPasswordState = { ok: boolean; message?: string };
 
 const CreateUserSchema = z.object({
   name: z.string().min(2),
@@ -277,4 +279,63 @@ export async function sendUserPasswordResetAction(formData: FormData) {
   });
 
   redirect(`/admin/users?reset=${sent.sent ? "sent" : "failed"}`);
+}
+
+const UpdateUserPasswordSchema = z.object({
+  userId: z.string().min(1),
+  newPassword: z.string().min(8, "Password must be at least 8 characters."),
+  confirmPassword: z.string().min(8, "Password must be at least 8 characters.")
+});
+
+export async function updateUserPasswordAction(
+  _prev: UpdateUserPasswordState,
+  formData: FormData
+): Promise<UpdateUserPasswordState> {
+  const { session } = await requirePermission("USERS", "ADMIN");
+  if (session.roleKey !== "ADMIN") {
+    return { ok: false, message: "Only school admin can update user passwords." };
+  }
+
+  const parsed = UpdateUserPasswordSchema.safeParse({
+    userId: formData.get("userId"),
+    newPassword: formData.get("newPassword"),
+    confirmPassword: formData.get("confirmPassword")
+  });
+  if (!parsed.success) {
+    return { ok: false, message: parsed.error.issues[0]?.message ?? "Invalid input." };
+  }
+  if (parsed.data.newPassword !== parsed.data.confirmPassword) {
+    return { ok: false, message: "Passwords do not match." };
+  }
+
+  const target = await prisma.user.findFirst({
+    where: { id: parsed.data.userId, schoolId: session.schoolId },
+    select: { id: true, schoolRole: { select: { key: true, name: true } } }
+  });
+  if (!target) return { ok: false, message: "User not found in this school." };
+
+  const passwordHash = await hashPassword(parsed.data.newPassword);
+  const now = new Date();
+  const [, revokedTokens] = await prisma.$transaction([
+    prisma.user.update({
+      where: { id: target.id },
+      data: { passwordHash }
+    }),
+    prisma.passwordResetToken.updateMany({
+      where: { userId: target.id, subjectType: "SCHOOL_USER", usedAt: null },
+      data: { usedAt: now }
+    })
+  ]);
+
+  await auditLog({
+    actor: { type: "SCHOOL_USER", id: session.userId, schoolId: session.schoolId },
+    action: "SCHOOL_USER_PASSWORD_UPDATED_BY_ADMIN",
+    entityType: "User",
+    entityId: target.id,
+    schoolId: session.schoolId,
+    metadata: { roleKey: target.schoolRole.key, roleName: target.schoolRole.name, revokedResetTokens: revokedTokens.count }
+  });
+
+  revalidatePath("/admin/users");
+  return { ok: true, message: "Password updated successfully." };
 }

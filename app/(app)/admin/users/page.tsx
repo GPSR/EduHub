@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { requirePermission } from "@/lib/require-permission";
 import { deleteUserAction, sendUserPasswordResetAction, setUserActiveAction, updateUserRoleAction } from "./actions";
 import { AdminCreateUserPanel } from "@/components/admin-create-user-panel";
+import { UserPasswordUpdateForm } from "./user-password-form";
 
 function avatarColor(name: string) {
   const colors = [
@@ -191,6 +192,16 @@ export default async function AdminUsersPage({
                             ))}
                           </div>
                         )}
+                      </div>
+                    </div>
+
+                    <div>
+                      <p className="text-[11px] font-semibold uppercase tracking-wider text-white/35 mb-2">Security</p>
+                      <div className="rounded-[10px] border border-white/[0.07] bg-black/20 p-3">
+                        <p className="mb-3 text-[12px] text-white/55">
+                          Set a new password directly for this user. Existing unused reset links will be invalidated.
+                        </p>
+                        <UserPasswordUpdateForm userId={u.id} />
                       </div>
                     </div>
                   </div>

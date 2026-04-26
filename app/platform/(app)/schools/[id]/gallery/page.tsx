@@ -26,11 +26,12 @@ export default async function PlatformSchoolGalleryPage({
   searchParams
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ folderId?: string }>;
+  searchParams: Promise<{ folderId?: string; uploadStatus?: "success" | "error"; uploadMessage?: string }>;
 }) {
   const { id } = await params;
-  const { folderId } = await searchParams;
-  await requirePlatformSchoolAccess(id);
+  const { folderId, uploadStatus, uploadMessage } = await searchParams;
+  const { user } = await requirePlatformSchoolAccess(id);
+  const canUpload = user.role === "SUPER_ADMIN";
 
   const [school, roles, folders] = await Promise.all([
     prisma.school.findUnique({ where: { id }, select: { id: true, name: true, slug: true } }),
@@ -91,6 +92,16 @@ export default async function PlatformSchoolGalleryPage({
         </div>
       </div>
 
+      {uploadStatus === "success" ? (
+        <div className="rounded-[12px] border border-emerald-500/25 bg-emerald-500/12 px-3.5 py-2.5 text-[12px] text-emerald-100">
+          {uploadMessage ?? "Images uploaded successfully."}
+        </div>
+      ) : uploadStatus === "error" ? (
+        <div className="rounded-[12px] border border-rose-500/25 bg-rose-500/12 px-3.5 py-2.5 text-[12px] text-rose-100">
+          {uploadMessage ?? "Unable to upload images."}
+        </div>
+      ) : null}
+
       <Card
         title="Create Platform Folder"
         description="These folders sync to school admins and users based on assigned roles"
@@ -138,9 +149,13 @@ export default async function PlatformSchoolGalleryPage({
         )}
       </Card>
 
-      {folders.length > 0 ? (
+      {canUpload && folders.length > 0 ? (
         <Card title="Upload Platform Image" description="Upload images into any school folder" accent="indigo">
           <UploadPlatformImageCard schoolId={school.id} folders={folders} selectedFolderId={selectedFolder?.id} />
+        </Card>
+      ) : folders.length > 0 ? (
+        <Card title="Upload Platform Image" description="Upload images into any school folder" accent="indigo">
+          <p className="text-sm text-white/55">Only platform super admin can upload photos. Other users can view photos.</p>
         </Card>
       ) : null}
 
@@ -245,7 +260,7 @@ async function UploadPlatformImageCard({
   const { uploadPlatformGalleryItemAction } = await import("./actions");
 
   return (
-    <form action={uploadPlatformGalleryItemAction} className="grid grid-cols-1 gap-3 sm:gap-4">
+    <form action={uploadPlatformGalleryItemAction} encType="multipart/form-data" className="grid grid-cols-1 gap-3 sm:gap-4">
       <input type="hidden" name="schoolId" value={schoolId} />
       <div>
         <Label required>Folder</Label>
@@ -281,7 +296,7 @@ async function UploadPlatformImageCard({
           className="w-full rounded-[12px] border border-white/[0.12] bg-[#0f1728]/75 px-3 py-2.5 text-sm text-white/80 file:mr-3 file:rounded-[10px] file:border-0 file:bg-blue-500/20 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-blue-100 hover:border-white/[0.24]"
           required
         />
-        <p className="mt-1 text-[11px] text-white/35">Supported: JPG, PNG, WEBP (max 1.5MB each, up to 20 images)</p>
+        <p className="mt-1 text-[11px] text-white/35">Supported: JPG, PNG, WEBP (select and upload multiple images)</p>
       </div>
       <div className="flex justify-end">
         <Button type="submit">Upload images</Button>

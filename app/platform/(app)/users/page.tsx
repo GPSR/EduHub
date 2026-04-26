@@ -8,14 +8,14 @@ export default async function PlatformUsersPage() {
   const [platformUsers, schools] = await Promise.all([
     prisma.platformUser.findMany({
       where: { role: { not: "SUPER_ADMIN" } },
-      include: { schoolAssignments: { include: { school: true } } },
+      include: { schoolAssignments: { select: { schoolId: true } } },
       orderBy: [{ status: "asc" }, { createdAt: "desc" }],
     }),
     prisma.school.findMany({ select: { id: true, name: true, slug: true }, orderBy: { name: "asc" }, take: 300 }),
   ]);
 
-  const pending  = platformUsers.filter(u => u.status === "PENDING");
-  const approved = platformUsers.filter(u => u.status !== "PENDING");
+  const pending = platformUsers.filter((u) => u.status === "PENDING");
+  const approved = platformUsers.filter((u) => u.status === "APPROVED");
 
   return (
     <div className="space-y-5 animate-fade-up">
@@ -52,8 +52,15 @@ export default async function PlatformUsersPage() {
           <div className="py-8 text-center text-sm text-white/40">No approved support users yet.</div>
         ) : (
           <div className="space-y-3 mt-1">
-            {approved.map(u => {
-              const initials = u.name.trim().split(/\s+/).map((p: string) => p[0]).slice(0,2).join("").toUpperCase();
+            {approved.map((u) => {
+              const initials =
+                u.name
+                  .trim()
+                  .split(/\s+/)
+                  .map((p: string) => p[0])
+                  .slice(0, 2)
+                  .join("")
+                  .toUpperCase() || "PU";
               return (
                 <div key={u.id} className="rounded-[16px] border border-white/[0.08] bg-white/[0.03] p-4">
                   <div className="flex items-center justify-between gap-3 mb-4">
@@ -75,7 +82,7 @@ export default async function PlatformUsersPage() {
                   <ManagePlatformUserForm
                     platformUserId={u.id} name={u.name} email={u.email}
                     isActive={u.isActive} schools={schools}
-                    assignedSchoolIds={u.schoolAssignments.map(a => a.schoolId)}
+                    assignedSchoolIds={u.schoolAssignments.map((a) => a.schoolId)}
                   />
                 </div>
               );

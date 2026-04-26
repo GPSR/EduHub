@@ -1,4 +1,7 @@
 import { prisma } from "@/lib/db";
+import { randomUUID } from "node:crypto";
+import { mkdir, rm, writeFile } from "node:fs/promises";
+import path from "node:path";
 
 const ALLOWED = new Map<string, string>([
   ["image/jpeg", "jpg"],
@@ -8,6 +11,7 @@ const ALLOWED = new Map<string, string>([
 
 export const DEFAULT_MAX_IMAGE_BYTES = 1500 * 1024; // Keep DB payload reasonable.
 export const LOGO_MAX_IMAGE_BYTES = 3 * 1024 * 1024;
+const PUBLIC_UPLOADS_ROOT = path.join(process.cwd(), "public", "uploads");
 
 function formatMegabytes(bytes: number) {
   const mb = bytes / (1024 * 1024);
@@ -21,30 +25,72 @@ function toDataUrl(file: File, bytes: Buffer, ext: string) {
 
 async function validateImage(
   file: File,
-  maxBytes = DEFAULT_MAX_IMAGE_BYTES
+  maxBytes: number | null = DEFAULT_MAX_IMAGE_BYTES
 ): Promise<{ ok: true; ext: string; bytes: Buffer } | { ok: false; message: string }> {
   if (!file || file.size === 0) return { ok: false, message: "Please choose an image." };
-  if (file.size > maxBytes) return { ok: false, message: `Image must be ${formatMegabytes(maxBytes)} or smaller.` };
+  if (typeof maxBytes === "number" && file.size > maxBytes) {
+    return { ok: false, message: `Image must be ${formatMegabytes(maxBytes)} or smaller.` };
+  }
   const ext = ALLOWED.get(file.type);
   if (!ext) return { ok: false, message: "Use JPG, PNG, or WEBP image." };
   const bytes = Buffer.from(await file.arrayBuffer());
   return { ok: true, ext, bytes };
 }
 
+function sanitizePathSegment(value: string) {
+  return value
+    .trim()
+    .replace(/[^a-zA-Z0-9_-]+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "")
+    .slice(0, 80);
+}
+
+function resolveFolderSegments(folder: string) {
+  const segments = folder
+    .split("/")
+    .map((segment) => sanitizePathSegment(segment))
+    .filter(Boolean);
+  return segments.length ? segments : ["misc"];
+}
+
 export async function saveUploadedImage(opts: {
   file: File;
   folder: string;
   prefix: string;
-  maxBytes?: number;
+  maxBytes?: number | null;
 }): Promise<{ ok: true; url: string } | { ok: false; message: string }> {
   const checked = await validateImage(opts.file, opts.maxBytes);
   if (!checked.ok) return checked;
-  const dataUrl = toDataUrl(opts.file, checked.bytes, checked.ext);
-  return { ok: true, url: dataUrl };
+
+  const folderSegments = resolveFolderSegments(opts.folder);
+  const safePrefix = sanitizePathSegment(opts.prefix) || "img";
+  const fileName = `${safePrefix}-${Date.now()}-${randomUUID().slice(0, 8)}.${checked.ext}`;
+  const targetDir = path.join(PUBLIC_UPLOADS_ROOT, ...folderSegments);
+
+  try {
+    await mkdir(targetDir, { recursive: true });
+    await writeFile(path.join(targetDir, fileName), checked.bytes);
+    return { ok: true, url: `/uploads/${[...folderSegments, fileName].join("/")}` };
+  } catch {
+    // Fallback to data URLs if filesystem write is not available in the runtime.
+    const dataUrl = toDataUrl(opts.file, checked.bytes, checked.ext);
+    return { ok: true, url: dataUrl };
+  }
 }
 
-export async function deleteUploadedImageByUrl(_url: string | null | undefined) {
-  // No-op for DB/data-url based storage.
+export async function deleteUploadedImageByUrl(url: string | null | undefined) {
+  if (!url || !url.startsWith("/uploads/")) return;
+
+  const relativePath = decodeURIComponent(url.replace(/^\/uploads\//, "").split("?")[0] ?? "");
+  const resolvedPath = path.resolve(PUBLIC_UPLOADS_ROOT, relativePath);
+  if (!resolvedPath.startsWith(PUBLIC_UPLOADS_ROOT + path.sep)) return;
+
+  try {
+    await rm(resolvedPath, { force: true });
+  } catch {
+    // Ignore cleanup failures to keep delete flow non-blocking.
+  }
 }
 
 export async function saveUserProfileImage(

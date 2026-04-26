@@ -126,6 +126,9 @@ export async function sendOnboardingApprovalNotifications(args: {
       expiresAt: args.expiresAt
     });
     result.emailSent = email.sent;
+    if (!email.sent && "reason" in email) {
+      result.errors.push(`email:${email.reason}`);
+    }
   } catch (err) {
     result.errors.push(err instanceof Error ? err.message : "email_send_failed");
   }
@@ -133,6 +136,9 @@ export async function sendOnboardingApprovalNotifications(args: {
   try {
     const sms = await sendApprovalSms({ inviteUrl: args.inviteUrl, adminPhone: args.adminPhone });
     result.smsSent = sms.sent;
+    if (!sms.sent && "reason" in sms) {
+      result.errors.push(`sms:${sms.reason}`);
+    }
   } catch (err) {
     result.errors.push(err instanceof Error ? err.message : "sms_send_failed");
   }

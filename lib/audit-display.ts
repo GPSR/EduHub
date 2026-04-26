@@ -80,6 +80,14 @@ const ACTION_DISPLAY: Record<string, AuditActionDisplay> = {
     title: "Platform user password updated",
     description: "A super admin directly updated a platform user's password."
   },
+  SCHOOL_USER_PASSWORD_UPDATED_BY_ADMIN: {
+    title: "School user password updated",
+    description: "A school admin directly updated a school user's password."
+  },
+  SCHOOL_ADMIN_PASSWORD_UPDATED_BY_SUPER_ADMIN: {
+    title: "School admin password updated",
+    description: "A super admin directly updated a school admin's password."
+  },
   PLATFORM_USER_PROFILE_PHOTO_UPDATE: {
     title: "Platform user profile photo updated",
     description: "A platform user updated their profile photo."

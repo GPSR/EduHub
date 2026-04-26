@@ -28,11 +28,11 @@ function timeAgo(date: Date) {
 export default async function GalleryPage({
   searchParams
 }: {
-  searchParams: Promise<{ folderId?: string }>;
+  searchParams: Promise<{ folderId?: string; uploadStatus?: "success" | "error"; uploadMessage?: string }>;
 }) {
   await requirePermission("GALLERY", "VIEW");
   const session = await requireSession();
-  const { folderId } = await searchParams;
+  const { folderId, uploadStatus, uploadMessage } = await searchParams;
 
   const perms = await getEffectivePermissions({
     schoolId: session.schoolId,
@@ -40,7 +40,7 @@ export default async function GalleryPage({
     roleId: session.roleId
   });
   const galleryLevel = perms.GALLERY;
-  const canUpload = galleryLevel ? atLeastLevel(galleryLevel, "EDIT") : false;
+  const canUpload = session.roleKey === "ADMIN" && (galleryLevel ? atLeastLevel(galleryLevel, "EDIT") : false);
   const canManageFolders =
     session.roleKey === "ADMIN" || (galleryLevel ? atLeastLevel(galleryLevel, "APPROVE") : false);
 
@@ -92,6 +92,16 @@ export default async function GalleryPage({
         title="School Gallery"
         subtitle="Role-based folders for school memories, events, and visual updates"
       />
+
+      {uploadStatus === "success" ? (
+        <div className="rounded-[12px] border border-emerald-500/25 bg-emerald-500/12 px-3.5 py-2.5 text-[12px] text-emerald-100">
+          {uploadMessage ?? "Images uploaded successfully."}
+        </div>
+      ) : uploadStatus === "error" ? (
+        <div className="rounded-[12px] border border-rose-500/25 bg-rose-500/12 px-3.5 py-2.5 text-[12px] text-rose-100">
+          {uploadMessage ?? "Unable to upload images."}
+        </div>
+      ) : null}
 
       {canManageFolders ? <CreateFolderCard roles={roles} /> : null}
 
@@ -158,7 +168,13 @@ export default async function GalleryPage({
         </Card>
       ) : null}
 
-      {canUpload && folders.length > 0 ? <UploadImageCard folders={folders} selectedFolderId={selectedFolder?.id} /> : null}
+      {canUpload && folders.length > 0 ? (
+        <UploadImageCard folders={folders} selectedFolderId={selectedFolder?.id} />
+      ) : folders.length > 0 ? (
+        <Card title="Upload Image" description="Add school gallery images to a selected folder" accent="teal">
+          <p className="text-sm text-white/55">Only school admin can upload photos. Other users can view photos.</p>
+        </Card>
+      ) : null}
 
       <Card
         title={selectedFolder ? `Images · ${selectedFolder.name}` : "Images"}
@@ -263,7 +279,7 @@ async function UploadImageCard({
 
   return (
     <Card title="Upload Image" description="Add school gallery images to a selected folder" accent="teal">
-      <form action={uploadGalleryItemAction} className="grid grid-cols-1 gap-3 sm:gap-4">
+      <form action={uploadGalleryItemAction} encType="multipart/form-data" className="grid grid-cols-1 gap-3 sm:gap-4">
         <div>
           <Label required>Folder</Label>
           <select
@@ -298,7 +314,7 @@ async function UploadImageCard({
             className="w-full rounded-[12px] border border-white/[0.12] bg-[#0f1728]/75 px-3 py-2.5 text-sm text-white/80 file:mr-3 file:rounded-[10px] file:border-0 file:bg-blue-500/20 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-blue-100 hover:border-white/[0.24]"
             required
           />
-          <p className="mt-1 text-[11px] text-white/35">Supported: JPG, PNG, WEBP (max 1.5MB each, up to 20 images)</p>
+          <p className="mt-1 text-[11px] text-white/35">Supported: JPG, PNG, WEBP (select and upload multiple images)</p>
         </div>
         <div className="flex justify-end">
           <Button type="submit">Upload images</Button>
