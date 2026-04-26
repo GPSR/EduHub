@@ -47,6 +47,11 @@ The URL is configured in `capacitor.config.ts` via:
 - `CAPACITOR_PROD_URL` (preferred override)
 - fallback to `SCHOOL_APP_BASE_URL` / `NEXT_PUBLIC_SCHOOL_APP_BASE_URL`
 
+Environment defaults (`APP_ENV`) for hosted URL fallback:
+
+- `stage` (legacy `int`, `integration`, and `stgae` are still accepted) -> `https://stgae.schools.softlanetech.com`
+- `production` -> `https://schools.softlanetech.com`
+
 Prisma DB strategy:
 
 - Local/lower: `npm run db:push` (uses `LOCAL_DATABASE_URL`)

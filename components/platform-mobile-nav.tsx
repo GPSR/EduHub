@@ -2,9 +2,9 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { clsx } from "clsx";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type MouseEvent } from "react";
 import { MOBILE_BOTTOM_PRIMARY_LIMIT } from "@/lib/mobile-nav-config";
 
 type Item = { href: string; label: string; icon: string };
@@ -25,6 +25,7 @@ export function PlatformMobileNav({
   photoUrl?: string | null;
 }) {
   const pathname = usePathname();
+  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [showUserInfo, setShowUserInfo] = useState(false);
   const initials = userName
@@ -64,6 +65,19 @@ export function PlatformMobileNav({
   useEffect(() => {
     if (open) setShowUserInfo(false);
   }, [open]);
+
+  const handleProfileToggle = (event: MouseEvent<HTMLAnchorElement>) => {
+    setOpen(false);
+    setShowUserInfo(false);
+    const onProfilePage = pathname === "/platform/profile" || pathname.startsWith("/platform/profile/");
+    if (!onProfilePage) return;
+    event.preventDefault();
+    if (typeof window !== "undefined" && window.history.length > 1) {
+      router.back();
+      return;
+    }
+    router.push("/platform");
+  };
 
   return (
     <>
@@ -143,6 +157,7 @@ export function PlatformMobileNav({
             <div className="grid grid-cols-4 gap-2 px-4 py-4">
               <Link
                 href="/platform/profile"
+                onClick={handleProfileToggle}
                 className={clsx(
                   "col-span-4 flex items-center gap-3 rounded-[14px] border px-4 py-3.5 transition",
                   pathname === "/platform/profile" || pathname.startsWith("/platform/profile/")

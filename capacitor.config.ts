@@ -1,15 +1,32 @@
 import type { CapacitorConfig } from "@capacitor/cli";
+import { KeyboardResize } from "@capacitor/keyboard";
+
+function normalizeAppEnv(raw?: string | null): "stage" | "production" {
+  const value = String(raw ?? "").trim().toLowerCase();
+  // "int"/"integration" now map to stage to avoid NXDOMAIN host usage.
+  if (value === "int" || value === "integration") return "stage";
+  // Keep accepting the legacy misspelling "stgae" to avoid breaking existing env files.
+  if (value === "stage" || value === "staging" || value === "stgae") return "stage";
+  return "production";
+}
+
+const appEnv = normalizeAppEnv(process.env.APP_ENV ?? process.env.DEPLOY_ENV);
+const defaultSchoolsUrlByEnv = {
+  // Current staging DNS uses "stgae". Keep this default until infra is renamed.
+  stage: "https://stgae.schools.softlanetech.com",
+  production: "https://schools.softlanetech.com",
+} as const;
 
 const prodServerUrl =
   process.env.CAPACITOR_PROD_URL ??
   process.env.SCHOOL_APP_BASE_URL ??
   process.env.NEXT_PUBLIC_SCHOOL_APP_BASE_URL ??
-  "https://schools.softlanetech.com";
+  defaultSchoolsUrlByEnv[appEnv];
 const serverUrl = process.env.CAPACITOR_SERVER_URL ?? prodServerUrl;
 const isCleartext = serverUrl.startsWith("http://");
 
 const config: CapacitorConfig = {
-  appId: 'com.softlanetech.schools',
+  appId: 'com.softlanetech.schools.zv5a529zpj',
   appName: 'Schools',
   webDir: 'capacitor_www',
 
@@ -51,7 +68,7 @@ const config: CapacitorConfig = {
       overlaysWebView: true,
     },
     Keyboard: {
-      resize: 'body',
+      resize: KeyboardResize.Native,
       resizeOnFullScreen: true,
     },
   },

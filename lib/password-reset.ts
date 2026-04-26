@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db";
 import { randomToken } from "@/lib/token";
 import { sendTransactionalEmail } from "@/lib/mailer";
+import { resolvePlatformAppBaseUrl, resolveSchoolAppBaseUrl } from "@/lib/app-env";
 
 function escapeHtml(input: string) {
   return input
@@ -13,17 +14,9 @@ function escapeHtml(input: string) {
 
 function resolveAppBaseUrl(subjectType: "PLATFORM_USER" | "SCHOOL_USER") {
   if (subjectType === "PLATFORM_USER") {
-    return (
-      process.env.PLATFORM_APP_BASE_URL?.replace(/\/+$/, "") ||
-      process.env.NEXT_PUBLIC_PLATFORM_APP_BASE_URL?.replace(/\/+$/, "") ||
-      "https://platform.softlanetech.com"
-    );
+    return resolvePlatformAppBaseUrl();
   }
-  return (
-    process.env.SCHOOL_APP_BASE_URL?.replace(/\/+$/, "") ||
-    process.env.NEXT_PUBLIC_SCHOOL_APP_BASE_URL?.replace(/\/+$/, "") ||
-    "https://schools.softlanetech.com"
-  );
+  return resolveSchoolAppBaseUrl();
 }
 
 export async function createPasswordResetToken(args: {

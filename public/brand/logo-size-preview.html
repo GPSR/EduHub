@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>EduHub Logo Size Preview</title>
+    <style>
+      :root {
+        color-scheme: dark;
+      }
+      body {
+        margin: 0;
+        font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+        background: radial-gradient(1200px 500px at 10% -10%, #1f4c9a55, transparent), #0a1020;
+        color: #e8eefc;
+      }
+      .wrap {
+        max-width: 1280px;
+        margin: 0 auto;
+        padding: 24px;
+      }
+      h1 {
+        margin: 0 0 6px;
+        font-size: 24px;
+      }
+      .sub {
+        margin: 0 0 20px;
+        color: #aac0ef;
+        font-size: 14px;
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+        gap: 14px;
+      }
+      .card {
+        border: 1px solid #ffffff26;
+        background: #ffffff08;
+        border-radius: 14px;
+        padding: 12px;
+      }
+      .title {
+        margin: 0;
+        font-size: 14px;
+        font-weight: 700;
+      }
+      .meta {
+        margin: 4px 0 10px;
+        font-size: 12px;
+        color: #b8c8ea;
+      }
+      .stage {
+        min-height: 110px;
+        border-radius: 10px;
+        border: 1px solid #ffffff1f;
+        display: grid;
+        place-items: center;
+        background:
+          linear-gradient(45deg, #ffffff12 25%, transparent 25%, transparent 75%, #ffffff12 75%, #ffffff12),
+          linear-gradient(45deg, #ffffff12 25%, transparent 25%, transparent 75%, #ffffff12 75%, #ffffff12),
+          #0f1c35;
+        background-size: 18px 18px;
+        background-position: 0 0, 9px 9px;
+        overflow: auto;
+        padding: 12px;
+      }
+      .row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .note {
+        margin-top: 16px;
+        font-size: 12px;
+        color: #9db3de;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="wrap">
+      <h1>Logo Size Preview</h1>
+      <p class="sub">Current logo sizes used across EduHub app and platform.</p>
+
+      <section class="grid">
+        <article class="card">
+          <p class="title">BrandIcon (Platform Header)</p>
+          <p class="meta">28 x 28</p>
+          <div class="stage"><img src="/brand/eduhub-icon.png" alt="" width="28" height="28" /></div>
+        </article>
+
+        <article class="card">
+          <p class="title">BrandIcon (School Header Fallback)</p>
+          <p class="meta">30 x 30</p>
+          <div class="stage"><img src="/brand/eduhub-icon.png" alt="" width="30" height="30" /></div>
+        </article>
+
+        <article class="card">
+          <p class="title">BrandIcon (Platform Onboard)</p>
+          <p class="meta">78 x 78</p>
+          <div class="stage"><img src="/brand/eduhub-icon.png" alt="" width="78" height="78" /></div>
+        </article>
+
+        <article class="card">
+          <p class="title">BrandWordmark sm (Login / Onboard / Forgot)</p>
+          <p class="meta">112 x 112</p>
+          <div class="stage"><img src="/brand/eduhub-logo.png" alt="" width="112" height="112" /></div>
+        </article>
+
+        <article class="card">
+          <p class="title">BrandWordmark md (Home)</p>
+          <p class="meta">144 x 144</p>
+          <div class="stage"><img src="/brand/eduhub-logo.png" alt="" width="144" height="144" /></div>
+        </article>
+
+        <article class="card">
+          <p class="title">BrandLogo sm (Accept Invite Icon)</p>
+          <p class="meta">40 x 40</p>
+          <div class="stage"><img src="/brand/eduhub-icon.png" alt="" width="40" height="40" /></div>
+        </article>
+
+        <article class="card">
+          <p class="title">School Logo Slot (App Header)</p>
+          <p class="meta">30 x 30</p>
+          <div class="stage"><img src="/brand/eduhub-icon.png" alt="" width="30" height="30" /></div>
+        </article>
+
+        <article class="card">
+          <p class="title">School Logo Slot (Admin Settings)</p>
+          <p class="meta">56 x 56</p>
+          <div class="stage"><img src="/brand/eduhub-icon.png" alt="" width="56" height="56" /></div>
+        </article>
+
+        <article class="card">
+          <p class="title">School Logo Slot (Student ID Card)</p>
+          <p class="meta">56 x 56</p>
+          <div class="stage"><img src="/brand/eduhub-icon.png" alt="" width="56" height="56" /></div>
+        </article>
+
+        <article class="card">
+          <p class="title">Apple Touch Icon</p>
+          <p class="meta">180 x 180</p>
+          <div class="stage"><img src="/icons/apple-touch-icon.png" alt="" width="180" height="180" /></div>
+        </article>
+
+        <article class="card">
+          <p class="title">PWA Icon</p>
+          <p class="meta">192 x 192</p>
+          <div class="stage"><img src="/icons/icon-192.png" alt="" width="192" height="192" /></div>
+        </article>
+
+        <article class="card">
+          <p class="title">PWA Icon</p>
+          <p class="meta">512 x 512</p>
+          <div class="stage"><img src="/icons/icon-512.png" alt="" width="512" height="512" /></div>
+        </article>
+      </section>
+
+      <p class="note">
+        Note: School-logo slots show the brand icon here only for size preview. In real usage these slots display each school's uploaded logo.
+      </p>
+    </main>
+  </body>
+</html>

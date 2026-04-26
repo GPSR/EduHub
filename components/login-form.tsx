@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useActionState } from "react";
 import { Button, Input, Label } from "@/components/ui";
 import { loginAction, type LoginState } from "@/app/login/actions";
@@ -8,9 +9,22 @@ const initialState: LoginState = { ok: true };
 
 export function LoginForm({ defaultSchoolSlug }: { defaultSchoolSlug?: string }) {
   const [state, action, pending] = useActionState(loginAction, initialState);
+  const forgotHref =
+    defaultSchoolSlug && defaultSchoolSlug.trim()
+      ? `/forgot-password?schoolSlug=${encodeURIComponent(defaultSchoolSlug.trim())}`
+      : "/forgot-password";
+  const onFocusCapture = (event: React.FocusEvent<HTMLFormElement>) => {
+    if (typeof window === "undefined") return;
+    if (window.innerWidth >= 1024) return;
+    const target = event.target as HTMLElement | null;
+    if (!target) return;
+    window.setTimeout(() => {
+      target.scrollIntoView({ block: "center", behavior: "smooth" });
+    }, 120);
+  };
 
   return (
-    <form action={action} className="space-y-4">
+    <form action={action} onFocusCapture={onFocusCapture} className="space-y-4">
       <div>
         <Label required>School slug</Label>
         <Input
@@ -28,6 +42,11 @@ export function LoginForm({ defaultSchoolSlug }: { defaultSchoolSlug?: string })
       <div>
         <Label required>Password</Label>
         <Input name="password" type="password" placeholder="••••••••" required autoComplete="current-password" />
+      </div>
+      <div className="flex justify-end -mt-1">
+        <Link href={forgotHref} className="text-xs text-indigo-200/90 hover:text-indigo-100 underline-offset-2 hover:underline">
+          Forgot password?
+        </Link>
       </div>
 
       {!state.ok && state.message && (

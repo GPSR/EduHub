@@ -1,4 +1,5 @@
 import { Card, Badge, SectionHeader, EmptyState } from "@/components/ui";
+import { describeAuditAction, humanizeAuditToken } from "@/lib/audit-display";
 import { prisma } from "@/lib/db";
 import { requirePermission } from "@/lib/require-permission";
 
@@ -43,38 +44,61 @@ export default async function SchoolAuditPage() {
           <EmptyState icon="🔍" title="No activity yet" />
         ) : (
           <div className="divide-y divide-white/[0.05]">
-            {logs.map((l, i) => (
-              <div
-                key={l.id}
-                className={`flex gap-4 px-4 py-3.5
-                             ${i === 0 ? "rounded-t-[16px]" : ""}
-                             ${i === logs.length - 1 ? "rounded-b-[16px]" : ""}
-                             hover:bg-white/[0.02] transition`}
-              >
-                {/* Timeline dot */}
-                <div className="mt-1.5 shrink-0 flex flex-col items-center gap-1">
-                  <span className="h-2 w-2 rounded-full bg-indigo-400/60" />
-                  {i !== logs.length - 1 && <span className="w-px flex-1 min-h-[1rem] bg-white/[0.06]" />}
-                </div>
+            {logs.map((l, i) => {
+              const action = describeAuditAction(l.action);
+              const actor = formatActor({
+                actorType: l.actorType,
+                actorId: l.actorId,
+                schoolUserById,
+                platformUserById
+              });
 
-                <div className="flex-1 min-w-0 pb-1">
-                  <div className="flex items-start justify-between gap-3 flex-wrap">
-                    <p className="text-[14px] font-semibold text-white/85">{humanizeToken(l.action)}</p>
-                    <time className="text-[11px] text-white/30 shrink-0">{formatDateTime(l.createdAt)}</time>
+              return (
+                <div
+                  key={l.id}
+                  className={`flex gap-4 px-4 py-3.5
+                               ${i === 0 ? "rounded-t-[16px]" : ""}
+                               ${i === logs.length - 1 ? "rounded-b-[16px]" : ""}
+                               hover:bg-white/[0.02] transition`}
+                >
+                  <div className="mt-1.5 shrink-0 flex flex-col items-center gap-1">
+                    <span className="h-2 w-2 rounded-full bg-indigo-400/60" />
+                    {i !== logs.length - 1 && <span className="w-px flex-1 min-h-[1rem] bg-white/[0.06]" />}
                   </div>
-                  <div className="mt-1 text-[12px] text-white/45 flex flex-wrap items-center gap-1.5">
-                    <span>{formatActor({ actorType: l.actorType, actorId: l.actorId, schoolUserById, platformUserById })}</span>
-                    {l.entityType && (
-                      <>
-                        <span className="text-white/20">·</span>
-                        <span>{humanizeToken(l.entityType)}{l.entityId ? ` ${shortId(l.entityId)}` : ""}</span>
-                      </>
-                    )}
+
+                  <div className="flex-1 min-w-0 pb-1">
+                    <div className="flex items-start justify-between gap-3 flex-wrap">
+                      <div className="min-w-0">
+                        <p className="text-[14px] font-semibold text-white/90">{action.title}</p>
+                        <p className="mt-0.5 text-[12px] text-white/50">{action.description}</p>
+                      </div>
+                      <time className="text-[11px] text-white/30 shrink-0">{formatDateTime(l.createdAt)}</time>
+                    </div>
+                    <div className="mt-1.5 text-[12px] text-white/45 flex flex-wrap items-center gap-1.5">
+                      <span>{actor.label}</span>
+                      {actor.roleBadge && (
+                        <span
+                          className={`rounded-full border px-2 py-0.5 text-[10px] font-medium ${
+                            actor.isAdmin
+                              ? "border-emerald-300/40 bg-emerald-500/10 text-emerald-200"
+                              : "border-white/[0.16] bg-white/[0.05] text-white/70"
+                          }`}
+                        >
+                          {actor.roleBadge}
+                        </span>
+                      )}
+                      {l.entityType && (
+                        <>
+                          <span className="text-white/20">·</span>
+                          <span>{humanizeAuditToken(l.entityType)}{l.entityId ? ` ${shortId(l.entityId)}` : ""}</span>
+                        </>
+                      )}
+                    </div>
+                    {l.metadataJson && <MetadataRow metadataJson={l.metadataJson} />}
                   </div>
-                  {l.metadataJson && <MetadataRow metadataJson={l.metadataJson} />}
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </Card>
@@ -89,30 +113,27 @@ function formatDateTime(date: Date) {
   }).format(date);
 }
 
-function humanizeToken(value: string) {
-  return value.toLowerCase().split("_").map(p => p.charAt(0).toUpperCase() + p.slice(1)).join(" ");
-}
-
 function formatActor({ actorType, actorId, schoolUserById, platformUserById }: {
   actorType: "PLATFORM_USER" | "SCHOOL_USER" | "SYSTEM";
   actorId: string | null;
   schoolUserById: Map<string, { id: string; name: string; email: string; schoolRole: { key: string; name: string } | null }>;
   platformUserById: Map<string, { id: string; name: string; email: string; role: "SUPER_ADMIN" | "SUPPORT_USER" }>;
-}) {
-  if (actorType === "SYSTEM") return "System";
-  if (!actorId) return humanizeToken(actorType);
+}): { label: string; roleBadge?: string; isAdmin: boolean } {
+  if (actorType === "SYSTEM") return { label: "System", roleBadge: "System", isAdmin: false };
+  if (!actorId) return { label: humanizeAuditToken(actorType), isAdmin: false };
   if (actorType === "SCHOOL_USER") {
     const actor = schoolUserById.get(actorId);
-    return actor
-      ? `${actor.name}${actor.schoolRole?.name ? ` (${actor.schoolRole.name})` : ""}`
-      : `User ${actorId}`;
+    if (!actor) return { label: `User ${shortId(actorId)}`, roleBadge: "School User", isAdmin: false };
+    const roleName = actor.schoolRole?.name ?? "School User";
+    const isAdmin = actor.schoolRole?.key === "ADMIN";
+    return { label: actor.name, roleBadge: roleName, isAdmin };
   }
   const platformActor = platformUserById.get(actorId);
   if (platformActor) {
     const roleLabel = platformActor.role === "SUPER_ADMIN" ? "Super Admin" : "Support User";
-    return `${platformActor.name} (${roleLabel})`;
+    return { label: platformActor.name, roleBadge: roleLabel, isAdmin: true };
   }
-  return "Platform User";
+  return { label: "Platform User", roleBadge: "Platform", isAdmin: false };
 }
 
 function MetadataRow({ metadataJson }: { metadataJson: string }) {
@@ -127,7 +148,7 @@ function MetadataRow({ metadataJson }: { metadataJson: string }) {
           key={key}
           className="rounded-[10px] border border-white/[0.10] bg-white/[0.03] px-2.5 py-1.5 text-[11px] text-white/65 leading-relaxed break-words"
         >
-          <span className="text-white/40">{humanizeToken(key)}:</span>{" "}
+          <span className="text-white/40">{humanizeAuditToken(key)}:</span>{" "}
           <span className="break-words">{value}</span>
         </div>
       ))}
@@ -162,7 +183,7 @@ function stringifyValue(value: unknown): string {
     if ("old" in obj || "new" in obj) {
       return `Old: ${stringifyValue(obj.old)} | New: ${stringifyValue(obj.new)}`;
     }
-    const pairs = Object.entries(obj).slice(0, 6).map(([k, v]) => `${humanizeToken(k)}=${stringifyValue(v)}`);
+    const pairs = Object.entries(obj).slice(0, 6).map(([k, v]) => `${humanizeAuditToken(k)}=${stringifyValue(v)}`);
     return pairs.join(", ") || "Updated";
   }
   return String(value);

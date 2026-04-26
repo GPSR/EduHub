@@ -321,3 +321,56 @@ export async function resetPlatformUserPasswordAction(
   revalidatePath("/platform/users");
   return { ok: sent.sent, message: sent.sent ? "Password reset email sent (valid for 30 minutes)." : "Email provider is not configured." };
 }
+
+const UpdatePasswordSchema = z.object({
+  platformUserId: z.string().min(1),
+  newPassword: z.string().min(10, "Password must be at least 10 characters."),
+  confirmPassword: z.string().min(10, "Password must be at least 10 characters.")
+});
+
+export async function updatePlatformUserPasswordAction(
+  _prev: PlatformUserAdminState,
+  formData: FormData
+): Promise<PlatformUserAdminState> {
+  const { user: superAdmin } = await requireSuperAdmin();
+  const parsed = UpdatePasswordSchema.safeParse({
+    platformUserId: formData.get("platformUserId"),
+    newPassword: formData.get("newPassword"),
+    confirmPassword: formData.get("confirmPassword")
+  });
+  if (!parsed.success) return { ok: false, message: parsed.error.issues[0]?.message ?? "Invalid input." };
+  if (parsed.data.newPassword !== parsed.data.confirmPassword) {
+    return { ok: false, message: "Passwords do not match." };
+  }
+
+  const target = await prisma.platformUser.findUnique({
+    where: { id: parsed.data.platformUserId },
+    select: { id: true, role: true }
+  });
+  if (!target) return { ok: false, message: "Platform user not found." };
+  if (target.role === "SUPER_ADMIN") return { ok: false, message: "Cannot update super admin password in this flow." };
+
+  const passwordHash = await hashPassword(parsed.data.newPassword);
+  const now = new Date();
+  const [, revokedTokens] = await prisma.$transaction([
+    prisma.platformUser.update({
+      where: { id: target.id },
+      data: { passwordHash }
+    }),
+    prisma.passwordResetToken.updateMany({
+      where: { platformUserId: target.id, subjectType: "PLATFORM_USER", usedAt: null },
+      data: { usedAt: now }
+    })
+  ]);
+
+  await auditLog({
+    actor: { type: "PLATFORM_USER", id: superAdmin.id },
+    action: "PLATFORM_USER_PASSWORD_UPDATED_BY_SUPER_ADMIN",
+    entityType: "PlatformUser",
+    entityId: target.id,
+    metadata: { revokedResetTokens: revokedTokens.count }
+  });
+
+  revalidatePath("/platform/users");
+  return { ok: true, message: "Password updated successfully." };
+}

@@ -1,12 +1,10 @@
 import { Badge, SectionHeader } from "@/components/ui";
+import { describeAuditAction, humanizeAuditToken } from "@/lib/audit-display";
 import { prisma } from "@/lib/db";
 import { requireSuperAdmin } from "@/lib/platform-require";
 
 function fmt(date: Date) {
   return new Intl.DateTimeFormat("en-US", { month: "short", day: "2-digit", year: "numeric", hour: "numeric", minute: "2-digit" }).format(date);
-}
-function humanize(v: string) {
-  return v.toLowerCase().split("_").map(p => p[0].toUpperCase() + p.slice(1)).join(" ");
 }
 function safeMeta(json: string): Record<string, unknown> | null {
   try { const p = JSON.parse(json) as unknown; return (p && typeof p === "object" && !Array.isArray(p)) ? p as Record<string, unknown> : null; } catch { return null; }
@@ -29,7 +27,7 @@ function stringifyValue(value: unknown): string {
     if ("old" in obj || "new" in obj) {
       return `Old: ${stringifyValue(obj.old)} | New: ${stringifyValue(obj.new)}`;
     }
-    const pairs = Object.entries(obj).slice(0, 6).map(([k, v]) => `${humanize(k)}=${stringifyValue(v)}`);
+    const pairs = Object.entries(obj).slice(0, 6).map(([k, v]) => `${humanizeAuditToken(k)}=${stringifyValue(v)}`);
     return pairs.join(", ") || "Updated";
   }
   return String(value);
@@ -91,17 +89,21 @@ export default async function PlatformAuditPage() {
     .slice(0, 200);
 
   function actor(actorType: string, actorId: string | null) {
-    if (actorType === "SYSTEM") return "System";
-    if (!actorId) return humanize(actorType);
+    if (actorType === "SYSTEM") return { label: "System", roleBadge: "System", isAdmin: false };
+    if (!actorId) return { label: humanizeAuditToken(actorType), isAdmin: false };
     if (actorType === "PLATFORM_USER") {
       const u = byId.get(actorId);
-      if (!u) return "Platform User";
+      if (!u) return { label: "Platform User", roleBadge: "Platform", isAdmin: false };
       const roleLabel = u.role === "SUPER_ADMIN" ? "Super Admin" : "Support User";
-      return `${u.name} (${roleLabel})`;
+      return { label: u.name, roleBadge: roleLabel, isAdmin: true };
     }
     const schoolUser = schoolUserById.get(actorId);
-    if (schoolUser) return `${schoolUser.name} (${schoolUser.schoolRole?.name ?? "School User"})`;
-    return "School User";
+    if (schoolUser) {
+      const roleName = schoolUser.schoolRole?.name ?? "School User";
+      const isAdmin = schoolUser.schoolRole?.key === "ADMIN";
+      return { label: schoolUser.name, roleBadge: roleName, isAdmin };
+    }
+    return { label: "School User", roleBadge: "School User", isAdmin: false };
   }
 
   return (
@@ -118,6 +120,8 @@ export default async function PlatformAuditPage() {
           <div className="divide-y divide-white/[0.05]">
             {logs.map((l, i) => {
               const meta = l.metadataJson ? safeMeta(l.metadataJson) : null;
+              const action = describeAuditAction(l.action);
+              const actorInfo = actor(l.actorType, l.actorId);
               return (
                 <div key={l.id} className={`flex gap-4 px-5 py-4 hover:bg-white/[0.02] transition
                                               ${i === 0 ? "rounded-t-[22px]" : ""}
@@ -128,13 +132,27 @@ export default async function PlatformAuditPage() {
                   </div>
                   <div className="flex-1 min-w-0 pb-1">
                     <div className="flex items-start justify-between gap-3 flex-wrap">
-                      <p className="text-[14px] font-semibold text-white/85">{humanize(l.action)}</p>
+                      <div className="min-w-0">
+                        <p className="text-[14px] font-semibold text-white/90">{action.title}</p>
+                        <p className="mt-0.5 text-[12px] text-white/50">{action.description}</p>
+                      </div>
                       <time className="text-[11px] text-white/30 shrink-0">{fmt(l.createdAt)}</time>
                     </div>
-                    <div className="mt-1 text-[12px] text-white/45 flex flex-wrap items-center gap-1.5">
-                      <span>{actor(l.actorType, l.actorId)}</span>
+                    <div className="mt-1.5 text-[12px] text-white/45 flex flex-wrap items-center gap-1.5">
+                      <span>{actorInfo.label}</span>
+                      {actorInfo.roleBadge && (
+                        <span
+                          className={`rounded-full border px-2 py-0.5 text-[10px] font-medium ${
+                            actorInfo.isAdmin
+                              ? "border-emerald-300/40 bg-emerald-500/10 text-emerald-200"
+                              : "border-white/[0.16] bg-white/[0.05] text-white/70"
+                          }`}
+                        >
+                          {actorInfo.roleBadge}
+                        </span>
+                      )}
                       {l.schoolId && <><span className="text-white/20">·</span><span>School: {shortId(l.schoolId)}</span></>}
-                      {l.entityType && <><span className="text-white/20">·</span><span>{humanize(l.entityType)}{l.entityId ? ` ${shortId(l.entityId)}` : ""}</span></>}
+                      {l.entityType && <><span className="text-white/20">·</span><span>{humanizeAuditToken(l.entityType)}{l.entityId ? ` ${shortId(l.entityId)}` : ""}</span></>}
                     </div>
                     {meta && Object.entries(meta).length > 0 && (
                       <div className="mt-2 grid grid-cols-1 md:grid-cols-2 gap-1.5">
@@ -143,7 +161,7 @@ export default async function PlatformAuditPage() {
                             key={k}
                             className="rounded-[10px] border border-white/[0.10] bg-white/[0.03] px-2.5 py-1.5 text-[11px] text-white/65 leading-relaxed break-words"
                           >
-                            <span className="text-white/40">{humanize(k)}:</span>{" "}
+                            <span className="text-white/40">{humanizeAuditToken(k)}:</span>{" "}
                             <span className="break-words">{v}</span>
                           </div>
                         ))}

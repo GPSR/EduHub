@@ -8,6 +8,7 @@ import { ensureBaseModules } from "@/lib/permissions";
 import { ensureSchoolSubscriptionActive } from "@/lib/subscription";
 import { auditLog } from "@/lib/audit";
 import { sendOnboardingApprovalNotifications } from "@/lib/approval-notify";
+import { resolveSchoolAppBaseUrl } from "@/lib/app-env";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
@@ -52,10 +53,7 @@ export async function createAdminInviteAction(
     where: { id: parsed.data.schoolId },
     select: { name: true }
   });
-  const schoolAppBaseUrl =
-    process.env.SCHOOL_APP_BASE_URL?.replace(/\/+$/, "") ||
-    process.env.NEXT_PUBLIC_SCHOOL_APP_BASE_URL?.replace(/\/+$/, "") ||
-    "https://schools.softlanetech.com";
+  const schoolAppBaseUrl = resolveSchoolAppBaseUrl();
   const inviteUrl = `${schoolAppBaseUrl}/accept-invite?token=${encodeURIComponent(token)}`;
   const notify = await sendOnboardingApprovalNotifications({
     schoolName: school?.name ?? "School",

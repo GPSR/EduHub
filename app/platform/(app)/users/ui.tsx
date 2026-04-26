@@ -10,6 +10,7 @@ import {
   resetPlatformUserPasswordAction,
   rejectPlatformUserAction,
   togglePlatformUserActiveAction,
+  updatePlatformUserPasswordAction,
   updatePlatformUserAction,
   type PlatformUserAdminState
 } from "./actions";
@@ -117,6 +118,7 @@ export function ManagePlatformUserForm({
   const [toggleState, toggleAction, togglePending] = useActionState(togglePlatformUserActiveAction, initialState);
   const [deleteState, deleteAction, deletePending] = useActionState(deletePlatformUserAction, initialState);
   const [passwordState, passwordAction, passwordPending] = useActionState(resetPlatformUserPasswordAction, initialState);
+  const [updatePasswordState, updatePasswordAction, updatePasswordPending] = useActionState(updatePlatformUserPasswordAction, initialState);
 
   const assignedSchoolNames = schools
     .filter((s) => assignedSchoolIds.includes(s.id))
@@ -204,6 +206,32 @@ export function ManagePlatformUserForm({
             <div className="flex justify-end">
               <Button type="submit" disabled={passwordPending}>
                 {passwordPending ? "Sending..." : "Send Reset Email"}
+              </Button>
+            </div>
+          </form>
+
+          <form action={updatePasswordAction} className="space-y-3 rounded-2xl border border-white/10 bg-white/[0.03] p-3">
+            <input type="hidden" name="platformUserId" value={platformUserId} />
+            <div className="text-sm font-medium">Update password directly</div>
+            <p className="text-xs text-white/60">Set a new password immediately for this user.</p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div>
+                <Label>New password</Label>
+                <Input name="newPassword" type="password" minLength={10} required autoComplete="new-password" />
+              </div>
+              <div>
+                <Label>Confirm password</Label>
+                <Input name="confirmPassword" type="password" minLength={10} required autoComplete="new-password" />
+              </div>
+            </div>
+            {updatePasswordState.message ? (
+              <div className={"rounded-2xl border p-3 text-sm " + (updatePasswordState.ok ? "border-emerald-500/25 bg-emerald-500/10 text-emerald-100" : "border-white/10 bg-white/[0.04] text-white/80")}>
+                {updatePasswordState.message}
+              </div>
+            ) : null}
+            <div className="flex justify-end">
+              <Button type="submit" disabled={updatePasswordPending}>
+                {updatePasswordPending ? "Updating..." : "Update Password"}
               </Button>
             </div>
           </form>

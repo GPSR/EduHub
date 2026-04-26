@@ -1,10 +1,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { requireUser } from "@/lib/require";
-import { Badge } from "@/components/ui";
-import { NavLink } from "@/components/nav-link";
 import { MobileNav } from "@/components/mobile-nav";
-import { UserMenu } from "@/components/user-menu";
 import { BrandIcon } from "@/components/brand";
 import { PWAInstallPrompt } from "@/components/pwa-install-prompt";
 import { PullToRefresh } from "@/components/pull-to-refresh";
@@ -59,29 +56,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   return (
     <PullToRefresh>
       <div className="min-h-dvh md:min-h-screen overflow-x-clip">
-        {/* ── Top header with iOS safe-area top ── */}
         <header className="header-safe sticky top-0 z-20 border-b border-white/[0.10] bg-[#0f1728]/80 backdrop-blur-2xl">
-          <div className="relative mx-auto max-w-[1320px] px-4 md:px-6 h-[62px] flex items-center justify-between gap-4">
-            <div className="flex items-center gap-2 shrink-0 md:hidden">
-              <MobileProfileTrigger userName={user.name} photoUrl={userPhotoUrl ?? undefined} />
-            </div>
-            <Link href="/dashboard" className="hidden md:flex items-center gap-3 group shrink-0">
-              {school?.brandingLogoUrl ? (
-                <Image
-                  src={school.brandingLogoUrl}
-                  alt="School Logo"
-                  width={30}
-                  height={30}
-                  className="h-[30px] w-[30px] rounded-[8px] object-cover border border-white/[0.12]"
-                />
-              ) : (
-                <BrandIcon size={30} />
-              )}
-              <span className="hidden sm:block text-[15px] font-semibold text-white/90 group-hover:text-white transition">
-                {school?.brandingLogoUrl ? (school?.name ?? "School") : "EduHub"}
-              </span>
-            </Link>
-            <Link href="/dashboard" className="md:hidden absolute left-1/2 -translate-x-1/2 inline-flex items-center justify-center">
+          <div className="relative mx-auto w-full max-w-[520px] md:max-w-[1180px] px-3 sm:px-4 md:px-6 h-[62px] flex items-center justify-between gap-3">
+            <MobileProfileTrigger userName={user.name} photoUrl={userPhotoUrl ?? undefined} />
+            <Link href="/dashboard" className="absolute left-1/2 -translate-x-1/2 inline-flex items-center justify-center">
               {school?.brandingLogoUrl ? (
                 <Image
                   src={school.brandingLogoUrl}
@@ -94,84 +72,17 @@ export default async function AppLayout({ children }: { children: React.ReactNod
                 <BrandIcon size={30} />
               )}
             </Link>
-            <div className="flex items-center gap-2">
-              <div className="hidden md:block">
-                <Badge tone="info">{session.roleKey}</Badge>
-              </div>
-              <UserMenu userName={user.name} userEmail={user.email} photoUrl={userPhotoUrl ?? undefined} />
-              <div className="md:hidden w-9" />
-            </div>
+            <span className="inline-flex min-w-[68px] justify-center rounded-full border border-blue-400/35 bg-blue-500/18 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-blue-100/90">
+              {session.roleKey}
+            </span>
           </div>
         </header>
 
-        {/* ── Page body ── */}
-        <div className="mx-auto max-w-[1320px] px-3 sm:px-4 md:px-6 py-4 md:py-7
-                        grid grid-cols-1 md:grid-cols-[220px_1fr] gap-5 md:gap-7
-                        pb-[calc(5.5rem+env(safe-area-inset-bottom,0px))] md:pb-8">
-
-          {/* ── Sidebar (desktop only) ── */}
-          <aside className="hidden md:flex flex-col gap-1 h-fit sticky top-[78px]">
-            <div className="mb-3 px-3 py-3 rounded-[16px] border border-white/[0.12] bg-[#121a2a]/88 backdrop-blur-xl">
-              <div className="flex items-center gap-2.5">
-                <div className="grid h-8 w-8 place-items-center rounded-[10px]
-                                bg-gradient-to-b from-[#67b4ff] to-[#4f8dfd]
-                                text-xs font-bold text-white shadow-sm shrink-0">
-                  {userPhotoUrl ? (
-                    <Image
-                      src={userPhotoUrl}
-                      alt={user.name}
-                      width={32}
-                      height={32}
-                      className="h-8 w-8 rounded-[10px] object-cover"
-                    />
-                  ) : (
-                    user.name.trim().split(/\s+/).map((p: string) => p[0]).slice(0,2).join("").toUpperCase()
-                  )}
-                </div>
-                <div className="min-w-0">
-                  <div className="text-[13px] font-semibold text-white/90 truncate">{user.name}</div>
-                  <div className="text-[11px] text-white/45 truncate">{user.email}</div>
-                </div>
-              </div>
-            </div>
-            <nav className="space-y-0.5">
-              {canView("DASHBOARD")     && <NavLink href="/dashboard"     label="Dashboard"    />}
-              {canView("STUDENTS")      && <NavLink href="/students"      label="Students"     />}
-              {canView("FEES")          && <NavLink href="/fees"          label="Fees"         />}
-              {canView("COMMUNICATION") && <NavLink href="/feed"          label="Feed"         badgeCount={feedUnreadCount} />}
-              {canView("ATTENDANCE")    && <NavLink href="/attendance"    label="Attendance"   />}
-              {canView("TRANSPORT")     && <NavLink href="/transport"     label="Transport"    />}
-              {canView("ACADEMICS")     && <NavLink href="/academics"     label="Academics"    />}
-              {canView("REPORTS")       && <NavLink href="/reports"       label="Reports"      />}
-              {canView("NOTIFICATIONS") && (
-                <div className="relative">
-                  <NavLink href="/notifications" label="Notifications" />
-                  {unreadCount > 0 && (
-                    <span className="absolute right-3 top-1/2 -translate-y-1/2
-                                     bg-rose-500 text-white text-[10px] font-bold
-                                     rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1">
-                      {unreadCount > 99 ? "99+" : unreadCount}
-                    </span>
-                  )}
-                </div>
-              )}
-            </nav>
-            {(session.roleKey === "ADMIN" || session.roleKey === "PRINCIPAL") && (
-              <>
-                <div className="mx-3 my-2 h-px bg-white/[0.07]" />
-                <nav className="space-y-0.5">
-                  {session.roleKey === "ADMIN" && <NavLink href="/admin/users"     label="Users"       />}
-                  {canView("SETTINGS") && session.roleKey === "ADMIN" &&
-                    <NavLink href="/admin/settings" label="Settings" />}
-                  <NavLink href="/admin/approvals" label="Approvals"  />
-                  <NavLink href="/admin/audit"     label="Audit Logs" />
-                </nav>
-              </>
-            )}
-          </aside>
-
-          {/* ── Main content ── */}
-          <main className="min-w-0 space-y-5">{children}</main>
+        <div
+          className="mx-auto w-full max-w-[520px] md:max-w-[1180px] px-3 sm:px-4 md:px-6 py-4 md:py-6
+                     pb-[calc(5.5rem+env(safe-area-inset-bottom,0px))]"
+        >
+          <main className="min-w-0 space-y-5 md:space-y-6">{children}</main>
         </div>
 
         <MobileNav

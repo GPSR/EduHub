@@ -1,9 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { clsx } from "clsx";
-import { useState, useEffect } from "react";
+import { useState, useEffect, type MouseEvent } from "react";
 import { MOBILE_BOTTOM_PRIMARY_LIMIT } from "@/lib/mobile-nav-config";
 
 type NavItem = { href: string; label: string; activeStartsWith?: boolean };
@@ -38,6 +38,7 @@ export function MobileNav({
   unreadCount?: number; feedUnreadCount?: number;
 }) {
   const pathname = usePathname();
+  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [showUserInfo, setShowUserInfo] = useState(false);
 
@@ -90,11 +91,24 @@ export function MobileNav({
     return 0;
   }
 
+  function handleProfileToggle(event: MouseEvent<HTMLAnchorElement>) {
+    setOpen(false);
+    setShowUserInfo(false);
+    const onProfilePage = pathname === "/profile" || pathname.startsWith("/profile/");
+    if (!onProfilePage) return;
+    event.preventDefault();
+    if (typeof window !== "undefined" && window.history.length > 1) {
+      router.back();
+      return;
+    }
+    router.push("/dashboard");
+  }
+
   return (
     <>
       {/* ── Bottom sheet drawer ──────────────────── */}
       {open && (
-        <div className="md:hidden fixed inset-0 z-[60] flex flex-col justify-end">
+        <div className="fixed inset-0 z-[60] flex flex-col items-center justify-end">
           {/* Backdrop */}
           <button
             aria-label="Close"
@@ -103,7 +117,7 @@ export function MobileNav({
           />
 
           {/* Sheet */}
-          <div className="relative animate-slide-up rounded-t-[28px] border-t border-white/[0.12]
+          <div className="relative w-full max-w-[520px] md:max-w-[980px] animate-slide-up rounded-t-[28px] border-t border-white/[0.12]
                           bg-[#111a2d]/95 backdrop-blur-2xl overflow-hidden
                           shadow-[0_-24px_60px_rgba(0,0,0,0.7)]"
             style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}>
@@ -156,9 +170,10 @@ export function MobileNav({
             </div>
 
             {/* Nav grid */}
-            <div className="px-4 py-4 grid grid-cols-4 gap-2">
+            <div className="px-4 py-4 grid grid-cols-4 md:grid-cols-7 gap-2">
               {/* Profile */}
               <Link href="/profile"
+                onClick={handleProfileToggle}
                 className={clsx(
                   "col-span-4 flex items-center gap-3 rounded-[14px] border px-4 py-3.5 transition",
                   pathname.startsWith("/profile")
@@ -174,6 +189,10 @@ export function MobileNav({
                 const badge = getBadge(item.href);
                 return (
                   <Link key={item.href} href={item.href}
+                    onClick={() => {
+                      setOpen(false);
+                      setShowUserInfo(false);
+                    }}
                     className={clsx(
                       "flex flex-col items-center gap-2 rounded-[14px] border py-4 px-1 transition relative",
                       isActive(pathname, item)
@@ -200,7 +219,7 @@ export function MobileNav({
       )}
 
       {/* ── Bottom tab bar ───────────────────────── */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40
+      <nav className="fixed bottom-0 left-1/2 z-40 w-full max-w-[520px] md:max-w-[980px] -translate-x-1/2
                       border-t border-white/[0.12] bg-[#0f1728]/94 backdrop-blur-2xl">
         <div className="grid pt-2"
           style={{

@@ -18,6 +18,7 @@
     --sab: env(safe-area-inset-bottom, 0px);
     --sal: env(safe-area-inset-left,   0px);
     --sar: env(safe-area-inset-right,  0px);
+    --keyboard-offset: 0px;
   }
 }
 
@@ -155,4 +156,13 @@ a { color: inherit; }
 /* ── Offline/network banner ──────────────────────── */
 .network-banner-offset {
   top: env(safe-area-inset-top, 0px);
+}
+
+/* ── Keyboard-aware containers (native app) ─────── */
+.keyboard-aware {
+  padding-bottom: max(1rem, calc(env(safe-area-inset-bottom, 0px) + var(--keyboard-offset, 0px)));
+}
+
+.keyboard-aware-scroll {
+  scroll-padding-bottom: calc(1.25rem + var(--keyboard-offset, 0px));
 }

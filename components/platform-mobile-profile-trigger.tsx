@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
 
 function initials(name: string) {
   return name
@@ -20,11 +20,28 @@ export function PlatformMobileProfileTrigger({
   userName: string;
   photoUrl?: string | null;
 }) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const onProfilePage = pathname === "/platform/profile" || pathname.startsWith("/platform/profile/");
+
+  const handleClick = () => {
+    if (onProfilePage) {
+      if (typeof window !== "undefined" && window.history.length > 1) {
+        router.back();
+        return;
+      }
+      router.push("/platform");
+      return;
+    }
+    router.push("/platform/profile");
+  };
+
   return (
-    <Link
-      href="/platform/profile"
+    <button
+      type="button"
+      onClick={handleClick}
       className="md:hidden inline-flex items-center justify-center rounded-[12px] border border-white/[0.12] bg-[#101a2d]/90 p-1.5 text-white/90"
-      aria-label="Open profile"
+      aria-label={onProfilePage ? "Close profile" : "Open profile"}
     >
       {photoUrl ? (
         <Image
@@ -39,6 +56,6 @@ export function PlatformMobileProfileTrigger({
           {initials(userName)}
         </span>
       )}
-    </Link>
+    </button>
   );
 }

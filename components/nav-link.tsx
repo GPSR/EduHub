@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { clsx } from "clsx";
+import type { MouseEvent } from "react";
 
 const NAV_ICONS: Record<string, string> = {
   "/dashboard":          "◈",
@@ -33,12 +34,24 @@ export function NavLink({
   badgeCount?: number;
 }) {
   const pathname = usePathname();
+  const router = useRouter();
   const active = pathname === href || (href !== "/dashboard" && pathname.startsWith(href));
   const emoji = icon ?? NAV_ICONS[href] ?? "•";
+
+  const handleClick = (event: MouseEvent<HTMLAnchorElement>) => {
+    if (href !== "/profile" || !active) return;
+    event.preventDefault();
+    if (typeof window !== "undefined" && window.history.length > 1) {
+      router.back();
+      return;
+    }
+    router.push("/dashboard");
+  };
 
   return (
     <Link
       href={href}
+      onClick={handleClick}
       className={clsx(
         "flex items-center justify-between gap-2.5 rounded-[12px] px-3 py-2 text-[13.5px] font-medium transition-all duration-150 border",
         active

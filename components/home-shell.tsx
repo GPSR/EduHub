@@ -3,108 +3,278 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Card } from "@/components/ui";
-import { SchoolSlugCheck } from "@/components/school-slug-check";
-import { HomeCTA } from "@/components/home-cta";
+import { BrandWordmark } from "@/components/brand";
 
 const STORAGE_KEY = "eduhub_onboarded_v1";
+const STORAGE_SLUG_KEY = "eduhub_school_slug_v1";
 
-type FeatureGroup = "Core Ops" | "Learning" | "Engagement" | "Insights" | "Administration";
-
-type FeatureItem = {
-  icon: string;
-  label: string;
-  desc: string;
-  group: FeatureGroup;
-};
-
-const FEATURES = [
-  { icon: "🏠", label: "Dashboard", desc: "Real-time school KPIs", group: "Core Ops" },
-  { icon: "👥", label: "Students", desc: "Admissions and student profiles", group: "Core Ops" },
-  { icon: "💳", label: "Fees", desc: "Invoices, reminders, and collections", group: "Core Ops" },
-  { icon: "✅", label: "Attendance", desc: "Daily logs with trend insights", group: "Core Ops" },
-  { icon: "🗓️", label: "Timetable", desc: "Class and period scheduling", group: "Core Ops" },
-  { icon: "📢", label: "Communication", desc: "Announcements and school feed", group: "Engagement" },
-  { icon: "📝", label: "Homework", desc: "Assignment tracking and follow-up", group: "Learning" },
-  { icon: "🎓", label: "Progress Card", desc: "Exam marks and term reports", group: "Learning" },
-  { icon: "📊", label: "Reports", desc: "Analytics and export-ready reports", group: "Insights" },
-  { icon: "📚", label: "Academics", desc: "Subjects and curriculum setup", group: "Learning" },
-  { icon: "🔔", label: "Notifications", desc: "Alerts for parents and staff", group: "Engagement" },
-  { icon: "🚌", label: "Transport", desc: "Live tracking and route alerts", group: "Engagement" },
-  { icon: "⚙️", label: "School Settings", desc: "Branding and school controls", group: "Administration" },
-  { icon: "🧑‍💼", label: "Users", desc: "Role and permission management", group: "Administration" },
-] satisfies FeatureItem[];
-
-const FEATURE_GROUPS: FeatureGroup[] = ["Core Ops", "Learning", "Engagement", "Insights", "Administration"];
-
-const FEATURE_GROUP_STYLES: Record<FeatureGroup, string> = {
-  "Core Ops": "border-blue-300/35 bg-blue-500/14 text-blue-100/95",
-  Learning: "border-emerald-300/35 bg-emerald-500/14 text-emerald-100/95",
-  Engagement: "border-cyan-300/35 bg-cyan-500/14 text-cyan-100/95",
-  Insights: "border-amber-300/35 bg-amber-500/14 text-amber-100/95",
-  Administration: "border-violet-300/35 bg-violet-500/14 text-violet-100/95",
-};
-
-const ONBOARDING_HIGHLIGHTS = [
-  { icon: "🚀", text: "Setup in minutes" },
-  { icon: "🔐", text: "Secure permissions" },
-  { icon: "📱", text: "Mobile-first experience" },
+const MOBILE_HERO_CHIPS = [
+  "⚡ Setup in minutes",
+  "📱 Mobile ready",
+  "🔐 Role-based",
+  "🌐 Works offline",
 ];
 
-const PROOF_POINTS = [
-  { value: "14", label: "Core modules" },
-  { value: "1", label: "Unified platform" },
-  { value: "24/7", label: "Parent visibility" },
-  { value: "Role-based", label: "Secure access" },
+const MOBILE_STATS = [
+  { icon: "🧩", value: "14", label: "Modules" },
+  { icon: "🌐", value: "1", label: "Platform" },
+  { icon: "👨‍👩‍👧", value: "24/7", label: "Parent access" },
+  { icon: "👥", value: "∞", label: "Students" },
 ];
 
-const ONBOARDING_JOURNEY = [
-  { step: "01", title: "Create school", desc: "Add school profile, slug, and branding details." },
-  { step: "02", title: "Create admin", desc: "Set admin account and secure access permissions." },
-  { step: "03", title: "Start operations", desc: "Run modules with students, teachers, and parents." },
-];
+const MOBILE_FEATURES = [
+  {
+    icon: "🏠",
+    label: "Dashboard",
+    desc: "Live insights",
+    className: "bg-[linear-gradient(135deg,rgba(59,130,246,0.2),rgba(99,102,241,0.08))] border-blue-300/25",
+  },
+  {
+    icon: "👥",
+    label: "Students",
+    desc: "Admissions",
+    className: "bg-[linear-gradient(135deg,rgba(139,92,246,0.2),rgba(167,139,250,0.08))] border-violet-300/25",
+  },
+  {
+    icon: "💳",
+    label: "Fees",
+    desc: "Collections",
+    className: "bg-[linear-gradient(135deg,rgba(16,185,129,0.2),rgba(20,184,166,0.08))] border-emerald-300/25",
+  },
+  {
+    icon: "✅",
+    label: "Attendance",
+    desc: "Daily records",
+    className: "bg-[linear-gradient(135deg,rgba(20,184,166,0.2),rgba(6,182,212,0.08))] border-teal-300/25",
+  },
+  {
+    icon: "📢",
+    label: "Feed",
+    desc: "Announcements",
+    className: "bg-[linear-gradient(135deg,rgba(245,158,11,0.2),rgba(249,115,22,0.08))] border-amber-300/25",
+  },
+  {
+    icon: "📚",
+    label: "Academics",
+    desc: "Curriculum",
+    className: "bg-[linear-gradient(135deg,rgba(14,165,233,0.2),rgba(59,130,246,0.08))] border-sky-300/25",
+  },
+  {
+    icon: "📝",
+    label: "Homework",
+    desc: "Assignments",
+    className: "bg-[linear-gradient(135deg,rgba(99,102,241,0.2),rgba(139,92,246,0.08))] border-indigo-300/25",
+  },
+  {
+    icon: "🚌",
+    label: "Transport",
+    desc: "Live tracking bus",
+    className: "bg-[linear-gradient(135deg,rgba(244,63,94,0.2),rgba(236,72,153,0.08))] border-rose-300/25",
+  },
+] as const;
 
-const ONBOARDING_ASSURANCE = [
-  "Approval update sent by email",
-  "Secure invite links expire in 30 minutes",
-  "No credit card required to start",
-];
+const ALL_MODULES = [
+  { icon: "🏠", label: "Dashboard", desc: "Real-time school KPIs" },
+  { icon: "👥", label: "Students", desc: "Admissions and profiles" },
+  { icon: "💳", label: "Fees", desc: "Invoices and collections" },
+  { icon: "✅", label: "Attendance", desc: "Daily attendance logs" },
+  { icon: "🗓️", label: "Timetable", desc: "Class schedules" },
+  { icon: "📢", label: "Feed", desc: "Announcements and updates" },
+  { icon: "📚", label: "Academics", desc: "Subjects and curriculum" },
+  { icon: "📝", label: "Homework", desc: "Assignments tracking" },
+  { icon: "🎓", label: "Progress Card", desc: "Exam results and reports" },
+  { icon: "📊", label: "Reports", desc: "Analytics and exports" },
+  { icon: "🔔", label: "Notifications", desc: "Alerts for users" },
+  { icon: "🚌", label: "Transport", desc: "Live tracking bus" },
+  { icon: "⚙️", label: "School Settings", desc: "School configuration" },
+  { icon: "🧑‍💼", label: "Users", desc: "Roles and permissions" },
+] as const;
 
 export function HomeShell({ isSignedIn }: { isSignedIn: boolean }) {
   const [onboarded, setOnboarded] = useState<boolean | null>(null);
+  const [slug, setSlug] = useState<string | undefined>(undefined);
+  const [showAllModules, setShowAllModules] = useState(false);
 
   useEffect(() => {
     try {
       setOnboarded(localStorage.getItem(STORAGE_KEY) === "1");
+      setSlug(localStorage.getItem(STORAGE_SLUG_KEY) || undefined);
     } catch {
       setOnboarded(false);
+      setSlug(undefined);
     }
   }, []);
+
+  const loginHref = slug ? `/login?schoolSlug=${encodeURIComponent(slug)}` : "/login";
+  const primaryHref = onboarded ? loginHref : "/onboard";
+  const primaryLabel = onboarded ? "Login →" : "Onboard School →";
+  const secondaryHref = onboarded ? "/onboard" : loginHref;
+  const secondaryLabel = onboarded ? "Onboard School" : "Login";
 
   /* Skeleton while checking localStorage */
   if (onboarded === null && !isSignedIn) {
     return (
-      <div className="space-y-4 lg:space-y-2.5">
-        <Card>
-          <div className="space-y-3">
-            <div className="h-4 w-32 rounded-full bg-white/[0.06] animate-pulse" />
-            <div className="h-10 w-full rounded-[13px] bg-white/[0.04] animate-pulse" />
-          </div>
-        </Card>
-        <Card>
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-3">
-            {Array.from({ length: FEATURES.length }).map((_, i) => (
-              <div key={i} className="h-16 lg:h-14 rounded-[13px] bg-white/[0.04] animate-pulse" />
-            ))}
-          </div>
-        </Card>
+      <div className="space-y-3">
+        <div className="rounded-[22px] border border-white/[0.10] bg-[#070e1c] p-4 space-y-3">
+          <div className="h-14 w-14 rounded-2xl bg-white/[0.05] animate-pulse mx-auto" />
+          <div className="h-3 w-48 rounded-full bg-white/[0.06] animate-pulse mx-auto" />
+          <div className="h-5 w-64 rounded-full bg-white/[0.06] animate-pulse mx-auto" />
+          <div className="h-5 w-52 rounded-full bg-white/[0.06] animate-pulse mx-auto" />
+        </div>
+        <div className="rounded-[20px] border border-white/[0.10] bg-white/[0.03] p-4 space-y-2.5">
+          <div className="h-10 w-full rounded-[13px] bg-white/[0.05] animate-pulse" />
+          <div className="h-9 w-full rounded-[13px] bg-white/[0.04] animate-pulse" />
+        </div>
       </div>
     );
   }
 
+  const mobileLanding = (
+    <div className="space-y-3 md:space-y-4">
+      <section className="rounded-[24px] border border-white/[0.12] bg-[#070e1c] px-4 pt-5 pb-4 md:px-6 md:pt-6 md:pb-5 text-center">
+        <div className="flex flex-col items-center">
+          <div className="mx-auto mb-2">
+            <BrandWordmark size="md" className="pointer-events-none" />
+          </div>
+          <div className="inline-flex items-center gap-1.5 rounded-full border border-cyan-300/35 bg-cyan-500/12 px-2.5 py-1">
+            <span className="h-1.5 w-1.5 rounded-full bg-cyan-300" />
+            <span className="text-[9px] font-bold uppercase tracking-[0.12em] text-cyan-100/90">
+              School Management Platform
+            </span>
+          </div>
+        </div>
+        <h2 className="mt-2 text-[22px] md:text-[30px] font-extrabold leading-[1.05] text-white/95">Run your school</h2>
+        <p className="text-[22px] md:text-[30px] font-extrabold leading-[1.05] text-transparent bg-clip-text bg-gradient-to-r from-blue-300 via-cyan-200 to-violet-300">
+          from one platform
+        </p>
+        <p className="mx-auto mt-2 max-w-[290px] md:max-w-[580px] text-[11.5px] md:text-[13px] leading-relaxed text-white/52">
+          EduHub unifies admissions, fees, attendance, communication and transport.
+        </p>
+        <div className="mt-2.5 flex flex-wrap items-center justify-center gap-1.5">
+          {MOBILE_HERO_CHIPS.map((chip) => (
+            <span
+              key={chip}
+              className="rounded-full border border-white/[0.10] bg-white/[0.04] px-2 py-0.5 text-[9px] text-white/62"
+            >
+              {chip}
+            </span>
+          ))}
+        </div>
+      </section>
+
+      <section className="relative overflow-hidden rounded-[20px] border border-white/[0.10] bg-[linear-gradient(135deg,rgba(59,130,246,0.15),rgba(139,92,246,0.10),#0b1323)] px-4 py-4 md:px-6 md:py-5">
+        <div className="pointer-events-none absolute -top-6 -right-4 h-20 w-20 rounded-full border border-white/[0.05]" />
+        <div className="pointer-events-none absolute -top-12 -right-10 h-36 w-36 rounded-full border border-white/[0.04]" />
+
+        <h3 className="text-[15px] font-extrabold leading-tight text-white/95">
+          Get your school online{" "}
+          <span className="bg-gradient-to-r from-blue-300 to-cyan-200 bg-clip-text text-transparent">in minutes</span>
+        </h3>
+        <p className="mt-1.5 text-[11px] leading-relaxed text-white/55">
+          One platform for admissions, daily ops, parent communication, fees, and more.
+        </p>
+
+        <div className="mt-3 space-y-2">
+          <Link
+            href={primaryHref}
+            className="flex h-10 items-center justify-center rounded-[13px] bg-gradient-to-b from-[#67b4ff] to-[#4f8dfd] text-[12px] font-bold text-white shadow-[0_10px_24px_-14px_rgba(79,141,253,0.75)]"
+          >
+            {primaryLabel}
+          </Link>
+          <Link
+            href={secondaryHref}
+            className="flex h-9 items-center justify-center rounded-[13px] border border-white/[0.12] bg-white/[0.06] text-[12px] font-semibold text-white/82"
+          >
+            {secondaryLabel}
+          </Link>
+          <p className="pt-0.5 text-center text-[9.5px] text-white/34">Free to start · No credit card required</p>
+        </div>
+      </section>
+
+      <section className="flex gap-2 overflow-x-auto px-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden md:grid md:grid-cols-4 md:gap-2 md:overflow-visible md:px-0">
+        {MOBILE_STATS.map((item) => (
+          <article
+            key={item.label}
+            className="min-w-[72px] md:min-w-0 flex-1 rounded-[13px] border border-white/[0.09] bg-white/[0.04] px-2 py-2 md:py-3 text-center"
+          >
+            <div className="text-[13px]">{item.icon}</div>
+            <div className="text-[14px] font-extrabold text-white/92">{item.value}</div>
+            <div className="mt-0.5 text-[8.5px] leading-tight text-white/45">{item.label}</div>
+          </article>
+        ))}
+      </section>
+
+      <section className="rounded-[20px] border border-white/[0.08] bg-white/[0.025] p-3 md:p-4">
+        <div className="mb-2.5 flex items-center justify-between gap-2">
+          <div>
+            <p className="text-[12px] font-bold text-white/78">Everything included</p>
+            <p className="text-[9px] text-white/38">14 modules · one platform</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setShowAllModules((prev) => !prev)}
+            aria-expanded={showAllModules}
+            className="rounded-full border border-emerald-300/35 bg-emerald-500/12 px-2 py-1 text-[9px] font-bold text-emerald-100/95 transition hover:bg-emerald-500/20"
+          >
+            {showAllModules ? "Hide modules" : "All modules"}
+          </button>
+        </div>
+
+        <div className="grid grid-cols-4 md:grid-cols-8 gap-1.5 md:gap-2">
+          {MOBILE_FEATURES.map((item) => (
+            <article key={item.label} className={`rounded-[12px] border px-1.5 py-1.5 md:px-2 md:py-2 ${item.className}`}>
+              <div className="text-[15px] md:text-[16px]">{item.icon}</div>
+              <div className="mt-1 text-[9px] md:text-[10px] font-bold leading-tight text-white/88">{item.label}</div>
+              <div className="mt-0.5 text-[8.5px] md:text-[9px] leading-tight text-white/50">{item.desc}</div>
+            </article>
+          ))}
+        </div>
+
+        {showAllModules && (
+          <div className="mt-3 rounded-[14px] border border-white/[0.10] bg-[#0f1728]/70 p-2.5 md:p-3 animate-fade-up">
+            <p className="mb-2 text-[10px] uppercase tracking-[0.1em] text-white/45">All 14 modules</p>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+              {ALL_MODULES.map((module) => (
+                <article
+                  key={module.label}
+                  className="rounded-[11px] border border-white/[0.10] bg-white/[0.03] px-2 py-2"
+                >
+                  <div className="text-[14px]">{module.icon}</div>
+                  <div className="mt-1 text-[10px] font-semibold text-white/88 leading-tight">{module.label}</div>
+                  <div className="mt-0.5 text-[9px] text-white/50 leading-tight">{module.desc}</div>
+                </article>
+              ))}
+            </div>
+          </div>
+        )}
+      </section>
+
+      <section className="rounded-[16px] border border-white/[0.08] bg-[#060912]/95 px-2 py-2 md:hidden">
+        <div className="flex items-end justify-around">
+          {[
+            { icon: "◈", label: "Home", active: true },
+            { icon: "👥", label: "Students" },
+            { icon: "💳", label: "Fees" },
+            { icon: "📢", label: "Feed" },
+            { icon: "⋯", label: "More" },
+          ].map((tab) => (
+            <div key={tab.label} className="flex min-w-0 flex-1 flex-col items-center gap-0.5">
+              <span className={`h-0.5 w-5 rounded-full ${tab.active ? "bg-indigo-400" : "bg-transparent"}`} />
+              <span className="text-[18px] leading-none">{tab.icon}</span>
+              <span className={`text-[9px] font-semibold ${tab.active ? "text-white/92" : "text-white/38"}`}>
+                {tab.label}
+              </span>
+            </div>
+          ))}
+        </div>
+      </section>
+    </div>
+  );
+
   /* Signed-in state */
   if (isSignedIn) {
     return (
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+      <div className="space-y-3 md:grid md:grid-cols-2 md:gap-4 md:space-y-0">
         <Card title="Welcome back" accent="indigo">
           <p className="text-sm text-white/60 mb-4">Continue where you left off.</p>
           <Link
@@ -140,169 +310,5 @@ export function HomeShell({ isSignedIn }: { isSignedIn: boolean }) {
     );
   }
 
-  /* New user — onboarding */
-  if (!onboarded) {
-    return (
-      <div className="space-y-4 lg:space-y-3">
-        <Card
-          title="Get started"
-          description="Create your school and admin account in minutes"
-          accent="indigo"
-          className="lg:p-4"
-        >
-          <div className="rounded-[14px] border border-white/[0.14] bg-[radial-gradient(circle_at_12%_10%,rgba(96,165,250,0.24),transparent_42%),linear-gradient(180deg,rgba(10,18,35,0.72),rgba(8,14,28,0.92))] p-4 lg:p-3.5">
-            <div className="grid grid-cols-1 xl:grid-cols-[1.4fr_1fr] gap-4 lg:gap-3">
-              <div className="min-w-0">
-                <h3 className="text-[17px] sm:text-[18px] font-semibold text-white/94 tracking-tight">
-                  Launch your digital school operations with confidence
-                </h3>
-                <p className="mt-2 text-sm lg:text-[13px] text-white/78 leading-relaxed">
-                  Move from onboarding to daily operations fast with secure access and production-ready workflows for students, teachers, parents, and transport teams.
-                </p>
-
-                <div className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-2">
-                  {ONBOARDING_HIGHLIGHTS.map((item) => (
-                    <span
-                      key={item.text}
-                      className="inline-flex items-center gap-1.5 rounded-[10px] border border-blue-300/25 bg-blue-500/12 px-2.5 py-1 text-[11px] font-medium text-blue-100/95"
-                    >
-                      <span>{item.icon}</span>
-                      <span>{item.text}</span>
-                    </span>
-                  ))}
-                </div>
-
-                <div className="mt-4">
-                  <HomeCTA isSignedIn={false} />
-                </div>
-
-                <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  {ONBOARDING_ASSURANCE.map((item) => (
-                    <div
-                      key={item}
-                      className="inline-flex items-center gap-1.5 rounded-[10px] border border-white/[0.14] bg-white/[0.03] px-2.5 py-1.5 text-[11px] text-white/68"
-                    >
-                      <span className="text-cyan-200/90">✓</span>
-                      <span>{item}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div className="rounded-[12px] border border-white/[0.12] bg-[#0d162a]/72 p-3">
-                <p className="text-[11px] uppercase tracking-[0.14em] text-white/50">Why schools choose EduHub</p>
-                <div className="mt-2.5 grid grid-cols-2 gap-2">
-                  {PROOF_POINTS.map((item) => (
-                    <div key={item.label} className="rounded-[10px] border border-white/[0.10] bg-white/[0.03] px-2.5 py-2">
-                      <p className="text-sm font-bold text-white/90">{item.value}</p>
-                      <p className="mt-0.5 text-[10px] text-white/55 leading-snug">{item.label}</p>
-                    </div>
-                  ))}
-                </div>
-
-                <div className="mt-3 rounded-[10px] border border-white/[0.10] bg-white/[0.03] p-2.5">
-                  <p className="text-[10px] uppercase tracking-[0.14em] text-white/45">Onboarding Journey</p>
-                  <div className="mt-2 space-y-2">
-                    {ONBOARDING_JOURNEY.map((item) => (
-                      <div key={item.step} className="flex items-start gap-2.5">
-                        <span className="mt-0.5 inline-flex h-5 w-5 items-center justify-center rounded-full border border-blue-300/35 bg-blue-500/18 text-[9px] font-semibold text-blue-100">
-                          {item.step}
-                        </span>
-                        <div className="min-w-0">
-                          <p className="text-[11px] font-semibold text-white/88">{item.title}</p>
-                          <p className="text-[10px] text-white/52 leading-snug">{item.desc}</p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </Card>
-
-        <Card title="Everything you need" description="Core modules included" accent="teal" className="lg:p-4">
-          <div className="mb-3 rounded-[12px] border border-white/[0.10] bg-[#0d1629]/70 px-3 py-2.5">
-            <div className="flex items-center justify-between gap-2">
-              <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-white/55">All-in-one school suite</p>
-              <span className="rounded-full border border-teal-300/30 bg-teal-400/14 px-2.5 py-1 text-[11px] font-semibold text-teal-100">
-                {FEATURES.length} modules
-              </span>
-            </div>
-            <div className="mt-2 flex flex-wrap gap-1.5">
-              {FEATURE_GROUPS.map((group) => (
-                <span
-                  key={group}
-                  className={`inline-flex rounded-full border px-2 py-0.5 text-[10px] font-semibold tracking-[0.02em] ${FEATURE_GROUP_STYLES[group]}`}
-                >
-                  {group}
-                </span>
-              ))}
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-2 lg:gap-1.5">
-            {FEATURES.map((f) => (
-              <div
-                key={f.label}
-                className="group rounded-[13px] border border-white/[0.12] bg-[linear-gradient(180deg,rgba(21,34,58,0.95),rgba(11,18,33,0.96))]
-                           px-3 py-3 lg:px-2.5 lg:py-2 hover:border-white/[0.22] hover:bg-[#17253d] hover:-translate-y-[1px] transition-all"
-              >
-                <div className="mb-1.5 inline-flex h-7 w-7 lg:h-6 lg:w-6 items-center justify-center rounded-[9px] border border-white/[0.14] bg-white/[0.06] text-base lg:text-[13px] group-hover:border-white/[0.24]">
-                  {f.icon}
-                </div>
-                <div className="mb-1">
-                  <span
-                    className={`inline-flex rounded-full border px-1.5 py-0.5 text-[9px] font-semibold tracking-[0.03em] ${FEATURE_GROUP_STYLES[f.group]}`}
-                  >
-                    {f.group}
-                  </span>
-                </div>
-                <div
-                  className="text-[13px] lg:text-[11.5px] font-semibold text-white/90 leading-snug whitespace-nowrap"
-                  title={f.label}
-                >
-                  {f.label}
-                </div>
-                <div
-                  className="mt-0.5 text-[11px] lg:text-[10px] text-white/55 leading-snug min-h-[28px]"
-                  style={{
-                    display: "-webkit-box",
-                    WebkitLineClamp: 2,
-                    WebkitBoxOrient: "vertical",
-                    overflow: "hidden",
-                  }}
-                  title={f.desc}
-                >
-                  {f.desc}
-                </div>
-              </div>
-            ))}
-          </div>
-        </Card>
-      </div>
-    );
-  }
-
-  /* Returning user — login */
-  return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-      <Card title="New school?" description="Manage multiple schools from one device" accent="teal">
-        <p className="text-sm text-white/55 mb-4">
-          Each school has its own isolated data and user accounts.
-        </p>
-        <Link
-          href="/onboard"
-          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-[13px]
-                     border border-white/[0.12] bg-[#101a2d]/90 text-sm font-medium text-white/85
-                     hover:bg-[#17253d] hover:text-white transition-all"
-        >
-          Onboard School
-        </Link>
-      </Card>
-      <Card title="Sign in" description="Enter your school code to continue" accent="indigo">
-        <SchoolSlugCheck />
-      </Card>
-    </div>
-  );
+  return mobileLanding;
 }

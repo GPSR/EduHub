@@ -2,8 +2,8 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
+import { useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent } from "react";
 import { clsx } from "clsx";
 
 function initials(name: string) {
@@ -21,9 +21,22 @@ export function PlatformUserMenu({
   photoUrl?: string | null;
 }) {
   const pathname = usePathname();
+  const router = useRouter();
   const [open, setOpen] = useState(false);
   const panelRef = useRef<HTMLDivElement | null>(null);
   const avatar = useMemo(() => initials(name), [name]);
+  const onProfilePage = pathname === "/platform/profile" || pathname.startsWith("/platform/profile/");
+
+  const handleProfileClick = (event: ReactMouseEvent<HTMLAnchorElement>) => {
+    setOpen(false);
+    if (!onProfilePage) return;
+    event.preventDefault();
+    if (typeof window !== "undefined" && window.history.length > 1) {
+      router.back();
+      return;
+    }
+    router.push("/platform");
+  };
 
   useEffect(() => {
     setOpen(false);
@@ -118,7 +131,7 @@ export function PlatformUserMenu({
           <Link
             role="menuitem"
             href="/platform/profile"
-            onClick={() => setOpen(false)}
+            onClick={handleProfileClick}
             className="flex items-center gap-2.5 px-3.5 py-2.5 text-sm text-white/82 transition hover:bg-white/[0.09] hover:text-white"
           >
             <span>👤</span>

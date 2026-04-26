@@ -62,7 +62,7 @@ export function HomeCTA({ isSignedIn }: { isSignedIn: boolean }) {
           href="/onboard"
           className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-2xl bg-gradient-to-b from-[#67b4ff] to-[#4f8dfd] hover:from-[#7ac0ff] hover:to-[#5a95ff] text-white shadow-[0_12px_30px_-18px_rgba(79,141,253,0.7)] transition-colors font-semibold"
         >
-          Onboard school
+          Onboard School
         </Link>
         <Link
           href={loginHref}
@@ -85,7 +85,7 @@ export function HomeCTA({ isSignedIn }: { isSignedIn: boolean }) {
         Login
       </Link>
       <Link href="/onboard" className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-2xl bg-[#101a2d]/90 hover:bg-[#17253d] text-white border border-white/[0.12] transition-colors font-semibold">
-        Create another school
+        Onboard School
       </Link>
     </div>
   );

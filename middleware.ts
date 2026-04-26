@@ -1,13 +1,17 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { jwtVerify } from "jose";
+import { hostWithoutPort, isPlatformHost } from "@/lib/app-env";
 
 const PUBLIC_ROUTES = new Set([
   "/",
   "/login",
+  "/forgot-password",
+  "/reset-password",
   "/onboard",
   "/accept-invite",
   "/platform/login",
+  "/platform/forgot-password",
   "/platform/onboard"
 ]);
 
@@ -57,9 +61,9 @@ async function getSchoolRoleFromToken(token: string): Promise<SchoolRoleKey | nu
 export function middleware(req: NextRequest) {
   return (async () => {
   const { pathname } = req.nextUrl;
-  const host = req.headers.get("host")?.toLowerCase() ?? "";
+  const host = hostWithoutPort(req.headers.get("host") ?? "");
 
-  if (host.startsWith("platform.")) {
+  if (isPlatformHost(host)) {
     const url = req.nextUrl.clone();
     if (pathname === "/") {
       url.pathname = "/platform";
@@ -71,6 +75,10 @@ export function middleware(req: NextRequest) {
     }
     if (pathname === "/onboard") {
       url.pathname = "/platform/onboard";
+      return NextResponse.redirect(url);
+    }
+    if (pathname === "/forgot-password") {
+      url.pathname = "/platform/forgot-password";
       return NextResponse.redirect(url);
     }
   }

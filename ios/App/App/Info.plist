@@ -2,12 +2,12 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-    <key>CAPACITOR_DEBUG</key>
+	<key>CAPACITOR_DEBUG</key>
 	<string>$(CAPACITOR_DEBUG)</string>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>en</string>
 	<key>CFBundleDisplayName</key>
-        <string>Schools</string>
+	<string>Schools</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -24,16 +24,16 @@
 	<string>$(CURRENT_PROJECT_VERSION)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
-	<key>UILaunchStoryboardName</key>
-	<string>LaunchScreen</string>
 	<key>NSCameraUsageDescription</key>
 	<string>Allow camera access to capture profile and student photos.</string>
-	<key>NSPhotoLibraryUsageDescription</key>
-	<string>Allow photo library access to upload profile and student photos.</string>
-	<key>NSPhotoLibraryAddUsageDescription</key>
-	<string>Allow saving generated school assets and card previews to your photos.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Allow location access for live transport tracking when trips are active.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>Allow saving generated school assets and card previews to your photos.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Allow photo library access to upload profile and student photos.</string>
+	<key>UILaunchStoryboardName</key>
+	<string>LaunchScreen</string>
 	<key>UIMainStoryboardFile</key>
 	<string>Main</string>
 	<key>UIRequiredDeviceCapabilities</key>

@@ -6,6 +6,10 @@ function brandTextSize(size: "sm" | "md" | "lg") {
   return size === "sm" ? "text-xl" : size === "lg" ? "text-3xl" : "text-2xl";
 }
 
+function brandLogoSize(size: "sm" | "md" | "lg") {
+  return size === "sm" ? 112 : size === "lg" ? 180 : 144;
+}
+
 export function BrandLogo({
   className,
   size = "md"
@@ -74,6 +78,34 @@ export function BrandIcon({
           />
         </span>
       </span>
+    </Link>
+  );
+}
+
+export function BrandWordmark({
+  className,
+  size = "md",
+  href = "/",
+  priority = false
+}: {
+  className?: string;
+  size?: "sm" | "md" | "lg";
+  href?: string;
+  priority?: boolean;
+}) {
+  const dimension = brandLogoSize(size);
+
+  return (
+    <Link href={href} aria-label="Go to home" className={clsx("inline-flex items-center justify-center", className)}>
+      <Image
+        src="/brand/eduhub-logo.png"
+        alt="EduHub"
+        width={dimension}
+        height={dimension}
+        priority={priority}
+        quality={100}
+        className="h-auto w-auto max-w-full drop-shadow-[0_10px_22px_rgba(0,0,0,0.35)]"
+      />
     </Link>
   );
 }

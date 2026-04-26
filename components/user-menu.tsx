@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
+import { useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent } from "react";
 import { clsx } from "clsx";
 
 function initials(name: string) {
@@ -14,6 +15,20 @@ export function UserMenu({ userName, userEmail, photoUrl }: { userName: string; 
   const [open, setOpen] = useState(false);
   const panelRef = useRef<HTMLDivElement | null>(null);
   const avatar = useMemo(() => initials(userName), [userName]);
+  const pathname = usePathname();
+  const router = useRouter();
+  const onProfilePage = pathname === "/profile" || pathname.startsWith("/profile/");
+
+  const handleProfileClick = (event: ReactMouseEvent<HTMLAnchorElement>) => {
+    setOpen(false);
+    if (!onProfilePage) return;
+    event.preventDefault();
+    if (typeof window !== "undefined" && window.history.length > 1) {
+      router.back();
+      return;
+    }
+    router.push("/dashboard");
+  };
 
   useEffect(() => {
     if (!open) return;
@@ -92,7 +107,7 @@ export function UserMenu({ userName, userEmail, photoUrl }: { userName: string; 
           <Link
             role="menuitem"
             href="/profile"
-            onClick={() => setOpen(false)}
+            onClick={handleProfileClick}
             className="flex items-center gap-2.5 px-3.5 py-2.5 text-sm text-white/82 hover:bg-white/[0.09] hover:text-white transition"
           >
             <span>👤</span> Profile settings

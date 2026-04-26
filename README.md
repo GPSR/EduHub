@@ -40,6 +40,15 @@ Open `http://localhost:3000`.
   - Run migrations with `npm run db:deploy`
   - This uses `prisma migrate deploy`
 
+## Environment URLs
+
+- Set `APP_ENV` to control default app URLs:
+  - `stage` (legacy `int`, `integration`, and `stgae` are still accepted) -> `https://stgae.schools.softlanetech.com` and `https://stgae.platform.softlanetech.com`
+  - `production` -> existing production domains
+- You can still override with:
+  - `SCHOOL_APP_BASE_URL`
+  - `PLATFORM_APP_BASE_URL`
+
 ## Mobile (iOS .ipa / Android .apk)
 
 This repo includes a Capacitor wrapper that loads the hosted web app at:
