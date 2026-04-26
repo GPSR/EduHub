@@ -1,7 +1,14 @@
 import { Card, Badge, Button, Select, SectionHeader } from "@/components/ui";
 import { prisma } from "@/lib/db";
 import { requirePermission } from "@/lib/require-permission";
-import { deleteUserAction, sendUserPasswordResetAction, setUserActiveAction, updateUserRoleAction } from "./actions";
+import Link from "next/link";
+import {
+  assignUserTaskAction,
+  deleteUserAction,
+  sendUserPasswordResetAction,
+  setUserActiveAction,
+  updateUserRoleAction
+} from "./actions";
 import { AdminCreateUserPanel } from "@/components/admin-create-user-panel";
 import { UserPasswordUpdateForm } from "./user-password-form";
 
@@ -19,10 +26,10 @@ function avatarColor(name: string) {
 export default async function AdminUsersPage({
   searchParams
 }: {
-  searchParams: Promise<{ reset?: string }>;
+  searchParams: Promise<{ reset?: string; task?: string }>;
 }) {
   const { session } = await requirePermission("USERS", "ADMIN");
-  const { reset } = await searchParams;
+  const { reset, task } = await searchParams;
 
   const [users, students, classes, roles] = await Promise.all([
     prisma.user.findMany({
@@ -86,6 +93,11 @@ export default async function AdminUsersPage({
           Could not send password reset email. Please check email provider settings.
         </div>
       )}
+      {task === "assigned" && (
+        <div className="rounded-2xl border border-emerald-500/25 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-100">
+          Task assigned successfully. The user received a notification.
+        </div>
+      )}
 
       <Card>
         <div className="divide-y divide-white/[0.06]">
@@ -94,6 +106,7 @@ export default async function AdminUsersPage({
             const classLabels = u.classAssignments.map((assignment) => classLabelById.get(assignment.classId) ?? assignment.class.name).filter(Boolean);
             const feedCount = feedCountByAuthorId.get(u.id) ?? 0;
             const recentFeed = recentFeedByAuthorId.get(u.id) ?? [];
+            const isTeacherRole = u.schoolRole.key === "TEACHER" || u.schoolRole.key === "CLASS_TEACHER";
             return (
               <div
                 key={u.id}
@@ -149,9 +162,13 @@ export default async function AdminUsersPage({
                   </div>
                 )}
 
-                <details className="w-full rounded-[12px] border border-white/[0.07] bg-white/[0.03]">
-                  <summary className="cursor-pointer list-none px-3 py-2.5 text-[12px] font-semibold uppercase tracking-wider text-white/55">
-                    View User Information
+                <details className="group w-full rounded-[12px] border border-white/[0.07] bg-white/[0.03]">
+                  <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-3 py-2.5 text-[12px] font-semibold uppercase tracking-wider text-white/55">
+                    <span>View User Information</span>
+                    <span className="inline-flex items-center gap-1 rounded-full border border-white/[0.12] px-2 py-0.5 text-[10px] tracking-wide text-white/65">
+                      <span className="group-open:hidden">Open</span>
+                      <span className="hidden group-open:inline">Close</span>
+                    </span>
                   </summary>
                   <div className="border-t border-white/[0.07] px-3 py-3 space-y-4">
                     <div>
@@ -202,6 +219,80 @@ export default async function AdminUsersPage({
                           Set a new password directly for this user. Existing unused reset links will be invalidated.
                         </p>
                         <UserPasswordUpdateForm userId={u.id} />
+                      </div>
+                    </div>
+
+                    {isTeacherRole ? (
+                      <div>
+                        <p className="text-[11px] font-semibold uppercase tracking-wider text-white/35 mb-2">Teacher Salary Actions</p>
+                        <div className="rounded-[10px] border border-white/[0.07] bg-black/20 p-3">
+                          <p className="mb-2 text-[12px] text-white/55">
+                            Open teacher payout preview or salary configuration directly for this user.
+                          </p>
+                          <div className="flex flex-wrap gap-2">
+                            <Link href={`/admin/teacher-salary?cycle=MONTHLY&teacherId=${encodeURIComponent(u.id)}`}>
+                              <Button type="button" variant="secondary" size="sm">Salary Payout Preview</Button>
+                            </Link>
+                            <Link href={`/admin/teacher-salary?cycle=YEARLY&teacherId=${encodeURIComponent(u.id)}`}>
+                              <Button type="button" variant="secondary" size="sm">Yearly Payout Preview</Button>
+                            </Link>
+                          </div>
+                        </div>
+                      </div>
+                    ) : null}
+
+                    <div>
+                      <p className="text-[11px] font-semibold uppercase tracking-wider text-white/35 mb-2">Assign Task</p>
+                      <div className="rounded-[10px] border border-white/[0.07] bg-black/20 p-3">
+                        <form action={assignUserTaskAction} className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <input type="hidden" name="userId" value={u.id} />
+                          <div className="sm:col-span-2">
+                            <label className="mb-1 block text-[12px] text-white/65">Task title</label>
+                            <input
+                              name="taskTitle"
+                              required
+                              className="w-full rounded-[10px] border border-white/[0.12] bg-[#0f1728]/80 px-3 py-2 text-[13px] text-white outline-none focus:border-blue-300/70 focus:ring-4 focus:ring-blue-500/20"
+                              placeholder="Prepare class report"
+                            />
+                          </div>
+                          <div className="sm:col-span-2">
+                            <label className="mb-1 block text-[12px] text-white/65">Task details</label>
+                            <textarea
+                              name="taskDescription"
+                              rows={2}
+                              className="w-full rounded-[10px] border border-white/[0.12] bg-[#0f1728]/80 px-3 py-2 text-[13px] text-white outline-none focus:border-blue-300/70 focus:ring-4 focus:ring-blue-500/20"
+                              placeholder="Include sections, due expectations, and hand-off notes."
+                            />
+                          </div>
+                          <div>
+                            <label className="mb-1 block text-[12px] text-white/65">Due date</label>
+                            <input
+                              type="date"
+                              name="dueDate"
+                              className="w-full rounded-[10px] border border-white/[0.12] bg-[#0f1728]/80 px-3 py-2 text-[13px] text-white outline-none focus:border-blue-300/70 focus:ring-4 focus:ring-blue-500/20"
+                            />
+                          </div>
+                          <div>
+                            <label className="mb-1 block text-[12px] text-white/65">Open module</label>
+                            <select
+                              name="modulePath"
+                              defaultValue="/dashboard"
+                              className="w-full rounded-[10px] border border-white/[0.12] bg-[#0f1728]/80 px-3 py-2 text-[13px] text-white outline-none focus:border-blue-300/70 focus:ring-4 focus:ring-blue-500/20"
+                            >
+                              <option value="/dashboard">Dashboard</option>
+                              <option value="/attendance">Attendance</option>
+                              <option value="/leave-requests">Leave Requests</option>
+                              <option value="/timetable">Timetable</option>
+                              <option value="/admin/teacher-salary">Teacher Salary</option>
+                              <option value="/support">Support Chat</option>
+                              <option value="/feed">Feed</option>
+                              <option value="/gallery">Gallery</option>
+                            </select>
+                          </div>
+                          <div className="sm:col-span-2 flex justify-end">
+                            <Button type="submit" size="sm">Assign Task</Button>
+                          </div>
+                        </form>
                       </div>
                     </div>
                   </div>

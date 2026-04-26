@@ -11,24 +11,39 @@ function currency(cents: number) {
   }).format(cents / 100);
 }
 
+function toInputAmount(cents: number) {
+  return (Math.max(0, cents) / 100).toFixed(2);
+}
+
+function isoDate(date: Date) {
+  return date.toISOString().slice(0, 10);
+}
+
 export default async function TeacherSalaryPage({
   searchParams
 }: {
-  searchParams: Promise<{ cycle?: string; month?: string; year?: string }>;
+  searchParams: Promise<{
+    cycle?: string;
+    month?: string;
+    year?: string;
+    teacherId?: string;
+    salary?: string;
+    payout?: string;
+  }>;
 }) {
   const { session } = await requirePermission("TEACHER_SALARY", "ADMIN");
   if (session.roleKey !== "ADMIN") {
     throw new Error("Only school admin can access teacher salary.");
   }
 
-  const { cycle, month, year } = await searchParams;
+  const { cycle, month, year, teacherId, salary, payout } = await searchParams;
   const payCycle: "MONTHLY" | "YEARLY" = cycle === "YEARLY" ? "YEARLY" : "MONTHLY";
 
   const currentMonth = parseMonthKey(month) ?? parseMonthKey(formatMonthKey(new Date()))!;
   const currentYear = Number.parseInt(String(year ?? ""), 10);
   const selectedYear = Number.isFinite(currentYear) ? currentYear : new Date().getUTCFullYear();
-
   const period = payCycle === "MONTHLY" ? monthWindow(currentMonth) : yearWindow(selectedYear);
+  const periodKey = payCycle === "MONTHLY" ? formatMonthKey(currentMonth) : String(selectedYear);
 
   const [teachers, salaryProfiles] = await Promise.all([
     prisma.user.findMany({
@@ -54,27 +69,52 @@ export default async function TeacherSalaryPage({
     })
   ]);
 
+  const selectedTeacherId = teachers.some((teacher) => teacher.id === teacherId) ? teacherId ?? "" : "";
+  const visibleTeacherIds = selectedTeacherId ? [selectedTeacherId] : teachers.map((teacher) => teacher.id);
+
+  const activeCycleProfiles = salaryProfiles.filter(
+    (profile) => profile.isActive && profile.payCycle === payCycle && visibleTeacherIds.includes(profile.teacherUserId)
+  );
+
+  const [approvedTeacherLeaves, payouts] = await Promise.all([
+    activeCycleProfiles.length
+      ? prisma.leaveRequest.findMany({
+          where: {
+            schoolId: session.schoolId,
+            requesterType: "TEACHER",
+            status: "APPROVED",
+            teacherUserId: { in: activeCycleProfiles.map((profile) => profile.teacherUserId) },
+            fromDate: { lte: period.end },
+            toDate: { gte: period.start }
+          },
+          select: {
+            teacherUserId: true,
+            fromDate: true,
+            toDate: true
+          }
+        })
+      : Promise.resolve([]),
+    prisma.teacherSalaryPayout.findMany({
+      where: {
+        schoolId: session.schoolId,
+        payCycle,
+        periodKey,
+        ...(selectedTeacherId ? { teacherUserId: selectedTeacherId } : {})
+      },
+      orderBy: [{ paidOn: "desc" }, { createdAt: "desc" }],
+      select: {
+        id: true,
+        teacherUserId: true,
+        paidAmountCents: true,
+        paidOn: true,
+        paymentMode: true,
+        reference: true,
+        notes: true
+      }
+    })
+  ]);
+
   const profileByTeacherId = new Map(salaryProfiles.map((profile) => [profile.teacherUserId, profile]));
-  const activeCycleProfiles = salaryProfiles.filter((profile) => profile.isActive && profile.payCycle === payCycle);
-
-  const approvedTeacherLeaves = activeCycleProfiles.length
-    ? await prisma.leaveRequest.findMany({
-        where: {
-          schoolId: session.schoolId,
-          requesterType: "TEACHER",
-          status: "APPROVED",
-          teacherUserId: { in: activeCycleProfiles.map((profile) => profile.teacherUserId) },
-          fromDate: { lte: period.end },
-          toDate: { gte: period.start }
-        },
-        select: {
-          teacherUserId: true,
-          fromDate: true,
-          toDate: true
-        }
-      })
-    : [];
-
   const leaveDaysByTeacher = new Map<string, number>();
   for (const leave of approvedTeacherLeaves) {
     if (!leave.teacherUserId) continue;
@@ -83,17 +123,43 @@ export default async function TeacherSalaryPage({
     leaveDaysByTeacher.set(leave.teacherUserId, (leaveDaysByTeacher.get(leave.teacherUserId) ?? 0) + overlap);
   }
 
+  const payoutsByTeacher = new Map<string, typeof payouts>();
+  const paidAmountByTeacher = new Map<string, number>();
+  for (const row of payouts) {
+    const existing = payoutsByTeacher.get(row.teacherUserId) ?? [];
+    existing.push(row);
+    payoutsByTeacher.set(row.teacherUserId, existing);
+    paidAmountByTeacher.set(row.teacherUserId, (paidAmountByTeacher.get(row.teacherUserId) ?? 0) + row.paidAmountCents);
+  }
+
   const periodLabel =
     payCycle === "MONTHLY"
       ? period.start.toLocaleDateString("en-US", { month: "long", year: "numeric" })
       : `${selectedYear}`;
 
+  const visibleTeachers = selectedTeacherId
+    ? teachers.filter((teacher) => teacher.id === selectedTeacherId)
+    : teachers;
+  const { recordTeacherSalaryPayoutAction } = await import("./actions");
+
   return (
     <div className="space-y-5 animate-fade-up">
       <SectionHeader
         title="Teacher Salary"
-        subtitle="Configure monthly/yearly salary with leave-limit based deductions"
+        subtitle="Configure salary and record payouts with leave-limit based deductions"
       />
+
+      {salary === "configured" ? (
+        <div className="rounded-[12px] border border-emerald-500/25 bg-emerald-500/12 px-3.5 py-2.5 text-[12px] text-emerald-100">
+          Salary configuration saved successfully.
+        </div>
+      ) : null}
+
+      {payout === "saved" ? (
+        <div className="rounded-[12px] border border-emerald-500/25 bg-emerald-500/12 px-3.5 py-2.5 text-[12px] text-emerald-100">
+          Salary payout recorded successfully.
+        </div>
+      ) : null}
 
       <Card accent="indigo">
         <div className="flex flex-wrap items-center justify-between gap-3">
@@ -154,30 +220,67 @@ export default async function TeacherSalaryPage({
       </Card>
 
       {teachers.length > 0 ? (
-        <ConfigureTeacherSalaryCard
-          teachers={teachers.map((teacher) => ({
-            id: teacher.id,
-            name: teacher.name,
-            roleName: teacher.schoolRole.name
-          }))}
-          defaultPayCycle={payCycle}
-        />
+        <ConfigureTeacherSalaryCard defaultPayCycle={payCycle} teachers={teachers.map((teacher) => ({
+          id: teacher.id,
+          name: teacher.name,
+          roleName: teacher.schoolRole.name
+        }))} />
       ) : null}
 
       <Card
         title="Salary Payout Preview"
-        description={`Computed using approved teacher leave in ${periodLabel}`}
+        description={`Choose teacher, review period payout, then update salary amount paid for ${periodLabel}`}
         accent="teal"
       >
+        {teachers.length > 0 ? (
+          <form action="/admin/teacher-salary" method="get" className="mb-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
+            <input type="hidden" name="cycle" value={payCycle} />
+            {payCycle === "MONTHLY" ? (
+              <input type="hidden" name="month" value={formatMonthKey(currentMonth)} />
+            ) : (
+              <input type="hidden" name="year" value={String(selectedYear)} />
+            )}
+            <div>
+              <Label>Teacher</Label>
+              <select
+                name="teacherId"
+                defaultValue={selectedTeacherId}
+                className="w-full rounded-[12px] border border-white/[0.12] bg-[#0f1728]/75 px-3.5 py-2.5 text-sm text-white outline-none transition-all focus:border-blue-300/70 focus:ring-4 focus:ring-blue-500/22"
+              >
+                <option value="">All teachers</option>
+                {teachers.map((teacher) => (
+                  <option key={teacher.id} value={teacher.id}>
+                    {teacher.name} ({teacher.schoolRole.name})
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="flex items-end gap-2 sm:col-span-2">
+              <Button type="submit" variant="secondary" size="sm">Apply teacher</Button>
+              <Link
+                href={`/admin/teacher-salary?cycle=${payCycle}&${payCycle === "MONTHLY" ? `month=${encodeURIComponent(formatMonthKey(currentMonth))}` : `year=${selectedYear}`}`}
+              >
+                <Button type="button" variant="secondary" size="sm">Reset</Button>
+              </Link>
+            </div>
+          </form>
+        ) : null}
+
         {teachers.length === 0 ? (
           <EmptyState
             icon="👩‍🏫"
             title="No teachers found"
             description="Create teacher profiles before configuring salary."
           />
+        ) : visibleTeachers.length === 0 ? (
+          <EmptyState
+            icon="👤"
+            title="Teacher not found"
+            description="Pick another teacher to view payout preview."
+          />
         ) : (
           <div className="space-y-2.5">
-            {teachers.map((teacher) => {
+            {visibleTeachers.map((teacher) => {
               const profile = profileByTeacherId.get(teacher.id);
 
               if (!profile) {
@@ -220,6 +323,9 @@ export default async function TeacherSalaryPage({
               const excessLeaveDays = Math.max(0, leaveDays - profile.leaveAllowanceDays);
               const deductionCents = excessLeaveDays * profile.deductionPerLeaveDayCents;
               const netPayCents = Math.max(0, profile.grossAmountCents - deductionCents);
+              const paidAmountCents = paidAmountByTeacher.get(teacher.id) ?? 0;
+              const remainingCents = Math.max(0, netPayCents - paidAmountCents);
+              const teacherPayouts = payoutsByTeacher.get(teacher.id) ?? [];
 
               return (
                 <article
@@ -239,8 +345,90 @@ export default async function TeacherSalaryPage({
                       <p className="text-[12px] text-white/45">Gross: {currency(profile.grossAmountCents)}</p>
                       <p className="text-[12px] text-rose-300">Deduction: {currency(deductionCents)}</p>
                       <p className="text-[14px] font-semibold text-emerald-300">Net: {currency(netPayCents)}</p>
+                      <p className="text-[12px] text-blue-300">Paid: {currency(paidAmountCents)}</p>
+                      <p className="text-[12px] text-amber-300">Pending: {currency(remainingCents)}</p>
                     </div>
                   </div>
+
+                  <details className="group mt-3 rounded-[11px] border border-white/[0.09] bg-black/20">
+                    <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-3 py-2.5 text-[12px] font-semibold uppercase tracking-wider text-white/60">
+                      <span>Update Salary Amount Paid</span>
+                      <span className="inline-flex items-center gap-1 rounded-full border border-white/[0.12] px-2 py-0.5 text-[10px] tracking-wide text-white/65">
+                        <span className="group-open:hidden">Open</span>
+                        <span className="hidden group-open:inline">Close</span>
+                      </span>
+                    </summary>
+                    <div className="border-t border-white/[0.08] px-3 py-3 space-y-3">
+                      <form action={recordTeacherSalaryPayoutAction} className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <input type="hidden" name="teacherUserId" value={teacher.id} />
+                        <input type="hidden" name="payCycle" value={payCycle} />
+                        <input type="hidden" name="periodKey" value={periodKey} />
+
+                        <div>
+                          <Label required>Amount paid (USD)</Label>
+                          <Input
+                            name="paidAmount"
+                            type="number"
+                            min={0}
+                            step="0.01"
+                            defaultValue={toInputAmount(remainingCents)}
+                            required
+                          />
+                        </div>
+
+                        <div>
+                          <Label required>Payout date</Label>
+                          <Input name="paidOn" type="date" defaultValue={isoDate(new Date())} required />
+                        </div>
+
+                        <div>
+                          <Label>Payment mode</Label>
+                          <select
+                            name="paymentMode"
+                            className="w-full rounded-[12px] border border-white/[0.12] bg-[#0f1728]/75 px-3.5 py-2.5 text-sm text-white outline-none transition-all focus:border-blue-300/70 focus:ring-4 focus:ring-blue-500/22"
+                          >
+                            <option value="">Select mode</option>
+                            <option value="BANK_TRANSFER">Bank transfer</option>
+                            <option value="UPI">UPI</option>
+                            <option value="CASH">Cash</option>
+                            <option value="CHEQUE">Cheque</option>
+                            <option value="OTHER">Other</option>
+                          </select>
+                        </div>
+
+                        <div>
+                          <Label>Reference</Label>
+                          <Input name="reference" placeholder="Txn / voucher ref" />
+                        </div>
+
+                        <div className="sm:col-span-2">
+                          <Label>Notes</Label>
+                          <Textarea name="notes" rows={2} placeholder="Optional payout note" />
+                        </div>
+
+                        <div className="sm:col-span-2 flex justify-end">
+                          <Button type="submit">Save payout</Button>
+                        </div>
+                      </form>
+
+                      {teacherPayouts.length > 0 ? (
+                        <div className="rounded-[10px] border border-white/[0.08] bg-white/[0.02] p-2.5">
+                          <p className="text-[11px] font-semibold uppercase tracking-wider text-white/40 mb-1.5">
+                            Recent payouts in this period
+                          </p>
+                          <div className="space-y-1.5">
+                            {teacherPayouts.slice(0, 4).map((row) => (
+                              <p key={row.id} className="text-[12px] text-white/70">
+                                {row.paidOn.toLocaleDateString("en-US")} · {currency(row.paidAmountCents)}
+                                {row.paymentMode ? ` · ${row.paymentMode}` : ""}
+                                {row.reference ? ` · ${row.reference}` : ""}
+                              </p>
+                            ))}
+                          </div>
+                        </div>
+                      ) : null}
+                    </div>
+                  </details>
                 </article>
               );
             })}
@@ -266,64 +454,79 @@ async function ConfigureTeacherSalaryCard({
       description="Set teacher salary, leave allowance, and per-day deduction"
       accent="indigo"
     >
-      <form action={upsertTeacherSalaryProfileAction} className="grid grid-cols-1 gap-3 sm:gap-4">
-        <div>
-          <Label required>Teacher</Label>
-          <select
-            name="teacherUserId"
-            className="w-full rounded-[12px] border border-white/[0.12] bg-[#0f1728]/75 px-3.5 py-2.5 text-sm text-white outline-none transition-all focus:border-blue-300/70 focus:ring-4 focus:ring-blue-500/22"
-            required
-          >
-            {teachers.map((teacher) => (
-              <option key={teacher.id} value={teacher.id}>
-                {teacher.name} ({teacher.roleName})
-              </option>
-            ))}
-          </select>
-        </div>
+      <details className="group rounded-[12px] border border-white/[0.10] bg-black/20">
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-3.5 py-2.5 text-[12px] font-semibold uppercase tracking-wider text-white/55">
+          <span>Tap or click to configure salary</span>
+          <span className="inline-flex items-center gap-1 rounded-full border border-white/[0.12] px-2 py-0.5 text-[10px] tracking-wide text-white/65">
+            <span className="group-open:hidden">Open</span>
+            <span className="hidden group-open:inline">Close</span>
+          </span>
+        </summary>
+        <div className="border-t border-white/[0.08] px-3.5 py-3">
+          <form action={upsertTeacherSalaryProfileAction} className="grid grid-cols-1 gap-3 sm:gap-4">
+            <div>
+              <Label required>Teacher</Label>
+              <select
+                name="teacherUserId"
+                defaultValue=""
+                className="w-full rounded-[12px] border border-white/[0.12] bg-[#0f1728]/75 px-3.5 py-2.5 text-sm text-white outline-none transition-all focus:border-blue-300/70 focus:ring-4 focus:ring-blue-500/22"
+                required
+              >
+                <option value="" disabled>
+                  Select teacher
+                </option>
+                {teachers.map((teacher) => (
+                  <option key={teacher.id} value={teacher.id}>
+                    {teacher.name} ({teacher.roleName})
+                  </option>
+                ))}
+              </select>
+            </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div>
-            <Label required>Pay cycle</Label>
-            <select
-              name="payCycle"
-              defaultValue={defaultPayCycle}
-              className="w-full rounded-[12px] border border-white/[0.12] bg-[#0f1728]/75 px-3.5 py-2.5 text-sm text-white outline-none transition-all focus:border-blue-300/70 focus:ring-4 focus:ring-blue-500/22"
-            >
-              <option value="MONTHLY">Monthly</option>
-              <option value="YEARLY">Yearly</option>
-            </select>
-          </div>
-          <div>
-            <Label required>Gross amount (USD)</Label>
-            <Input name="grossAmount" type="number" min={0} step="0.01" required />
-          </div>
-        </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <Label required>Pay cycle</Label>
+                <select
+                  name="payCycle"
+                  defaultValue={defaultPayCycle}
+                  className="w-full rounded-[12px] border border-white/[0.12] bg-[#0f1728]/75 px-3.5 py-2.5 text-sm text-white outline-none transition-all focus:border-blue-300/70 focus:ring-4 focus:ring-blue-500/22"
+                >
+                  <option value="MONTHLY">Monthly</option>
+                  <option value="YEARLY">Yearly</option>
+                </select>
+              </div>
+              <div>
+                <Label required>Gross amount (USD)</Label>
+                <Input name="grossAmount" type="number" min={0} step="0.01" required />
+              </div>
+            </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <div>
-            <Label required>Leave limit days</Label>
-            <Input name="leaveAllowanceDays" type="number" min={0} step={1} defaultValue={2} required />
-          </div>
-          <div>
-            <Label required>Deduction / day (USD)</Label>
-            <Input name="deductionPerLeaveDay" type="number" min={0} step="0.01" defaultValue={0} required />
-          </div>
-          <div>
-            <Label>Effective from</Label>
-            <Input name="effectiveFrom" type="date" />
-          </div>
-        </div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div>
+                <Label required>Leave limit days</Label>
+                <Input name="leaveAllowanceDays" type="number" min={0} step={1} defaultValue={2} required />
+              </div>
+              <div>
+                <Label required>Deduction / day (USD)</Label>
+                <Input name="deductionPerLeaveDay" type="number" min={0} step="0.01" defaultValue={0} required />
+              </div>
+              <div>
+                <Label>Effective from</Label>
+                <Input name="effectiveFrom" type="date" />
+              </div>
+            </div>
 
-        <div>
-          <Label>Notes</Label>
-          <Textarea name="notes" rows={2} placeholder="Optional salary notes" />
-        </div>
+            <div>
+              <Label>Notes</Label>
+              <Textarea name="notes" rows={2} placeholder="Optional salary notes" />
+            </div>
 
-        <div className="flex justify-end">
-          <Button type="submit">Save salary profile</Button>
+            <div className="flex justify-end">
+              <Button type="submit">Save salary profile</Button>
+            </div>
+          </form>
         </div>
-      </form>
+      </details>
     </Card>
   );
 }

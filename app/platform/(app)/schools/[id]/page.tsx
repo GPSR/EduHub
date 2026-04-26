@@ -139,9 +139,13 @@ export default async function PlatformSchoolPage({ params }: { params: Promise<{
                     <Button type="submit" variant="secondary" size="sm">Sign in as</Button>
                   </form>
 
-                  <details className="w-full rounded-[12px] border border-white/[0.07] bg-white/[0.03]">
-                    <summary className="cursor-pointer list-none px-3 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-white/55">
-                      Update School Admin Password
+                  <details className="group w-full rounded-[12px] border border-white/[0.07] bg-white/[0.03]">
+                    <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-3 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-white/55">
+                      <span>Update School Admin Password</span>
+                      <span className="inline-flex items-center gap-1 rounded-full border border-white/[0.12] px-2 py-0.5 text-[10px] tracking-wide text-white/65">
+                        <span className="group-open:hidden">Open</span>
+                        <span className="hidden group-open:inline">Close</span>
+                      </span>
                     </summary>
                     <div className="border-t border-white/[0.07] p-3">
                       <SchoolAdminPasswordForm schoolId={school.id} userId={u.id} />

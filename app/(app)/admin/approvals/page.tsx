@@ -42,9 +42,13 @@ export default async function ApprovalsPage() {
                   <Badge tone="warning" dot>Pending</Badge>
                 </div>
 
-                <details className="rounded-[14px] border border-white/[0.08] bg-black/20 overflow-hidden">
-                  <summary className="cursor-pointer px-4 py-3 text-[13px] font-medium text-white/70 hover:text-white/90 select-none transition">
-                    View requested changes
+                <details className="group rounded-[14px] border border-white/[0.08] bg-black/20 overflow-hidden">
+                  <summary className="flex cursor-pointer items-center justify-between gap-2 px-4 py-3 text-[13px] font-medium text-white/70 hover:text-white/90 select-none transition">
+                    <span>View requested changes</span>
+                    <span className="inline-flex items-center gap-1 rounded-full border border-white/[0.12] px-2 py-0.5 text-[10px] uppercase tracking-wide text-white/60">
+                      <span className="group-open:hidden">Open</span>
+                      <span className="hidden group-open:inline">Close</span>
+                    </span>
                   </summary>
                   <pre className="px-4 pb-4 text-xs text-white/60 overflow-auto leading-relaxed">
 {JSON.stringify(JSON.parse(r.payloadJson), null, 2)}

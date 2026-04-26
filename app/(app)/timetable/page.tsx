@@ -249,78 +249,97 @@ async function CreateTimetableEntryCard({
       description="School admin can map teacher schedule by day, time, class, and subject"
       accent="indigo"
     >
-      <form action={createTeacherTimetableEntryAction} className="grid grid-cols-1 gap-3 sm:gap-4">
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div>
-            <Label required>Teacher</Label>
-            <select
-              name="teacherUserId"
-              className="w-full rounded-[12px] border border-white/[0.12] bg-[#0f1728]/75 px-3.5 py-2.5 text-sm text-white outline-none transition-all focus:border-blue-300/70 focus:ring-4 focus:ring-blue-500/22"
-              required
-            >
-              {teachers.map((teacher) => (
-                <option key={teacher.id} value={teacher.id}>
-                  {teacher.name} ({teacher.schoolRole.name})
-                </option>
-              ))}
-            </select>
-          </div>
+      <details className="group rounded-[12px] border border-white/[0.10] bg-black/20">
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-3.5 py-2.5 text-[12px] font-semibold uppercase tracking-wider text-white/55">
+          <span>Tap or click to add timetable entry</span>
+          <span className="inline-flex items-center gap-1 rounded-full border border-white/[0.12] px-2 py-0.5 text-[10px] tracking-wide text-white/65">
+            <span className="group-open:hidden">Open</span>
+            <span className="hidden group-open:inline">Close</span>
+          </span>
+        </summary>
+        <div className="border-t border-white/[0.08] px-3.5 py-3">
+          <form action={createTeacherTimetableEntryAction} className="grid grid-cols-1 gap-3 sm:gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <Label required>Teacher</Label>
+                <select
+                  name="teacherUserId"
+                  defaultValue=""
+                  className="w-full rounded-[12px] border border-white/[0.12] bg-[#0f1728]/75 px-3.5 py-2.5 text-sm text-white outline-none transition-all focus:border-blue-300/70 focus:ring-4 focus:ring-blue-500/22"
+                  required
+                >
+                  <option value="" disabled>
+                    Select teacher
+                  </option>
+                  {teachers.map((teacher) => (
+                    <option key={teacher.id} value={teacher.id}>
+                      {teacher.name} ({teacher.schoolRole.name})
+                    </option>
+                  ))}
+                </select>
+              </div>
 
-          <div>
-            <Label required>Class</Label>
-            <select
-              name="classId"
-              className="w-full rounded-[12px] border border-white/[0.12] bg-[#0f1728]/75 px-3.5 py-2.5 text-sm text-white outline-none transition-all focus:border-blue-300/70 focus:ring-4 focus:ring-blue-500/22"
-              required
-            >
-              {classes.map((cls) => (
-                <option key={cls.id} value={cls.id}>
-                  {classLabel(cls.name, cls.section)}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
+              <div>
+                <Label required>Class</Label>
+                <select
+                  name="classId"
+                  defaultValue=""
+                  className="w-full rounded-[12px] border border-white/[0.12] bg-[#0f1728]/75 px-3.5 py-2.5 text-sm text-white outline-none transition-all focus:border-blue-300/70 focus:ring-4 focus:ring-blue-500/22"
+                  required
+                >
+                  <option value="" disabled>
+                    Select class
+                  </option>
+                  {classes.map((cls) => (
+                    <option key={cls.id} value={cls.id}>
+                      {classLabel(cls.name, cls.section)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
 
-        <div>
-          <Label required>Subject</Label>
-          <Input name="subjectName" placeholder="Mathematics" required />
-        </div>
+            <div>
+              <Label required>Subject</Label>
+              <Input name="subjectName" placeholder="Mathematics" required />
+            </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <div>
-            <Label required>Day</Label>
-            <select
-              name="weekday"
-              defaultValue="1"
-              className="w-full rounded-[12px] border border-white/[0.12] bg-[#0f1728]/75 px-3.5 py-2.5 text-sm text-white outline-none transition-all focus:border-blue-300/70 focus:ring-4 focus:ring-blue-500/22"
-            >
-              {WEEKDAYS.map((dayDef) => (
-                <option key={dayDef.value} value={dayDef.value}>
-                  {dayDef.label}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <Label required>Start time</Label>
-            <Input name="startTime" type="time" required />
-          </div>
-          <div>
-            <Label required>End time</Label>
-            <Input name="endTime" type="time" required />
-          </div>
-        </div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div>
+                <Label required>Day</Label>
+                <select
+                  name="weekday"
+                  defaultValue="1"
+                  className="w-full rounded-[12px] border border-white/[0.12] bg-[#0f1728]/75 px-3.5 py-2.5 text-sm text-white outline-none transition-all focus:border-blue-300/70 focus:ring-4 focus:ring-blue-500/22"
+                >
+                  {WEEKDAYS.map((dayDef) => (
+                    <option key={dayDef.value} value={dayDef.value}>
+                      {dayDef.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <Label required>Start time</Label>
+                <Input name="startTime" type="time" required />
+              </div>
+              <div>
+                <Label required>End time</Label>
+                <Input name="endTime" type="time" required />
+              </div>
+            </div>
 
-        <div>
-          <Label>Room</Label>
-          <Input name="room" placeholder="Room 204" />
-        </div>
+            <div>
+              <Label>Room</Label>
+              <Input name="room" placeholder="Room 204" />
+            </div>
 
-        <div className="flex justify-end">
-          <Button type="submit">Add entry</Button>
+            <div className="flex justify-end">
+              <Button type="submit">Add entry</Button>
+            </div>
+          </form>
         </div>
-      </form>
+      </details>
     </Card>
   );
 }
