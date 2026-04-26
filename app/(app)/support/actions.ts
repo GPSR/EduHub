@@ -11,9 +11,10 @@ import {
   getPlatformSupportRecipientIds,
   supportPreview
 } from "@/lib/support-chat";
+import { getSchoolSupportChatTopics } from "@/lib/support-chat-topics";
 
 const CreateSupportSchema = z.object({
-  subject: z.string().trim().min(3).max(140),
+  topic: z.string().trim().min(1).max(60),
   body: z.string().trim().min(2).max(4000)
 });
 
@@ -112,10 +113,12 @@ export async function createParentSupportConversationAction(formData: FormData) 
   if (session.roleKey !== "PARENT") throw new Error("Only parents can start parent support chat.");
 
   const parsed = CreateSupportSchema.safeParse({
-    subject: formData.get("subject"),
+    topic: formData.get("topic"),
     body: formData.get("body")
   });
   if (!parsed.success) throw new Error(parsed.error.issues[0]?.message ?? "Unable to process request.");
+  const allowedTopics = await getSchoolSupportChatTopics(session.schoolId);
+  if (!allowedTopics.includes(parsed.data.topic)) throw new Error("Invalid support topic. Refresh and try again.");
 
   const recipientIds = await getParentSupportRecipientIds({
     schoolId: session.schoolId,
@@ -129,7 +132,7 @@ export async function createParentSupportConversationAction(formData: FormData) 
     schoolId: session.schoolId,
     createdBySchoolUserId: session.userId,
     scope: "SCHOOL_INTERNAL",
-    subject: parsed.data.subject,
+    subject: parsed.data.topic,
     body: parsed.data.body,
     schoolParticipantIds: recipientIds
   });
@@ -137,7 +140,7 @@ export async function createParentSupportConversationAction(formData: FormData) 
   await notifySchoolUsers({
     schoolId: session.schoolId,
     userIds: recipientIds,
-    title: `Parent support: ${parsed.data.subject}`,
+    title: `Parent support: ${parsed.data.topic}`,
     body: supportPreview(parsed.data.body),
     conversationId
   });
@@ -149,10 +152,12 @@ export async function createSchoolSupportConversationAction(formData: FormData) 
   const session = await requireSession();
 
   const parsed = CreateSupportSchema.safeParse({
-    subject: formData.get("subject"),
+    topic: formData.get("topic"),
     body: formData.get("body")
   });
   if (!parsed.success) throw new Error(parsed.error.issues[0]?.message ?? "Unable to process request.");
+  const allowedTopics = await getSchoolSupportChatTopics(session.schoolId);
+  if (!allowedTopics.includes(parsed.data.topic)) throw new Error("Invalid support topic. Refresh and try again.");
 
   const leadershipIds = await getLeadershipSupportRecipientIds({
     schoolId: session.schoolId,
@@ -166,7 +171,7 @@ export async function createSchoolSupportConversationAction(formData: FormData) 
     schoolId: session.schoolId,
     createdBySchoolUserId: session.userId,
     scope: "SCHOOL_INTERNAL",
-    subject: parsed.data.subject,
+    subject: parsed.data.topic,
     body: parsed.data.body,
     schoolParticipantIds: leadershipIds
   });
@@ -174,7 +179,7 @@ export async function createSchoolSupportConversationAction(formData: FormData) 
   await notifySchoolUsers({
     schoolId: session.schoolId,
     userIds: leadershipIds,
-    title: `Support request: ${parsed.data.subject}`,
+    title: `Support request: ${parsed.data.topic}`,
     body: supportPreview(parsed.data.body),
     conversationId
   });
@@ -187,10 +192,12 @@ export async function createPlatformSupportConversationAction(formData: FormData
   if (session.roleKey !== "ADMIN") throw new Error("Only school admin can contact platform support.");
 
   const parsed = CreateSupportSchema.safeParse({
-    subject: formData.get("subject"),
+    topic: formData.get("topic"),
     body: formData.get("body")
   });
   if (!parsed.success) throw new Error(parsed.error.issues[0]?.message ?? "Unable to process request.");
+  const allowedTopics = await getSchoolSupportChatTopics(session.schoolId);
+  if (!allowedTopics.includes(parsed.data.topic)) throw new Error("Invalid support topic. Refresh and try again.");
 
   const [platformRecipientIds, schoolAdminIds] = await Promise.all([
     getPlatformSupportRecipientIds({ schoolId: session.schoolId }),
@@ -215,7 +222,7 @@ export async function createPlatformSupportConversationAction(formData: FormData
     schoolId: session.schoolId,
     createdBySchoolUserId: session.userId,
     scope: "PLATFORM_SUPPORT",
-    subject: parsed.data.subject,
+    subject: parsed.data.topic,
     body: parsed.data.body,
     schoolParticipantIds: schoolAdminIds,
     platformParticipantIds: platformRecipientIds
@@ -224,7 +231,7 @@ export async function createPlatformSupportConversationAction(formData: FormData
   await notifySchoolUsers({
     schoolId: session.schoolId,
     userIds: schoolAdminIds,
-    title: `Platform support opened: ${parsed.data.subject}`,
+    title: `Platform support opened: ${parsed.data.topic}`,
     body: supportPreview(parsed.data.body),
     conversationId
   });

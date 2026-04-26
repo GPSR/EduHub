@@ -21,60 +21,73 @@ export default async function PlatformSupportPage({
   const { session } = await requirePlatformUser();
   const { conversationId } = await searchParams;
 
-  const conversations = await prisma.supportConversation.findMany({
-    where: {
-      platformParticipants: { some: { platformUserId: session.platformUserId } }
-    },
-    include: {
-      school: { select: { id: true, name: true, slug: true } },
-      schoolParticipants: {
-        include: {
-          user: { select: { id: true, name: true, schoolRole: { select: { name: true } } } }
+  let loadError: string | null = null;
+  let conversations: any[] = [];
+  try {
+    conversations = await prisma.supportConversation.findMany({
+      where: {
+        platformParticipants: { some: { platformUserId: session.platformUserId } }
+      },
+      include: {
+        school: { select: { id: true, name: true, slug: true } },
+        schoolParticipants: {
+          include: {
+            user: { select: { id: true, name: true, schoolRole: { select: { name: true } } } }
+          }
+        },
+        platformParticipants: {
+          include: {
+            platformUser: { select: { id: true, name: true } }
+          }
+        },
+        messages: {
+          orderBy: { createdAt: "desc" },
+          take: 1,
+          select: {
+            body: true,
+            createdAt: true,
+            senderType: true,
+            senderSchoolUser: { select: { name: true } },
+            senderPlatformUser: { select: { name: true } }
+          }
         }
       },
-      platformParticipants: {
-        include: {
-          platformUser: { select: { id: true, name: true } }
-        }
-      },
-      messages: {
-        orderBy: { createdAt: "desc" },
-        take: 1,
-        select: {
-          body: true,
-          createdAt: true,
-          senderType: true,
-          senderSchoolUser: { select: { name: true } },
-          senderPlatformUser: { select: { name: true } }
-        }
-      }
-    },
-    orderBy: [{ lastMessageAt: "desc" }, { createdAt: "desc" }],
-    take: 120
-  });
+      orderBy: [{ lastMessageAt: "desc" }, { createdAt: "desc" }],
+      take: 120
+    });
+  } catch (error) {
+    console.error("platform support conversations load failed", error);
+    loadError = "Support chat is temporarily unavailable. Please refresh and try again.";
+  }
 
   const selectedConversation =
     conversations.find((conversation) => conversation.id === conversationId) ?? conversations[0] ?? null;
 
   if (selectedConversation?.lastMessageAt) {
     const myParticipant = selectedConversation.platformParticipants.find(
-      (participant) => participant.platformUserId === session.platformUserId
+      (participant: any) => participant.platformUserId === session.platformUserId
     );
     const isUnread = !myParticipant?.lastReadAt || myParticipant.lastReadAt < selectedConversation.lastMessageAt;
     if (isUnread) {
-      await prisma.supportConversationPlatformParticipant.updateMany({
-        where: {
-          conversationId: selectedConversation.id,
-          platformUserId: session.platformUserId,
-          OR: [{ lastReadAt: null }, { lastReadAt: { lt: selectedConversation.lastMessageAt } }]
-        },
-        data: { lastReadAt: new Date() }
-      });
+      try {
+        await prisma.supportConversationPlatformParticipant.updateMany({
+          where: {
+            conversationId: selectedConversation.id,
+            platformUserId: session.platformUserId,
+            OR: [{ lastReadAt: null }, { lastReadAt: { lt: selectedConversation.lastMessageAt } }]
+          },
+          data: { lastReadAt: new Date() }
+        });
+      } catch (error) {
+        console.error("platform support read-receipt update failed", error);
+      }
     }
   }
 
-  const messages = selectedConversation
-    ? await prisma.supportMessage.findMany({
+  let messages: any[] = [];
+  if (selectedConversation) {
+    try {
+      messages = await prisma.supportMessage.findMany({
         where: { conversationId: selectedConversation.id },
         include: {
           senderSchoolUser: { select: { id: true, name: true, schoolRole: { select: { name: true } } } },
@@ -82,8 +95,12 @@ export default async function PlatformSupportPage({
         },
         orderBy: { createdAt: "asc" },
         take: 500
-      })
-    : [];
+      });
+    } catch (error) {
+      console.error("platform support messages load failed", error);
+      loadError = loadError ?? "Support messages are temporarily unavailable. Please refresh and try again.";
+    }
+  }
 
   return (
     <div className="space-y-5 animate-fade-up">
@@ -91,6 +108,12 @@ export default async function PlatformSupportPage({
         title="Platform Support Chat"
         subtitle="Reply to school-admin conversations opened from school support"
       />
+
+      {loadError ? (
+        <div className="rounded-[12px] border border-rose-500/25 bg-rose-500/12 px-3.5 py-2.5 text-[12px] text-rose-100">
+          {loadError}
+        </div>
+      ) : null}
 
       <div className="grid grid-cols-1 xl:grid-cols-[360px_1fr] gap-4">
         <Card title="Support Threads" description={`${conversations.length} conversation(s)`} accent="indigo">
@@ -104,7 +127,7 @@ export default async function PlatformSupportPage({
             <div className="space-y-2">
               {conversations.map((conversation) => {
                 const myParticipant = conversation.platformParticipants.find(
-                  (participant) => participant.platformUserId === session.platformUserId
+                  (participant: any) => participant.platformUserId === session.platformUserId
                 );
                 const unread = Boolean(
                   conversation.lastMessageAt &&
@@ -112,7 +135,10 @@ export default async function PlatformSupportPage({
                 );
                 const lastMessage = conversation.messages[0];
                 const schoolLead = conversation.schoolParticipants
-                  .map((participant) => `${participant.user.name} (${participant.user.schoolRole.name})`)
+                  .map(
+                    (participant: any) =>
+                      `${participant.user.name}${participant.user.schoolRole?.name ? ` (${participant.user.schoolRole.name})` : ""}`
+                  )
                   .slice(0, 2)
                   .join(", ");
 

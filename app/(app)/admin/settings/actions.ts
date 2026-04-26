@@ -13,6 +13,7 @@ import {
   normalizeStudentDemographicsConfig
 } from "@/lib/student-demographics";
 import { getSchoolProfile, normalizeSchoolProfile } from "@/lib/school-profile";
+import { getSchoolSupportChatTopics, normalizeSupportChatTopics } from "@/lib/support-chat-topics";
 
 export type SettingsState = { ok: boolean; message?: string };
 
@@ -364,6 +365,38 @@ export async function updateSchoolProfileAction(formData: FormData) {
 
   revalidatePath("/admin/settings");
   revalidatePath("/students");
+  redirect("/admin/settings");
+}
+
+const SupportChatTopicsSchema = z.object({
+  topics: z.string().max(2200).optional().default("")
+});
+
+export async function updateSupportChatTopicsAction(formData: FormData) {
+  const { session } = await requirePermission("SETTINGS", "ADMIN");
+  const parsed = SupportChatTopicsSchema.safeParse({
+    topics: String(formData.get("topics") ?? "")
+  });
+  if (!parsed.success) throw new Error("Unable to process request.");
+
+  const current = await getSchoolSupportChatTopics(session.schoolId);
+  const next = normalizeSupportChatTopics(parsed.data.topics);
+  if (JSON.stringify(current) === JSON.stringify(next)) redirect("/admin/settings");
+
+  await prisma.auditLog.create({
+    data: {
+      schoolId: session.schoolId,
+      actorType: "SCHOOL_USER",
+      actorId: session.userId,
+      action: "SUPPORT_CHAT_TOPICS_CONFIG_UPDATE",
+      entityType: "School",
+      entityId: session.schoolId,
+      metadataJson: JSON.stringify({ topics: next })
+    }
+  });
+
+  revalidatePath("/admin/settings");
+  revalidatePath("/support");
   redirect("/admin/settings");
 }
 

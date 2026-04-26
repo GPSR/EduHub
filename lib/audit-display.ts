@@ -28,6 +28,10 @@ const ACTION_DISPLAY: Record<string, AuditActionDisplay> = {
     title: "Student form settings updated",
     description: "Demographic field configuration for students was changed."
   },
+  SUPPORT_CHAT_TOPICS_CONFIG_UPDATE: {
+    title: "Support chat topics updated",
+    description: "Support chat dropdown topics were changed."
+  },
   STUDENT_UPDATE_REQUEST_CREATED: {
     title: "Student update request submitted",
     description: "An update request was raised for student information."

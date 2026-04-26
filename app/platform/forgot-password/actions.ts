@@ -14,6 +14,11 @@ const Schema = z.object({
   email: z.string().email("Enter a valid email address.")
 });
 
+function summarizeEmailError(error: unknown) {
+  const raw = error instanceof Error ? error.message : "email_send_failed";
+  return raw.slice(0, 220);
+}
+
 export async function requestPlatformUserPasswordResetAction(
   _prev: PlatformForgotPasswordState,
   formData: FormData
@@ -35,6 +40,7 @@ export async function requestPlatformUserPasswordResetAction(
   }
 
   let emailSent = false;
+  let emailFailureReason: string | null = null;
   try {
     const tokenRow = await createPasswordResetToken({
       subjectType: "PLATFORM_USER",
@@ -49,8 +55,14 @@ export async function requestPlatformUserPasswordResetAction(
       expiresAt: tokenRow.expiresAt
     });
     emailSent = sent.sent;
-  } catch {
+    if (!sent.sent) emailFailureReason = "email_provider_not_configured";
+  } catch (error) {
     emailSent = false;
+    emailFailureReason = summarizeEmailError(error);
+    console.error("platform forgot-password email send failed", {
+      platformUserId: target.id,
+      reason: emailFailureReason
+    });
   }
 
   await auditLog({
@@ -58,7 +70,7 @@ export async function requestPlatformUserPasswordResetAction(
     action: "PLATFORM_USER_FORGOT_PASSWORD_REQUESTED",
     entityType: "PlatformUser",
     entityId: target.id,
-    metadata: { emailSent, source: "self_service" }
+    metadata: { emailSent, emailFailureReason, source: "self_service" }
   });
 
   return { ok: true, message: GENERIC_SUCCESS_MESSAGE };

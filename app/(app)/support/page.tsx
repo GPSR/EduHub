@@ -1,7 +1,8 @@
 import Link from "next/link";
-import { Badge, Button, Card, EmptyState, Input, Label, SectionHeader, Textarea } from "@/components/ui";
+import { Badge, Button, Card, EmptyState, Label, SectionHeader, Textarea } from "@/components/ui";
 import { prisma } from "@/lib/db";
 import { requireSession } from "@/lib/require";
+import { getSchoolSupportChatTopics } from "@/lib/support-chat-topics";
 
 function timeAgo(date: Date) {
   const diff = Date.now() - date.getTime();
@@ -35,65 +36,79 @@ export default async function SupportPage({
 }) {
   const session = await requireSession();
   const { conversationId } = await searchParams;
+  const topics = await getSchoolSupportChatTopics(session.schoolId);
 
-  const conversations = await prisma.supportConversation.findMany({
-    where: {
-      schoolId: session.schoolId,
-      schoolParticipants: { some: { userId: session.userId } }
-    },
-    include: {
-      schoolParticipants: {
-        include: {
-          user: {
-            select: {
-              id: true,
-              name: true,
-              schoolRole: { select: { name: true } }
+  let loadError: string | null = null;
+  let conversations: any[] = [];
+  try {
+    conversations = await prisma.supportConversation.findMany({
+      where: {
+        schoolId: session.schoolId,
+        schoolParticipants: { some: { userId: session.userId } }
+      },
+      include: {
+        schoolParticipants: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                name: true,
+                schoolRole: { select: { name: true } }
+              }
             }
+          }
+        },
+        platformParticipants: {
+          select: {
+            platformUser: { select: { id: true, name: true } }
+          }
+        },
+        messages: {
+          orderBy: { createdAt: "desc" },
+          take: 1,
+          select: {
+            body: true,
+            createdAt: true,
+            senderType: true,
+            senderSchoolUser: { select: { name: true } },
+            senderPlatformUser: { select: { name: true } }
           }
         }
       },
-      platformParticipants: {
-        select: {
-          platformUser: { select: { id: true, name: true } }
-        }
-      },
-      messages: {
-        orderBy: { createdAt: "desc" },
-        take: 1,
-        select: {
-          body: true,
-          createdAt: true,
-          senderType: true,
-          senderSchoolUser: { select: { name: true } },
-          senderPlatformUser: { select: { name: true } }
-        }
-      }
-    },
-    orderBy: [{ lastMessageAt: "desc" }, { createdAt: "desc" }],
-    take: 120
-  });
+      orderBy: [{ lastMessageAt: "desc" }, { createdAt: "desc" }],
+      take: 120
+    });
+  } catch (error) {
+    console.error("support conversations load failed", error);
+    loadError = "Support chat is temporarily unavailable. Please refresh and try again.";
+  }
 
   const selectedConversation =
     conversations.find((conversation) => conversation.id === conversationId) ?? conversations[0] ?? null;
 
   if (selectedConversation?.lastMessageAt) {
-    const myParticipant = selectedConversation.schoolParticipants.find((participant) => participant.userId === session.userId);
+    const myParticipant = selectedConversation.schoolParticipants.find((participant: any) => participant.userId === session.userId);
     const isUnread = !myParticipant?.lastReadAt || myParticipant.lastReadAt < selectedConversation.lastMessageAt;
     if (isUnread) {
-      await prisma.supportConversationSchoolParticipant.updateMany({
-        where: {
-          conversationId: selectedConversation.id,
-          userId: session.userId,
-          OR: [{ lastReadAt: null }, { lastReadAt: { lt: selectedConversation.lastMessageAt } }]
-        },
-        data: { lastReadAt: new Date() }
-      });
+      try {
+        await prisma.supportConversationSchoolParticipant.updateMany({
+          where: {
+            conversationId: selectedConversation.id,
+            userId: session.userId,
+            OR: [{ lastReadAt: null }, { lastReadAt: { lt: selectedConversation.lastMessageAt } }]
+          },
+          data: { lastReadAt: new Date() }
+        });
+      } catch (error) {
+        console.error("support conversation read-receipt update failed", error);
+      }
     }
   }
 
-  const messages = selectedConversation
-    ? await prisma.supportMessage.findMany({
+  let messages: any[] = [];
+  if (selectedConversation) {
+    try {
+      messages = await prisma.supportMessage.findMany({
         where: {
           conversationId: selectedConversation.id,
           schoolId: session.schoolId
@@ -104,8 +119,12 @@ export default async function SupportPage({
         },
         orderBy: { createdAt: "asc" },
         take: 400
-      })
-    : [];
+      });
+    } catch (error) {
+      console.error("support messages load failed", error);
+      loadError = loadError ?? "Support messages are temporarily unavailable. Please refresh and try again.";
+    }
+  }
 
   return (
     <div className="space-y-5 animate-fade-up">
@@ -114,9 +133,15 @@ export default async function SupportPage({
         subtitle="Thread-based support for parents, teachers, school admins, and platform users"
       />
 
-      {session.roleKey === "PARENT" ? <CreateParentSupportCard /> : null}
-      {session.roleKey === "ADMIN" ? <CreatePlatformSupportCard /> : null}
-      {session.roleKey !== "ADMIN" && session.roleKey !== "PARENT" ? <CreateSchoolSupportCard /> : null}
+      {loadError ? (
+        <div className="rounded-[12px] border border-rose-500/25 bg-rose-500/12 px-3.5 py-2.5 text-[12px] text-rose-100">
+          {loadError}
+        </div>
+      ) : null}
+
+      {session.roleKey === "PARENT" ? <CreateParentSupportCard topics={topics} /> : null}
+      {session.roleKey === "ADMIN" ? <CreatePlatformSupportCard topics={topics} /> : null}
+      {session.roleKey !== "ADMIN" && session.roleKey !== "PARENT" ? <CreateSchoolSupportCard topics={topics} /> : null}
 
       <div className="grid grid-cols-1 xl:grid-cols-[350px_1fr] gap-4">
         <Card title="Conversations" description={`${conversations.length} thread(s)`} accent="indigo">
@@ -129,15 +154,18 @@ export default async function SupportPage({
           ) : (
             <div className="space-y-2">
               {conversations.map((conversation) => {
-                const myParticipant = conversation.schoolParticipants.find((participant) => participant.userId === session.userId);
+                const myParticipant = conversation.schoolParticipants.find((participant: any) => participant.userId === session.userId);
                 const unread = Boolean(
                   conversation.lastMessageAt &&
                     (!myParticipant?.lastReadAt || myParticipant.lastReadAt < conversation.lastMessageAt)
                 );
                 const lastMessage = conversation.messages[0];
                 const participantNames = conversation.schoolParticipants
-                  .filter((participant) => participant.userId !== session.userId)
-                  .map((participant) => `${participant.user.name} (${participant.user.schoolRole.name})`);
+                  .filter((participant: any) => participant.userId !== session.userId)
+                  .map(
+                    (participant: any) =>
+                      `${participant.user.name}${participant.user.schoolRole?.name ? ` (${participant.user.schoolRole.name})` : ""}`
+                  );
 
                 return (
                   <Link
@@ -240,7 +268,7 @@ export default async function SupportPage({
   );
 }
 
-async function CreateParentSupportCard() {
+async function CreateParentSupportCard({ topics }: { topics: string[] }) {
   const { createParentSupportConversationAction } = await import("./actions");
 
   return (
@@ -251,8 +279,8 @@ async function CreateParentSupportCard() {
     >
       <form action={createParentSupportConversationAction} className="grid grid-cols-1 gap-3">
         <div>
-          <Label required>Subject</Label>
-          <Input name="subject" placeholder="Need help with attendance concern" required />
+          <Label required>Topic</Label>
+          <SupportTopicSelect topics={topics} />
         </div>
         <div>
           <Label required>Message</Label>
@@ -266,7 +294,7 @@ async function CreateParentSupportCard() {
   );
 }
 
-async function CreateSchoolSupportCard() {
+async function CreateSchoolSupportCard({ topics }: { topics: string[] }) {
   const { createSchoolSupportConversationAction } = await import("./actions");
 
   return (
@@ -277,8 +305,8 @@ async function CreateSchoolSupportCard() {
     >
       <form action={createSchoolSupportConversationAction} className="grid grid-cols-1 gap-3">
         <div>
-          <Label required>Subject</Label>
-          <Input name="subject" placeholder="Need approval support" required />
+          <Label required>Topic</Label>
+          <SupportTopicSelect topics={topics} />
         </div>
         <div>
           <Label required>Message</Label>
@@ -292,7 +320,7 @@ async function CreateSchoolSupportCard() {
   );
 }
 
-async function CreatePlatformSupportCard() {
+async function CreatePlatformSupportCard({ topics }: { topics: string[] }) {
   const { createPlatformSupportConversationAction } = await import("./actions");
 
   return (
@@ -303,8 +331,8 @@ async function CreatePlatformSupportCard() {
     >
       <form action={createPlatformSupportConversationAction} className="grid grid-cols-1 gap-3">
         <div>
-          <Label required>Subject</Label>
-          <Input name="subject" placeholder="Need help with school subscription settings" required />
+          <Label required>Topic</Label>
+          <SupportTopicSelect topics={topics} />
         </div>
         <div>
           <Label required>Message</Label>
@@ -332,5 +360,22 @@ async function ReplySupportCard({ conversationId }: { conversationId: string }) 
         <Button type="submit">Send reply</Button>
       </div>
     </form>
+  );
+}
+
+function SupportTopicSelect({ topics }: { topics: string[] }) {
+  return (
+    <select
+      name="topic"
+      defaultValue={topics[0] ?? "Others"}
+      className="w-full rounded-[12px] border border-white/[0.12] bg-[#0f1728]/75 px-3.5 py-2.5 text-sm text-white outline-none transition-all focus:border-blue-300/70 focus:ring-4 focus:ring-blue-500/22"
+      required
+    >
+      {topics.map((topic) => (
+        <option key={topic} value={topic}>
+          {topic}
+        </option>
+      ))}
+    </select>
   );
 }

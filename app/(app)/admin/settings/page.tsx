@@ -7,6 +7,7 @@ import Image from "next/image";
 import { getSchoolIdCardTemplate } from "@/lib/id-card-template";
 import { getSchoolStudentDemographicsConfig, type StudentDemographicsConfig } from "@/lib/student-demographics";
 import { getSchoolProfile, type SchoolProfile } from "@/lib/school-profile";
+import { getSchoolSupportChatTopics } from "@/lib/support-chat-topics";
 import { ensureBaseModules } from "@/lib/permissions";
 
 export default async function AdminSettingsPage({
@@ -17,7 +18,7 @@ export default async function AdminSettingsPage({
   const { session } = await requirePermission("SETTINGS", "ADMIN");
   await ensureBaseModules();
   const { roleId, logoUploadStatus, logoUploadMessage } = await searchParams;
-  const [school, roles, modules, schoolModuleRows, classes, idCardTemplate, demographicsConfig, schoolProfile] = await Promise.all([
+  const [school, roles, modules, schoolModuleRows, classes, idCardTemplate, demographicsConfig, schoolProfile, supportTopics] = await Promise.all([
     prisma.school.findUnique({ where: { id: session.schoolId } }),
     prisma.schoolRole.findMany({
       where: { schoolId: session.schoolId },
@@ -34,7 +35,8 @@ export default async function AdminSettingsPage({
     }),
     getSchoolIdCardTemplate(session.schoolId),
     getSchoolStudentDemographicsConfig(session.schoolId),
-    getSchoolProfile(session.schoolId)
+    getSchoolProfile(session.schoolId),
+    getSchoolSupportChatTopics(session.schoolId)
   ]);
   const enabledByModuleId = new Map(schoolModuleRows.map((row) => [row.moduleId, row.enabled]));
   const schoolModules = modules.map((module) => ({
@@ -100,6 +102,10 @@ export default async function AdminSettingsPage({
 
       <Card title="Student Demographics" description="Configure Gender and Blood Group dropdown options used in admissions." accent="teal">
         <StudentDemographicsConfigPanel config={demographicsConfig} />
+      </Card>
+
+      <Card title="Support Chat Topics" description="Configure dropdown topics shown when users open support chats." accent="teal">
+        <SupportChatTopicsPanel topics={supportTopics} />
       </Card>
 
       <Card title="Virtual ID Card Template" description="Design student virtual ID card layout and fields." accent="indigo">
@@ -381,6 +387,27 @@ async function StudentDemographicsConfigPanel({ config }: { config: StudentDemog
       </div>
       <div className="md:col-span-2 flex justify-end">
         <Button type="submit">Save demographic options</Button>
+      </div>
+    </form>
+  );
+}
+
+async function SupportChatTopicsPanel({ topics }: { topics: string[] }) {
+  const { updateSupportChatTopicsAction } = await import("./actions");
+  return (
+    <form action={updateSupportChatTopicsAction} className="grid grid-cols-1 gap-4">
+      <div>
+        <Label required>Dropdown topics</Label>
+        <Textarea
+          name="topics"
+          rows={7}
+          defaultValue={topics.join("\n")}
+          placeholder={"Fees\nSalary\nLeaves\nBus Route\nProgress Card\nComplaint\nOthers"}
+        />
+        <p className="mt-1 text-[11px] text-white/35">One option per line (or comma-separated). These appear in Support Chat topic dropdowns.</p>
+      </div>
+      <div className="flex justify-end">
+        <Button type="submit">Save support topics</Button>
       </div>
     </form>
   );
