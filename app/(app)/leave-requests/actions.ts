@@ -22,6 +22,7 @@ const CreateStudentLeaveSchema = z.object({
 });
 
 const CreateTeacherLeaveSchema = z.object({
+  teacherUserId: z.string().min(1),
   fromDate: z.string().min(1),
   toDate: z.string().min(1),
   reason: z.string().trim().min(4).max(1200)
@@ -142,11 +143,12 @@ export async function createStudentLeaveRequestAction(formData: FormData) {
 export async function createTeacherLeaveRequestAction(formData: FormData) {
   const { session } = await requirePermission("LEAVE_REQUESTS", "EDIT");
 
-  if (!(session.roleKey === "TEACHER" || session.roleKey === "CLASS_TEACHER")) {
-    throw new Error("Only teachers can submit teacher leave requests.");
+  if (!["TEACHER", "CLASS_TEACHER", "PRINCIPAL", "HEAD_MASTER", "ADMIN"].includes(session.roleKey)) {
+    throw new Error("Only teachers and school leadership can submit staff leave requests.");
   }
 
   const parsed = CreateTeacherLeaveSchema.safeParse({
+    teacherUserId: formData.get("teacherUserId"),
     fromDate: formData.get("fromDate"),
     toDate: formData.get("toDate"),
     reason: formData.get("reason")
@@ -159,11 +161,31 @@ export async function createTeacherLeaveRequestAction(formData: FormData) {
   const range = normalizeDateRange({ fromDate: parsed.data.fromDate, toDate: parsed.data.toDate });
   if (!range) throw new Error("Invalid leave date range.");
 
+  if (
+    (session.roleKey === "TEACHER" || session.roleKey === "CLASS_TEACHER") &&
+    parsed.data.teacherUserId !== session.userId
+  ) {
+    throw new Error("You can submit staff leave only for yourself.");
+  }
+
+  const staffUser = await prisma.user.findFirst({
+    where: {
+      id: parsed.data.teacherUserId,
+      schoolId: session.schoolId,
+      isActive: true,
+      schoolRole: {
+        key: { in: ["TEACHER", "CLASS_TEACHER"] }
+      }
+    },
+    select: { id: true, name: true }
+  });
+  if (!staffUser) throw new Error("Selected staff member not found.");
+
   await prisma.leaveRequest.create({
     data: {
       schoolId: session.schoolId,
       requesterType: "TEACHER",
-      teacherUserId: session.userId,
+      teacherUserId: staffUser.id,
       requestedByUserId: session.userId,
       fromDate: range.fromDate,
       toDate: range.toDate,
@@ -179,8 +201,8 @@ export async function createTeacherLeaveRequestAction(formData: FormData) {
 
   await notifySchoolUsers({
     schoolId: session.schoolId,
-    userIds: approverIds,
-    title: "Teacher leave request submitted",
+    userIds: [...approverIds, staffUser.id],
+    title: `Staff leave request: ${staffUser.name}`,
     body: `${parsed.data.fromDate} to ${parsed.data.toDate} (${range.totalDays} day(s)).`
   });
 

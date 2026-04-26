@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { Prisma } from "@prisma/client";
-import { Badge, Button, Card, EmptyState, Input, Label, SectionHeader, Textarea } from "@/components/ui";
+import { Badge, Button, Card, EmptyState, Input, Label, SectionHeader } from "@/components/ui";
+import { LeaveRequestCreateCard } from "@/components/leave-request-create-card";
 import { prisma } from "@/lib/db";
 import { atLeastLevel, getEffectivePermissions } from "@/lib/permissions";
 import { requirePermission } from "@/lib/require-permission";
@@ -10,6 +11,7 @@ import {
   canApproveTeacherLeaveByRole,
   getClassTeacherClassIds
 } from "@/lib/leave-approval";
+import { createStudentLeaveRequestAction, createTeacherLeaveRequestAction, decideLeaveRequestAction } from "./actions";
 
 function statusTone(status: "PENDING" | "APPROVED" | "REJECTED") {
   if (status === "APPROVED") return "success" as const;
@@ -128,7 +130,7 @@ export default async function LeaveRequestsPage({
   });
 
   const visibleStudents = await (async () => {
-    if (!canCreate) return [] as Array<{ id: string; fullName: string; classLabel: string | null }>;
+    if (!canCreate) return [] as Array<{ id: string; fullName: string; classId: string; classLabel: string }>;
 
     if (session.roleKey === "PARENT") {
       const rows = await prisma.student.findMany({
@@ -139,14 +141,15 @@ export default async function LeaveRequestsPage({
         select: {
           id: true,
           fullName: true,
-          class: { select: { name: true, section: true } }
+          class: { select: { id: true, name: true, section: true } }
         },
         orderBy: { fullName: "asc" }
       });
       return rows.map((row) => ({
         id: row.id,
         fullName: row.fullName,
-        classLabel: row.class ? classLabel(row.class.name, row.class.section) : null
+        classId: row.class?.id ?? "__UNASSIGNED__",
+        classLabel: row.class ? classLabel(row.class.name, row.class.section) : "Unassigned"
       }));
     }
 
@@ -159,14 +162,15 @@ export default async function LeaveRequestsPage({
         select: {
           id: true,
           fullName: true,
-          class: { select: { name: true, section: true } }
+          class: { select: { id: true, name: true, section: true } }
         },
         orderBy: { fullName: "asc" }
       });
       return rows.map((row) => ({
         id: row.id,
         fullName: row.fullName,
-        classLabel: row.class ? classLabel(row.class.name, row.class.section) : null
+        classId: row.class?.id ?? "__UNASSIGNED__",
+        classLabel: row.class ? classLabel(row.class.name, row.class.section) : "Unassigned"
       }));
     }
 
@@ -176,37 +180,137 @@ export default async function LeaveRequestsPage({
         select: {
           id: true,
           fullName: true,
-          class: { select: { name: true, section: true } }
+          class: { select: { id: true, name: true, section: true } }
         },
         orderBy: [{ fullName: "asc" }],
-        take: 300
+        take: 600
       });
       return rows.map((row) => ({
         id: row.id,
         fullName: row.fullName,
-        classLabel: row.class ? classLabel(row.class.name, row.class.section) : null
+        classId: row.class?.id ?? "__UNASSIGNED__",
+        classLabel: row.class ? classLabel(row.class.name, row.class.section) : "Unassigned"
       }));
     }
 
     return [];
   })();
 
-  const pendingCount = leaveRequests.filter((request) => request.status === "PENDING").length;
-  const approvedCount = leaveRequests.filter((request) => request.status === "APPROVED").length;
-  const rejectedCount = leaveRequests.filter((request) => request.status === "REJECTED").length;
+  const classOptions = Array.from(
+    new Map(visibleStudents.map((student) => [student.classId, student.classLabel])).entries()
+  )
+    .map(([id, label]) => ({ id, label }))
+    .sort((left, right) => left.label.localeCompare(right.label));
+
+  const visibleStaff = await (async () => {
+    if (!canCreate) return [] as Array<{ id: string; name: string; roleLabel: string }>;
+
+    if (session.roleKey === "ADMIN" || session.roleKey === "PRINCIPAL" || session.roleKey === "HEAD_MASTER") {
+      const rows = await prisma.user.findMany({
+        where: {
+          schoolId: session.schoolId,
+          isActive: true,
+          schoolRole: {
+            key: {
+              in: ["TEACHER", "CLASS_TEACHER"]
+            }
+          }
+        },
+        select: {
+          id: true,
+          name: true,
+          schoolRole: { select: { name: true } }
+        },
+        orderBy: [{ name: "asc" }],
+        take: 500
+      });
+      return rows.map((row) => ({
+        id: row.id,
+        name: row.name,
+        roleLabel: row.schoolRole.name
+      }));
+    }
+
+    if (session.roleKey === "TEACHER" || session.roleKey === "CLASS_TEACHER") {
+      const me = await prisma.user.findFirst({
+        where: {
+          schoolId: session.schoolId,
+          id: session.userId,
+          isActive: true
+        },
+        select: {
+          id: true,
+          name: true,
+          schoolRole: { select: { key: true, name: true } }
+        }
+      });
+      if (!me) return [];
+      if (!(me.schoolRole.key === "TEACHER" || me.schoolRole.key === "CLASS_TEACHER")) return [];
+      return [
+        {
+          id: me.id,
+          name: me.name,
+          roleLabel: me.schoolRole.name
+        }
+      ];
+    }
+
+    return [];
+  })();
+
+  const canCreateStudentRequest =
+    canCreate &&
+    ["PARENT", "CLASS_TEACHER", "PRINCIPAL", "HEAD_MASTER", "ADMIN"].includes(session.roleKey) &&
+    visibleStudents.length > 0;
+
+  const canCreateStaffRequest =
+    canCreate &&
+    ["TEACHER", "CLASS_TEACHER", "PRINCIPAL", "HEAD_MASTER", "ADMIN"].includes(session.roleKey) &&
+    visibleStaff.length > 0;
+
+  const [totalCount, pendingCount, approvedCount, rejectedCount] = await Promise.all([
+    prisma.leaveRequest.count({ where: whereByRole }),
+    prisma.leaveRequest.count({ where: { ...whereByRole, status: "PENDING" } }),
+    prisma.leaveRequest.count({ where: { ...whereByRole, status: "APPROVED" } }),
+    prisma.leaveRequest.count({ where: { ...whereByRole, status: "REJECTED" } })
+  ]);
 
   return (
     <div className="space-y-5 animate-fade-up">
       <SectionHeader
         title="Leave Requests"
-        subtitle="Student and teacher leave workflow with role-based approvals"
+        subtitle="Student and staff leave workflow with role-based approvals"
       />
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5">
-        <MetricCard label="Total" value={leaveRequests.length} tone="text-white/85" />
-        <MetricCard label="Pending" value={pendingCount} tone="text-amber-300" />
-        <MetricCard label="Approved" value={approvedCount} tone="text-emerald-300" />
-        <MetricCard label="Rejected" value={rejectedCount} tone="text-rose-300" />
+        <MetricCard
+          href="/leave-requests"
+          label="Total"
+          value={totalCount}
+          tone="text-white/85"
+          active={!statusFilter}
+        />
+        <MetricCard
+          href="/leave-requests?status=PENDING"
+          label="Pending"
+          value={pendingCount}
+          tone="text-amber-300"
+          active={statusFilter === "PENDING"}
+        />
+        <MetricCard
+          href="/leave-requests?status=APPROVED"
+          label="Approved"
+          value={approvedCount}
+          tone="text-emerald-300"
+          active={statusFilter === "APPROVED"}
+        />
+        <MetricCard
+          href="/leave-requests?status=REJECTED"
+          label="Rejected"
+          value={rejectedCount}
+          tone="text-rose-300"
+          active={statusFilter === "REJECTED"}
+        />
       </div>
 
       <div className="flex flex-wrap gap-2">
@@ -216,11 +320,16 @@ export default async function LeaveRequestsPage({
         <StatusChip href="/leave-requests?status=REJECTED" active={statusFilter === "REJECTED"} label="Rejected" />
       </div>
 
-      {canCreate ? (
-        <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-          {visibleStudents.length > 0 ? <CreateStudentLeaveCard students={visibleStudents} /> : null}
-          {session.roleKey === "TEACHER" || session.roleKey === "CLASS_TEACHER" ? <CreateTeacherLeaveCard /> : null}
-        </div>
+      {canCreateStudentRequest || canCreateStaffRequest ? (
+        <LeaveRequestCreateCard
+          canStudent={canCreateStudentRequest}
+          canStaff={canCreateStaffRequest}
+          classOptions={classOptions}
+          students={visibleStudents}
+          staffOptions={visibleStaff}
+          createStudentAction={createStudentLeaveRequestAction}
+          createStaffAction={createTeacherLeaveRequestAction}
+        />
       ) : null}
 
       <Card title="Requests" description={`${leaveRequests.length} request(s)`} accent="teal">
@@ -302,12 +411,32 @@ export default async function LeaveRequestsPage({
   );
 }
 
-function MetricCard({ label, value, tone }: { label: string; value: number; tone: string }) {
+function MetricCard({
+  href,
+  label,
+  value,
+  tone,
+  active
+}: {
+  href: string;
+  label: string;
+  value: number;
+  tone: string;
+  active: boolean;
+}) {
   return (
-    <div className="rounded-[12px] border border-white/[0.08] bg-white/[0.03] px-3 py-3 text-center">
+    <Link
+      href={href}
+      className={[
+        "block rounded-[12px] border px-3 py-3 text-center transition",
+        active
+          ? "border-blue-400/35 bg-blue-500/[0.18]"
+          : "border-white/[0.08] bg-white/[0.03] hover:border-white/[0.16] hover:bg-white/[0.06]"
+      ].join(" ")}
+    >
       <div className={`text-xl font-bold ${tone}`}>{value}</div>
       <div className="mt-0.5 text-[11px] uppercase tracking-wider text-white/35">{label}</div>
-    </div>
+    </Link>
   );
 }
 
@@ -328,96 +457,7 @@ function StatusChip({ href, label, active }: { href: string; label: string; acti
   );
 }
 
-async function CreateStudentLeaveCard({
-  students
-}: {
-  students: Array<{ id: string; fullName: string; classLabel: string | null }>;
-}) {
-  const { createStudentLeaveRequestAction } = await import("./actions");
-
-  return (
-    <Card
-      title="Student Leave Request"
-      description="Submit leave requests for students"
-      accent="indigo"
-    >
-      <form action={createStudentLeaveRequestAction} className="grid grid-cols-1 gap-3">
-        <div>
-          <Label required>Student</Label>
-          <select
-            name="studentId"
-            className="w-full rounded-[12px] border border-white/[0.12] bg-[#0f1728]/75 px-3.5 py-2.5 text-sm text-white outline-none transition-all focus:border-blue-300/70 focus:ring-4 focus:ring-blue-500/22"
-            required
-          >
-            {students.map((student) => (
-              <option key={student.id} value={student.id}>
-                {student.fullName}{student.classLabel ? ` (${student.classLabel})` : ""}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div>
-            <Label required>From</Label>
-            <Input name="fromDate" type="date" required />
-          </div>
-          <div>
-            <Label required>To</Label>
-            <Input name="toDate" type="date" required />
-          </div>
-        </div>
-
-        <div>
-          <Label required>Reason</Label>
-          <Textarea name="reason" rows={3} placeholder="Reason for student leave request" required />
-        </div>
-
-        <div className="flex justify-end">
-          <Button type="submit">Submit student leave</Button>
-        </div>
-      </form>
-    </Card>
-  );
-}
-
-async function CreateTeacherLeaveCard() {
-  const { createTeacherLeaveRequestAction } = await import("./actions");
-
-  return (
-    <Card
-      title="Teacher Leave Request"
-      description="Teachers can submit their own leave request"
-      accent="teal"
-    >
-      <form action={createTeacherLeaveRequestAction} className="grid grid-cols-1 gap-3">
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div>
-            <Label required>From</Label>
-            <Input name="fromDate" type="date" required />
-          </div>
-          <div>
-            <Label required>To</Label>
-            <Input name="toDate" type="date" required />
-          </div>
-        </div>
-
-        <div>
-          <Label required>Reason</Label>
-          <Textarea name="reason" rows={3} placeholder="Reason for teacher leave" required />
-        </div>
-
-        <div className="flex justify-end">
-          <Button type="submit">Submit teacher leave</Button>
-        </div>
-      </form>
-    </Card>
-  );
-}
-
 async function ApproveLeaveCard({ leaveRequestId }: { leaveRequestId: string }) {
-  const { decideLeaveRequestAction } = await import("./actions");
-
   return (
     <form action={decideLeaveRequestAction} className="mt-3 space-y-2">
       <input type="hidden" name="leaveRequestId" value={leaveRequestId} />
