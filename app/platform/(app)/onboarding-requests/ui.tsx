@@ -2,6 +2,7 @@
 
 import { useActionState, useMemo, useState } from "react";
 import { Button, Input, Label, Select } from "@/components/ui";
+import { CheckboxBulkActions } from "@/components/checkbox-bulk-actions";
 import {
   approveOnboardingRequestAction,
   holdOnboardingRequestAction,
@@ -52,6 +53,7 @@ export function RequestApprovalForm({
         </div>
         <div>
           <Label>Enabled modules for this school</Label>
+          <CheckboxBulkActions fieldName="enabledModuleIds" className="mt-2 flex items-center gap-2" />
           <div className="mt-2 grid grid-cols-1 md:grid-cols-2 gap-2">
             {modules.map((m) => (
               <label key={m.id} className="inline-flex items-center gap-2 rounded-xl border border-white/10 px-3 py-2">

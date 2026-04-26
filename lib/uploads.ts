@@ -6,16 +6,25 @@ const ALLOWED = new Map<string, string>([
   ["image/webp", "webp"]
 ]);
 
-const MAX_IMAGE_BYTES = 1500 * 1024; // Keep DB payload reasonable.
+export const DEFAULT_MAX_IMAGE_BYTES = 1500 * 1024; // Keep DB payload reasonable.
+export const LOGO_MAX_IMAGE_BYTES = 3 * 1024 * 1024;
+
+function formatMegabytes(bytes: number) {
+  const mb = bytes / (1024 * 1024);
+  return Number.isInteger(mb) ? `${mb}MB` : `${mb.toFixed(1)}MB`;
+}
 
 function toDataUrl(file: File, bytes: Buffer, ext: string) {
   const mime = file.type || (ext === "jpg" ? "image/jpeg" : `image/${ext}`);
   return `data:${mime};base64,${bytes.toString("base64")}`;
 }
 
-async function validateImage(file: File): Promise<{ ok: true; ext: string; bytes: Buffer } | { ok: false; message: string }> {
+async function validateImage(
+  file: File,
+  maxBytes = DEFAULT_MAX_IMAGE_BYTES
+): Promise<{ ok: true; ext: string; bytes: Buffer } | { ok: false; message: string }> {
   if (!file || file.size === 0) return { ok: false, message: "Please choose an image." };
-  if (file.size > MAX_IMAGE_BYTES) return { ok: false, message: "Image must be 1.5MB or smaller." };
+  if (file.size > maxBytes) return { ok: false, message: `Image must be ${formatMegabytes(maxBytes)} or smaller.` };
   const ext = ALLOWED.get(file.type);
   if (!ext) return { ok: false, message: "Use JPG, PNG, or WEBP image." };
   const bytes = Buffer.from(await file.arrayBuffer());
@@ -26,8 +35,9 @@ export async function saveUploadedImage(opts: {
   file: File;
   folder: string;
   prefix: string;
+  maxBytes?: number;
 }): Promise<{ ok: true; url: string } | { ok: false; message: string }> {
-  const checked = await validateImage(opts.file);
+  const checked = await validateImage(opts.file, opts.maxBytes);
   if (!checked.ok) return checked;
   const dataUrl = toDataUrl(opts.file, checked.bytes, checked.ext);
   return { ok: true, url: dataUrl };

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useActionState } from "react";
 import { Button, Input, Label } from "@/components/ui";
+import { CheckboxBulkActions } from "@/components/checkbox-bulk-actions";
 import {
   approvePlatformUserAction,
   createPlatformUserAction,
@@ -67,6 +68,7 @@ export function ApprovePlatformUserForm({
     <div className="space-y-3">
       <form action={approveAction} className="space-y-3">
         <input type="hidden" name="platformUserId" value={platformUserId} />
+        <CheckboxBulkActions fieldName="schoolIds" />
         <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
           {schools.map((s) => (
             <label key={s.id} className="inline-flex items-center gap-2 rounded-xl border border-white/10 px-3 py-2 text-sm">
@@ -151,6 +153,7 @@ export function ManagePlatformUserForm({
                 <Input name="email" type="email" defaultValue={email} required />
               </div>
             </div>
+            <CheckboxBulkActions fieldName="schoolIds" />
             <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
               {schools.map((s) => (
                 <label key={s.id} className="inline-flex items-center gap-2 rounded-xl border border-white/10 px-3 py-2 text-sm">

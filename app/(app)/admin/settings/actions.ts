@@ -6,7 +6,7 @@ import { requirePermission } from "@/lib/require-permission";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { ensureBaseModules } from "@/lib/permissions";
-import { deleteUploadedImageByUrl, saveUploadedImage } from "@/lib/uploads";
+import { deleteUploadedImageByUrl, LOGO_MAX_IMAGE_BYTES, saveUploadedImage } from "@/lib/uploads";
 import { normalizeTemplate } from "@/lib/id-card-template";
 import {
   getSchoolStudentDemographicsConfig,
@@ -204,21 +204,27 @@ export async function deleteClassConfigAction(formData: FormData) {
 
 export async function uploadSchoolLogoAction(formData: FormData) {
   const { session } = await requirePermission("SETTINGS", "ADMIN");
+  const basePath = "/admin/settings";
   const file = formData.get("logo");
-  if (!(file instanceof File)) redirect("/admin/settings");
+  if (!(file instanceof File) || file.size === 0) {
+    redirect(`${basePath}?logoUploadStatus=error&logoUploadMessage=${encodeURIComponent("Please choose a logo image.")}`);
+  }
 
   const school = await prisma.school.findUnique({
     where: { id: session.schoolId },
     select: { brandingLogoUrl: true }
   });
-  if (!school) redirect("/admin/settings");
+  if (!school) redirect(`${basePath}?logoUploadStatus=error&logoUploadMessage=${encodeURIComponent("School not found.")}`);
 
   const saved = await saveUploadedImage({
     file,
     folder: `schools/${session.schoolId}`,
-    prefix: "logo"
+    prefix: "logo",
+    maxBytes: LOGO_MAX_IMAGE_BYTES
   });
-  if (!saved.ok) redirect("/admin/settings");
+  if (!saved.ok) {
+    redirect(`${basePath}?logoUploadStatus=error&logoUploadMessage=${encodeURIComponent(saved.message)}`);
+  }
 
   await prisma.school.update({
     where: { id: session.schoolId },
@@ -226,7 +232,7 @@ export async function uploadSchoolLogoAction(formData: FormData) {
   });
 
   await deleteUploadedImageByUrl(school.brandingLogoUrl);
-  redirect("/admin/settings");
+  redirect(`${basePath}?logoUploadStatus=success`);
 }
 
 export async function saveIdCardTemplateAction(formData: FormData) {

@@ -139,6 +139,9 @@ const ALL_MODULES = [
   { icon: "🧑‍💼", label: "Users", desc: "Roles and permissions" },
 ] as const;
 
+const LANDING_MOBILE_FEATURES = MOBILE_FEATURES.filter((module) => module.label !== "Gallery");
+const LANDING_MODULES = ALL_MODULES.filter((module) => module.label !== "Gallery");
+
 const DESKTOP_WIDGET_SKINS = [
   "border-cyan-300/25 bg-[linear-gradient(145deg,rgba(14,165,233,0.22),rgba(2,6,23,0.6))]",
   "border-indigo-300/25 bg-[linear-gradient(145deg,rgba(99,102,241,0.24),rgba(2,6,23,0.6))]",
@@ -266,7 +269,7 @@ export function HomeShell({ isSignedIn }: { isSignedIn: boolean }) {
         <div className="mb-2.5 flex items-center justify-between gap-2">
           <div>
             <p className="text-[12px] font-bold text-white/78">Everything included</p>
-            <p className="text-[9px] text-white/38">21 modules · one platform</p>
+            <p className="text-[9px] text-white/38">{LANDING_MODULES.length} modules · one platform</p>
           </div>
           <button
             type="button"
@@ -279,7 +282,7 @@ export function HomeShell({ isSignedIn }: { isSignedIn: boolean }) {
         </div>
 
         <div className="grid grid-cols-4 md:grid-cols-8 gap-1.5 md:gap-2">
-          {MOBILE_FEATURES.map((item) => (
+          {LANDING_MOBILE_FEATURES.map((item) => (
             <article key={item.label} className={`rounded-[12px] border px-1.5 py-1.5 md:px-2 md:py-2 ${item.className}`}>
               <div className="text-[15px] md:text-[16px]">{item.icon}</div>
               <div className="mt-1 text-[9px] md:text-[10px] font-bold leading-tight text-white/88">{item.label}</div>
@@ -290,9 +293,9 @@ export function HomeShell({ isSignedIn }: { isSignedIn: boolean }) {
 
         {showAllModules && (
           <div className="mt-3 rounded-[14px] border border-white/[0.10] bg-[#0f1728]/70 p-2.5 md:p-3 animate-fade-up">
-            <p className="mb-2 text-[10px] uppercase tracking-[0.1em] text-white/45">All 21 modules</p>
+            <p className="mb-2 text-[10px] uppercase tracking-[0.1em] text-white/45">All {LANDING_MODULES.length} modules</p>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-              {ALL_MODULES.map((module) => (
+              {LANDING_MODULES.map((module) => (
                 <article
                   key={module.label}
                   className="rounded-[11px] border border-white/[0.10] bg-white/[0.03] px-2 py-2"
@@ -364,18 +367,6 @@ export function HomeShell({ isSignedIn }: { isSignedIn: boolean }) {
               ))}
             </div>
 
-            <div className="rounded-[18px] border border-amber-300/30 bg-amber-500/10 p-4">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <p className="text-[12px] font-semibold text-amber-100/95">Gallery ready by default</p>
-                  <p className="mt-1 text-[12px] text-amber-50/75">
-                    Folder-level slideshow with save/share controls and optimized full-screen visibility.
-                  </p>
-                </div>
-                <span className="text-2xl">🖼️</span>
-              </div>
-            </div>
-
             <div className="flex items-center gap-2.5">
               <Link
                 href={primaryHref}
@@ -398,11 +389,11 @@ export function HomeShell({ isSignedIn }: { isSignedIn: boolean }) {
                 Feature Modules
               </p>
               <span className="rounded-full border border-cyan-300/35 bg-cyan-500/15 px-2.5 py-1 text-[10px] font-bold text-cyan-100/90">
-                {ALL_MODULES.length} modules
+                {LANDING_MODULES.length} modules
               </span>
             </div>
             <div className="grid grid-cols-2 gap-2.5">
-              {ALL_MODULES.map((module, idx) => (
+              {LANDING_MODULES.map((module, idx) => (
                 <article
                   key={module.label}
                   className={`module-float-card rounded-[13px] border px-3 py-2.5 ${DESKTOP_WIDGET_SKINS[idx % DESKTOP_WIDGET_SKINS.length]}`}

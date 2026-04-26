@@ -2,6 +2,7 @@
 
 import { useActionState } from "react";
 import { Button, Input, Label } from "@/components/ui";
+import { CheckboxBulkActions } from "@/components/checkbox-bulk-actions";
 import {
   createAdminInviteAction,
   updatePlatformSchoolModulesAction,
@@ -45,6 +46,7 @@ export function PlatformSchoolModulesForm(props: {
   return (
     <form action={action} className="space-y-4">
       <input type="hidden" name="schoolId" value={props.schoolId} />
+      <CheckboxBulkActions fieldName="enabledModuleIds" />
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         {props.modules.map((m) => (
           <label

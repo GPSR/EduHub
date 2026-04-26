@@ -12,11 +12,11 @@ import { ensureBaseModules } from "@/lib/permissions";
 export default async function AdminSettingsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ roleId?: string }>;
+  searchParams: Promise<{ roleId?: string; logoUploadStatus?: string; logoUploadMessage?: string }>;
 }) {
   const { session } = await requirePermission("SETTINGS", "ADMIN");
   await ensureBaseModules();
-  const { roleId } = await searchParams;
+  const { roleId, logoUploadStatus, logoUploadMessage } = await searchParams;
   const [school, roles, modules, schoolModuleRows, classes, idCardTemplate, demographicsConfig, schoolProfile] = await Promise.all([
     prisma.school.findUnique({ where: { id: session.schoolId } }),
     prisma.schoolRole.findMany({
@@ -67,7 +67,11 @@ export default async function AdminSettingsPage({
       </Card>
 
       <Card title="Branding Logo" description="Upload school logo shown in app header." accent="teal">
-        <SchoolLogoPanel logoUrl={school.brandingLogoUrl} />
+        <SchoolLogoPanel
+          logoUrl={school.brandingLogoUrl}
+          uploadStatus={logoUploadStatus}
+          uploadMessage={logoUploadMessage}
+        />
       </Card>
 
       <Card title="School Profile" description="Update school address shown in student virtual ID cards." accent="teal">
@@ -105,27 +109,47 @@ export default async function AdminSettingsPage({
   );
 }
 
-async function SchoolLogoPanel({ logoUrl }: { logoUrl?: string | null }) {
+async function SchoolLogoPanel({
+  logoUrl,
+  uploadStatus,
+  uploadMessage
+}: {
+  logoUrl?: string | null;
+  uploadStatus?: string;
+  uploadMessage?: string;
+}) {
   const { uploadSchoolLogoAction } = await import("./actions");
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
-      <div className="flex items-center gap-3">
-        {logoUrl ? (
-          <Image src={logoUrl} alt="School logo" width={56} height={56} className="h-14 w-14 rounded-full object-contain bg-white/[0.03] p-0.5 border border-white/[0.10]" />
-        ) : (
-          <div className="h-14 w-14 rounded-full border border-white/[0.10] bg-white/[0.04] grid place-items-center text-[11px] text-white/40">No logo</div>
-        )}
-        <div className="min-w-0">
-          <Label required>Upload logo</Label>
-          <p className="mt-1 text-[11px] text-white/35">Crop and upload JPG/PNG/WEBP, max 3MB</p>
+    <div className="grid grid-cols-1 gap-4">
+      {uploadStatus === "success" ? (
+        <div className="rounded-[12px] border border-emerald-500/25 bg-emerald-500/12 px-3.5 py-2.5 text-[12px] text-emerald-100">
+          Logo uploaded successfully.
         </div>
-      </div>
-      <div className="md:justify-self-end">
-        <CroppedImageUploadForm
-          action={uploadSchoolLogoAction}
-          fileFieldName="logo"
-          triggerLabel="Choose & Crop Logo"
-        />
+      ) : uploadStatus === "error" ? (
+        <div className="rounded-[12px] border border-rose-500/25 bg-rose-500/12 px-3.5 py-2.5 text-[12px] text-rose-100">
+          {uploadMessage ?? "Unable to upload logo. Please try again."}
+        </div>
+      ) : null}
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
+        <div className="flex items-center gap-3">
+          {logoUrl ? (
+            <Image src={logoUrl} alt="School logo" width={56} height={56} className="h-14 w-14 rounded-full object-contain bg-white/[0.03] p-0.5 border border-white/[0.10]" />
+          ) : (
+            <div className="h-14 w-14 rounded-full border border-white/[0.10] bg-white/[0.04] grid place-items-center text-[11px] text-white/40">No logo</div>
+          )}
+          <div className="min-w-0">
+            <Label required>Upload logo</Label>
+            <p className="mt-1 text-[11px] text-white/35">Crop and upload JPG/PNG/WEBP, max 3MB</p>
+          </div>
+        </div>
+        <div className="md:justify-self-end">
+          <CroppedImageUploadForm
+            action={uploadSchoolLogoAction}
+            fileFieldName="logo"
+            triggerLabel="Choose & Crop Logo"
+          />
+        </div>
       </div>
     </div>
   );

@@ -1,5 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
+import { CheckboxBulkActions } from "@/components/checkbox-bulk-actions";
 import { Badge, Button, Card, EmptyState, Input, Label, SectionHeader, Textarea } from "@/components/ui";
 import { prisma } from "@/lib/db";
 import { requirePlatformSchoolAccess } from "@/lib/platform-require";
@@ -209,6 +210,7 @@ async function CreatePlatformFolderCard({
       </div>
       <div>
         <Label>Visible roles</Label>
+        <CheckboxBulkActions fieldName="roleIds" />
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 rounded-[12px] border border-white/[0.08] bg-white/[0.03] p-3">
           {roles.map((role) => (
             <label key={role.id} className="inline-flex items-center gap-2 text-[12px] text-white/80">
@@ -261,25 +263,28 @@ async function UploadPlatformImageCard({
         </select>
       </div>
       <div>
-        <Label required>Title</Label>
-        <Input name="title" placeholder="Platform spotlight" required />
+        <Label>Title (optional)</Label>
+        <Input name="title" placeholder="Platform spotlight" />
+        <p className="mt-1 text-[11px] text-white/35">If multiple images are selected, file names are used automatically.</p>
       </div>
       <div>
         <Label>Caption</Label>
         <Textarea name="caption" rows={2} placeholder="Short description shown in school gallery" />
       </div>
       <div>
-        <Label required>Image</Label>
+        <Label required>Images</Label>
         <input
           type="file"
-          name="image"
+          name="images"
           accept="image/jpeg,image/png,image/webp"
+          multiple
           className="w-full rounded-[12px] border border-white/[0.12] bg-[#0f1728]/75 px-3 py-2.5 text-sm text-white/80 file:mr-3 file:rounded-[10px] file:border-0 file:bg-blue-500/20 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-blue-100 hover:border-white/[0.24]"
           required
         />
+        <p className="mt-1 text-[11px] text-white/35">Supported: JPG, PNG, WEBP (max 1.5MB each, up to 20 images)</p>
       </div>
       <div className="flex justify-end">
-        <Button type="submit">Upload image</Button>
+        <Button type="submit">Upload images</Button>
       </div>
     </form>
   );

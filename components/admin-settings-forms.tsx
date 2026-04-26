@@ -2,6 +2,7 @@
 
 import { useActionState } from "react";
 import { Button, Input, Label } from "@/components/ui";
+import { CheckboxBulkActions } from "@/components/checkbox-bulk-actions";
 import {
   updateIdSettingsAction,
   renameRoleAction,
@@ -132,6 +133,7 @@ export function SchoolModulesClientForm(props: {
 
   return (
     <form action={action} className="space-y-4">
+      <CheckboxBulkActions fieldName="enabledModuleIds" />
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
         {props.modules.map(m => (
           <label

@@ -16,9 +16,43 @@ const CreatePlatformGalleryFolderSchema = z.object({
 const UploadPlatformGalleryItemSchema = z.object({
   schoolId: z.string().min(1),
   folderId: z.string().min(1),
-  title: z.string().trim().min(2).max(120),
+  title: z.string().trim().min(2).max(120).optional(),
   caption: z.string().trim().max(600).optional()
 });
+
+const MAX_GALLERY_UPLOAD_FILES = 20;
+
+function titleFromFileName(fileName: string) {
+  const fallback = "Gallery image";
+  const normalized = fileName
+    .replace(/\.[^.]+$/, "")
+    .replace(/[_-]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (normalized.length < 2) return fallback;
+  return normalized.slice(0, 120);
+}
+
+function resolveItemTitle({
+  explicitTitle,
+  fileName,
+  index,
+  total
+}: {
+  explicitTitle?: string;
+  fileName: string;
+  index: number;
+  total: number;
+}) {
+  const trimmed = explicitTitle?.trim() ?? "";
+  if (!trimmed) return titleFromFileName(fileName);
+
+  if (total === 1) return trimmed.slice(0, 120);
+
+  const suffix = ` ${index + 1}`;
+  const maxBase = Math.max(2, 120 - suffix.length);
+  return `${trimmed.slice(0, maxBase)}${suffix}`;
+}
 
 export async function createPlatformGalleryFolderAction(formData: FormData) {
   const parsed = CreatePlatformGalleryFolderSchema.safeParse({
@@ -75,7 +109,7 @@ export async function uploadPlatformGalleryItemAction(formData: FormData) {
   const parsed = UploadPlatformGalleryItemSchema.safeParse({
     schoolId: formData.get("schoolId"),
     folderId: formData.get("folderId"),
-    title: formData.get("title"),
+    title: String(formData.get("title") ?? "").trim() || undefined,
     caption: String(formData.get("caption") ?? "").trim() || undefined
   });
   if (!parsed.success) throw new Error("Unable to process request.");
@@ -92,25 +126,60 @@ export async function uploadPlatformGalleryItemAction(formData: FormData) {
   });
   if (!folder) throw new Error("Folder not found.");
 
-  const file = formData.get("image");
-  if (!(file instanceof File)) throw new Error("Please upload an image.");
+  const files = formData
+    .getAll("images")
+    .filter((value): value is File => value instanceof File && value.size > 0);
+  if (files.length === 0) {
+    const single = formData.get("image");
+    if (single instanceof File && single.size > 0) files.push(single);
+  }
 
-  const saved = await saveUploadedImage({
-    file,
-    folder: `schools/${parsed.data.schoolId}/gallery`,
-    prefix: "platform-gallery"
-  });
-  if (!saved.ok) throw new Error(saved.message);
+  if (files.length === 0) throw new Error("Please upload at least one image.");
+  if (files.length > MAX_GALLERY_UPLOAD_FILES) {
+    throw new Error(`Please upload up to ${MAX_GALLERY_UPLOAD_FILES} images at a time.`);
+  }
 
-  await prisma.schoolGalleryItem.create({
-    data: {
+  const createData: Array<{
+    schoolId: string;
+    folderId: string;
+    title: string;
+    caption?: string;
+    imageUrl: string;
+    createdByPlatformUserId: string;
+  }> = [];
+
+  for (const [index, file] of files.entries()) {
+    const saved = await saveUploadedImage({
+      file,
+      folder: `schools/${parsed.data.schoolId}/gallery`,
+      prefix: "platform-gallery"
+    });
+    if (!saved.ok) throw new Error(`${file.name}: ${saved.message}`);
+
+    createData.push({
       schoolId: parsed.data.schoolId,
       folderId: folder.id,
-      title: parsed.data.title,
+      title: resolveItemTitle({
+        explicitTitle: parsed.data.title,
+        fileName: file.name,
+        index,
+        total: files.length
+      }),
       caption: parsed.data.caption,
       imageUrl: saved.url,
       createdByPlatformUserId: session.platformUserId
-    }
+    });
+  }
+
+  await prisma.schoolGalleryItem.createMany({
+    data: createData.map((item) => ({
+      schoolId: item.schoolId,
+      folderId: item.folderId,
+      title: item.title,
+      caption: item.caption,
+      imageUrl: item.imageUrl,
+      createdByPlatformUserId: item.createdByPlatformUserId
+    }))
   });
 
   redirect(`/platform/schools/${encodeURIComponent(parsed.data.schoolId)}/gallery?folderId=${encodeURIComponent(folder.id)}`);
