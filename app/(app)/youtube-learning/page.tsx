@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import { atLeastLevel, getEffectivePermissions } from "@/lib/permissions";
 import { requirePermission } from "@/lib/require-permission";
 import { requireSession } from "@/lib/require";
+import { markYouTubeLearningSeen } from "@/lib/youtube-learning-unread";
 
 function classLabel(name: string, section: string) {
   return section ? `${name}-${section}` : name;
@@ -22,11 +23,11 @@ function timeAgo(date: Date) {
 export default async function YouTubeLearningPage({
   searchParams
 }: {
-  searchParams: Promise<{ classId?: string; holiday?: string }>;
+  searchParams: Promise<{ classId?: string; holiday?: string; videoId?: string }>;
 }) {
   await requirePermission("YOUTUBE_LEARNING", "VIEW");
   const session = await requireSession();
-  const { classId: filterClassId, holiday } = await searchParams;
+  const { classId: filterClassId, holiday, videoId } = await searchParams;
 
   const perms = await getEffectivePermissions({
     schoolId: session.schoolId,
@@ -94,6 +95,18 @@ export default async function YouTubeLearningPage({
     orderBy: [{ createdAt: "desc" }],
     take: 180
   });
+
+  await markYouTubeLearningSeen({ schoolId: session.schoolId, userId: session.userId });
+
+  const selectedVideo = videos.find((entry) => entry.id === videoId) ?? null;
+
+  function videoHref(targetVideoId: string) {
+    const params = new URLSearchParams();
+    if (hasClassFilter && filterClassId) params.set("classId", filterClassId);
+    if (holidayOnly) params.set("holiday", "1");
+    params.set("videoId", targetVideoId);
+    return `/youtube-learning?${params.toString()}`;
+  }
 
   const visibleClasses =
     allowedClassIds === null
@@ -170,40 +183,83 @@ export default async function YouTubeLearningPage({
             description="Add curated class videos so students can continue learning during holidays."
           />
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
-            {videos.map((video) => {
-              const classTag = video.class ? classLabel(video.class.name, video.class.section) : "All classes";
-              const thumb = `https://img.youtube.com/vi/${video.youtubeVideoId}/hqdefault.jpg`;
-
-              return (
-                <article
-                  key={video.id}
-                  className="overflow-hidden rounded-[16px] border border-white/[0.08] bg-white/[0.03] transition hover:bg-white/[0.06]"
-                >
-                  <a href={video.youtubeUrl} target="_blank" rel="noreferrer" className="block relative">
-                    <img src={thumb} alt={video.title} className="h-44 w-full object-cover" />
-                    <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
-                    <span className="absolute bottom-2 right-2 rounded-full border border-white/30 bg-black/40 px-2 py-1 text-[11px] font-semibold text-white">
-                      Open ↗
-                    </span>
-                  </a>
-
-                  <div className="space-y-2 px-3.5 py-3">
-                    <div className="flex flex-wrap items-center gap-1.5">
-                      <Badge tone="info">{classTag}</Badge>
-                      {video.holidayOnly ? <Badge tone="success">Holiday</Badge> : null}
-                    </div>
-                    <p className="text-[13px] font-semibold text-white/90 line-clamp-2">{video.title}</p>
-                    {video.description ? (
-                      <p className="text-[12px] text-white/60 line-clamp-2">{video.description}</p>
-                    ) : null}
-                    <p className="text-[11px] text-white/40">
-                      By {video.createdByUser.name} · {timeAgo(video.createdAt)}
-                    </p>
+          <div className="space-y-3">
+            {selectedVideo ? (
+              <article className="overflow-hidden rounded-[16px] border border-white/[0.10] bg-[#0b1324]">
+                <div className="relative aspect-video w-full">
+                  <iframe
+                    src={`https://www.youtube-nocookie.com/embed/${selectedVideo.youtubeVideoId}?rel=0&modestbranding=1`}
+                    title={selectedVideo.title}
+                    className="absolute inset-0 h-full w-full"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                    referrerPolicy="strict-origin-when-cross-origin"
+                    allowFullScreen
+                  />
+                </div>
+                <div className="space-y-1.5 px-3.5 py-3">
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <Badge tone="info">
+                      {selectedVideo.class
+                        ? classLabel(selectedVideo.class.name, selectedVideo.class.section)
+                        : "All classes"}
+                    </Badge>
+                    {selectedVideo.holidayOnly ? <Badge tone="success">Holiday</Badge> : null}
                   </div>
-                </article>
-              );
-            })}
+                  <p className="text-[14px] font-semibold text-white/92">{selectedVideo.title}</p>
+                  {selectedVideo.description ? (
+                    <p className="text-[12px] text-white/65 whitespace-pre-wrap">{selectedVideo.description}</p>
+                  ) : null}
+                  <p className="text-[11px] text-white/40">
+                    By {selectedVideo.createdByUser.name} · {timeAgo(selectedVideo.createdAt)}
+                  </p>
+                </div>
+              </article>
+            ) : (
+              <div className="rounded-[14px] border border-white/[0.10] bg-white/[0.03] px-3.5 py-3 text-[12px] text-white/62">
+                Select any video card below to play it inside the app.
+              </div>
+            )}
+
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+              {videos.map((video) => {
+                const classTag = video.class ? classLabel(video.class.name, video.class.section) : "All classes";
+                const thumb = `https://img.youtube.com/vi/${video.youtubeVideoId}/hqdefault.jpg`;
+                const active = selectedVideo?.id === video.id;
+
+                return (
+                  <article
+                    key={video.id}
+                    className={[
+                      "overflow-hidden rounded-[16px] border bg-white/[0.03] transition hover:bg-white/[0.06]",
+                      active ? "border-blue-400/35" : "border-white/[0.08]"
+                    ].join(" ")}
+                  >
+                    <Link href={videoHref(video.id)} className="block relative">
+                      <img src={thumb} alt={video.title} className="h-44 w-full object-cover" />
+                      <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
+                      <span className="absolute bottom-2 right-2 rounded-full border border-white/30 bg-black/40 px-2 py-1 text-[11px] font-semibold text-white">
+                        Play in app
+                      </span>
+                    </Link>
+
+                    <div className="space-y-2 px-3.5 py-3">
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <Badge tone="info">{classTag}</Badge>
+                        {video.holidayOnly ? <Badge tone="success">Holiday</Badge> : null}
+                        {active ? <Badge tone="warning">Now playing</Badge> : null}
+                      </div>
+                      <p className="text-[13px] font-semibold text-white/90 line-clamp-2">{video.title}</p>
+                      {video.description ? (
+                        <p className="text-[12px] text-white/60 line-clamp-2">{video.description}</p>
+                      ) : null}
+                      <p className="text-[11px] text-white/40">
+                        By {video.createdByUser.name} · {timeAgo(video.createdAt)}
+                      </p>
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
           </div>
         )}
       </Card>

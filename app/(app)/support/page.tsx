@@ -3,6 +3,7 @@ import { Badge, Button, Card, EmptyState, Label, SectionHeader, Textarea } from 
 import { prisma } from "@/lib/db";
 import { requireSession } from "@/lib/require";
 import { getSchoolSupportChatTopics } from "@/lib/support-chat-topics";
+import { LiveChatRefresh } from "@/components/live-chat-refresh";
 
 function timeAgo(date: Date) {
   const diff = Date.now() - date.getTime();
@@ -128,6 +129,7 @@ export default async function SupportPage({
 
   return (
     <div className="space-y-5 animate-fade-up">
+      <LiveChatRefresh />
       <SectionHeader
         title="Support Chat"
         subtitle="Thread-based support for parents, teachers, school admins, and platform users"
@@ -191,6 +193,7 @@ export default async function SupportPage({
                       </div>
                       <div className="flex items-center gap-1">
                         {conversation.scope === "PLATFORM_SUPPORT" ? <Badge tone="info">Platform</Badge> : null}
+                        {conversation.status === "CLOSED" ? <Badge tone="neutral">Closed</Badge> : null}
                         {unread ? <Badge tone="warning">Unread</Badge> : null}
                       </div>
                     </div>
@@ -347,19 +350,26 @@ async function CreatePlatformSupportCard({ topics }: { topics: string[] }) {
 }
 
 async function ReplySupportCard({ conversationId }: { conversationId: string }) {
-  const { sendSchoolSupportMessageAction } = await import("./actions");
+  const { closeSchoolSupportConversationAction, sendSchoolSupportMessageAction } = await import("./actions");
 
   return (
-    <form action={sendSchoolSupportMessageAction} className="space-y-2">
-      <input type="hidden" name="conversationId" value={conversationId} />
-      <div>
-        <Label required>Reply</Label>
-        <Textarea name="body" rows={3} placeholder="Type your response" required />
-      </div>
-      <div className="flex justify-end">
-        <Button type="submit">Send reply</Button>
-      </div>
-    </form>
+    <div className="space-y-3">
+      <form action={sendSchoolSupportMessageAction} className="space-y-2">
+        <input type="hidden" name="conversationId" value={conversationId} />
+        <div>
+          <Label required>Reply</Label>
+          <Textarea name="body" rows={3} placeholder="Type your response" required />
+        </div>
+        <div className="flex justify-end">
+          <Button type="submit">Send reply</Button>
+        </div>
+      </form>
+
+      <form action={closeSchoolSupportConversationAction} className="flex justify-end">
+        <input type="hidden" name="conversationId" value={conversationId} />
+        <Button type="submit" variant="secondary">Close chat</Button>
+      </form>
+    </div>
   );
 }
 

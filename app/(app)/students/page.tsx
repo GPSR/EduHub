@@ -4,6 +4,9 @@ import { prisma } from "@/lib/db";
 import { requireSession } from "@/lib/require";
 import { atLeastLevel, getEffectivePermissions } from "@/lib/permissions";
 import { requirePermission } from "@/lib/require-permission";
+import { DashboardGlobalSearch } from "../dashboard-global-search";
+import { FolderSlideshow } from "../gallery/folder-slideshow";
+import { getLatestGallerySlideshow } from "@/lib/latest-gallery-slideshow";
 
 function avatarColor(name: string) {
   const colors = [
@@ -18,9 +21,16 @@ function avatarColor(name: string) {
   return colors[idx];
 }
 
-export default async function StudentsPage() {
+export default async function StudentsPage({
+  searchParams
+}: {
+  searchParams: Promise<{ q?: string }>;
+}) {
   await requirePermission("STUDENTS", "VIEW");
   const session = await requireSession();
+  const { q } = await searchParams;
+  const query = (q ?? "").trim();
+  const normalizedQuery = query.toLowerCase();
   const perms = await getEffectivePermissions({
     schoolId: session.schoolId,
     userId: session.userId,
@@ -28,26 +38,61 @@ export default async function StudentsPage() {
   });
   const canWrite = perms["STUDENTS"] ? atLeastLevel(perms["STUDENTS"], "EDIT") : false;
 
-  const students =
+  const [students, quickSearchTeachers, latestSlideshow] = await Promise.all([
     session.roleKey === "PARENT"
-      ? await prisma.student.findMany({
+      ? prisma.student.findMany({
           where: { schoolId: session.schoolId, parents: { some: { userId: session.userId } } },
           orderBy: { fullName: "asc" },
           include: { class: true },
         })
-      : await prisma.student.findMany({
+      : prisma.student.findMany({
           where: { schoolId: session.schoolId },
           orderBy: { createdAt: "desc" },
-          take: 200,
+          take: 220,
           include: { class: true },
-        });
+        }),
+    session.roleKey === "ADMIN"
+      ? prisma.user.findMany({
+          where: {
+            schoolId: session.schoolId,
+            schoolRole: { key: { in: ["TEACHER", "CLASS_TEACHER"] } }
+          },
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            schoolRole: { select: { name: true } }
+          },
+          orderBy: { createdAt: "desc" },
+          take: 180
+        })
+      : Promise.resolve([]),
+    getLatestGallerySlideshow({
+      schoolId: session.schoolId,
+      roleKey: session.roleKey,
+      roleId: session.roleId,
+      take: 20
+    })
+  ]);
+
+  const filteredStudents = query
+    ? students.filter((student) =>
+        `${student.fullName} ${student.studentId} ${student.admissionNo ?? ""} ${student.rollNumber ?? ""} ${student.class ? `${student.class.name} ${student.class.section ?? ""}` : ""}`
+          .toLowerCase()
+          .includes(normalizedQuery)
+      )
+    : students;
 
   return (
     <div className="space-y-5 animate-fade-up">
       <div className="flex items-start justify-between gap-3">
         <SectionHeader
           title="Students"
-          subtitle={`${students.length} student${students.length !== 1 ? "s" : ""} enrolled`}
+          subtitle={
+            query
+              ? `${filteredStudents.length} result${filteredStudents.length !== 1 ? "s" : ""} for "${query}"`
+              : `${students.length} student${students.length !== 1 ? "s" : ""} enrolled`
+          }
         />
         {canWrite && (
           <Link href="/students/new">
@@ -56,12 +101,53 @@ export default async function StudentsPage() {
         )}
       </div>
 
+      <Card className="relative z-[110] overflow-visible">
+        <DashboardGlobalSearch
+          initialQuery={query}
+          searchPath="/students"
+          students={students.map((s) => ({
+            id: s.id,
+            fullName: s.fullName,
+            studentId: s.studentId,
+            admissionNo: s.admissionNo ?? null,
+            rollNumber: s.rollNumber ?? null,
+            classLabel: s.class ? `${s.class.name}${s.class.section ? `-${s.class.section}` : ""}` : null
+          }))}
+          teachers={quickSearchTeachers.map((t) => ({
+            id: t.id,
+            name: t.name,
+            email: t.email,
+            roleName: t.schoolRole.name
+          }))}
+        />
+      </Card>
+
+      {latestSlideshow ? (
+        <Card
+          title={`Gallery Slideshow · ${latestSlideshow.folderName}`}
+          description="Latest school photos visible for your role"
+          accent="teal"
+        >
+          <FolderSlideshow
+            folderId={latestSlideshow.folderId}
+            folderName={latestSlideshow.folderName}
+            items={latestSlideshow.items}
+          />
+        </Card>
+      ) : null}
+
       <Card>
-        {students.length === 0 ? (
-          <EmptyState icon="👥" title="No students yet" description="Add your first student to get started." />
+        {filteredStudents.length === 0 ? (
+          <EmptyState
+            icon="👥"
+            title={query ? "No matching students" : "No students yet"}
+            description={
+              query ? `No students matched "${query}".` : "Add your first student to get started."
+            }
+          />
         ) : (
           <div className="divide-y divide-white/[0.06]">
-            {students.map((s, i) => {
+            {filteredStudents.map((s, i) => {
               const initials = s.fullName.trim().split(/\s+/).map((p: string) => p[0]).slice(0, 2).join("").toUpperCase();
               const className = s.class ? `${s.class.name}${s.class.section ? `-${s.class.section}` : ""}` : null;
               return (
@@ -70,7 +156,7 @@ export default async function StudentsPage() {
                   href={`/students/${s.id}`}
                   className={`flex items-center gap-3 px-3.5 sm:px-4 py-3.5 hover:bg-white/[0.04] transition-colors
                               ${i === 0 ? "rounded-t-[14px]" : ""}
-                              ${i === students.length - 1 ? "rounded-b-[14px]" : ""}`}
+                              ${i === filteredStudents.length - 1 ? "rounded-b-[14px]" : ""}`}
                 >
                   {/* Avatar */}
                   <div className={`hidden sm:grid h-9 w-9 shrink-0 place-items-center rounded-[11px]

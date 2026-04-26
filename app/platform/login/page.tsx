@@ -12,9 +12,6 @@ export default async function PlatformLoginPage() {
   return (
     <main className="min-h-dvh md:min-h-screen overflow-y-auto keyboard-aware keyboard-aware-scroll flex items-start justify-center px-3 sm:px-4 pt-[max(1rem,env(safe-area-inset-top))]">
       <div className="w-full max-w-[520px] md:max-w-[860px] space-y-4 sm:space-y-5 animate-fade-up">
-        <Link href="/" className="inline-flex items-center gap-1.5 text-sm text-white/40 hover:text-white/75 transition">
-          ← Back to home
-        </Link>
         <Card accent="indigo">
           <div className="flex flex-col items-center text-center">
             <BrandWordmark size="md" href="/platform/login" priority className="mb-2" />

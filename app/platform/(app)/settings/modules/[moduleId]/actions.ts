@@ -5,8 +5,10 @@ import { prisma } from "@/lib/db";
 import { requireSuperAdmin } from "@/lib/platform-require";
 import { revalidatePath } from "next/cache";
 import { auditLog } from "@/lib/audit";
+import { applyIndustryModuleTemplates } from "@/lib/module-industry-templates";
 
 export type ModuleFieldState = { ok: boolean; message?: string };
+export type ModuleTemplateState = { ok: boolean; message?: string };
 
 const FieldSchema = z.object({
   moduleId: z.string().min(1),
@@ -113,4 +115,56 @@ export async function deleteModuleFieldAction(formData: FormData) {
 
   revalidatePath(`/platform/settings/modules/${parsed.data.moduleId}`);
   revalidatePath("/platform/settings");
+}
+
+const ApplyModuleTemplateSchema = z.object({
+  moduleId: z.string().min(1)
+});
+
+export async function applyModuleIndustryTemplateAction(
+  _prev: ModuleTemplateState,
+  formData: FormData
+): Promise<ModuleTemplateState> {
+  const { session } = await requireSuperAdmin();
+  const parsed = ApplyModuleTemplateSchema.safeParse({
+    moduleId: formData.get("moduleId")
+  });
+  if (!parsed.success) return { ok: false, message: "Invalid request." };
+
+  const module = await prisma.module.findUnique({
+    where: { id: parsed.data.moduleId },
+    select: { id: true, key: true, name: true }
+  });
+  if (!module) return { ok: false, message: "Module not found." };
+
+  const result = await applyIndustryModuleTemplates({ moduleKeys: [module.key] });
+  const moduleSummary = result.details.find((item) => item.moduleId === module.id);
+
+  if (!moduleSummary) {
+    return {
+      ok: false,
+      message: `No industry template is defined for ${module.name} (${module.key}) yet.`
+    };
+  }
+
+  await auditLog({
+    actor: { type: "PLATFORM_USER", id: session.platformUserId },
+    action: "PLATFORM_MODULE_TEMPLATE_APPLIED",
+    entityType: "Module",
+    entityId: module.id,
+    metadata: {
+      moduleKey: module.key,
+      createdFields: moduleSummary.createdFields,
+      reactivatedFields: moduleSummary.reactivatedFields,
+      skippedFields: moduleSummary.skippedFields
+    }
+  });
+
+  revalidatePath(`/platform/settings/modules/${module.id}`);
+  revalidatePath("/platform/settings");
+
+  return {
+    ok: true,
+    message: `Applied template to ${module.name}: ${moduleSummary.createdFields} field(s) added, ${moduleSummary.reactivatedFields} reactivated, ${moduleSummary.skippedFields} already present.`
+  };
 }

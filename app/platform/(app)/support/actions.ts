@@ -12,6 +12,10 @@ const ReplySupportSchema = z.object({
   body: z.string().trim().min(1).max(4000)
 });
 
+const CloseSupportSchema = z.object({
+  conversationId: z.string().min(1)
+});
+
 export async function sendPlatformSupportMessageAction(formData: FormData) {
   const { session } = await requirePlatformUser();
 
@@ -84,6 +88,64 @@ export async function sendPlatformSupportMessageAction(formData: FormData) {
         schoolId: participant.conversation.schoolId,
         userId: row.userId,
         title: `Platform reply: ${participant.conversation.subject}`,
+        body: notifyBody
+      })
+    )
+  );
+
+  redirect(`/platform/support?conversationId=${encodeURIComponent(parsed.data.conversationId)}`);
+}
+
+export async function closePlatformSupportConversationAction(formData: FormData) {
+  const { session } = await requirePlatformUser();
+
+  const parsed = CloseSupportSchema.safeParse({
+    conversationId: formData.get("conversationId")
+  });
+  if (!parsed.success) throw new Error(parsed.error.issues[0]?.message ?? "Unable to process request.");
+
+  const participant = await prisma.supportConversationPlatformParticipant.findFirst({
+    where: {
+      conversationId: parsed.data.conversationId,
+      platformUserId: session.platformUserId
+    },
+    include: {
+      platformUser: { select: { name: true } },
+      conversation: {
+        select: {
+          id: true,
+          schoolId: true,
+          subject: true,
+          status: true
+        }
+      }
+    }
+  });
+  if (!participant) throw new Error("Conversation not found.");
+  if (participant.conversation.status === "CLOSED") {
+    redirect(`/platform/support?conversationId=${encodeURIComponent(parsed.data.conversationId)}`);
+  }
+
+  await prisma.supportConversation.update({
+    where: { id: parsed.data.conversationId },
+    data: { status: "CLOSED" }
+  });
+
+  const schoolParticipants = await prisma.supportConversationSchoolParticipant.findMany({
+    where: {
+      conversationId: parsed.data.conversationId,
+      schoolId: participant.conversation.schoolId
+    },
+    select: { userId: true }
+  });
+
+  const notifyBody = `${participant.platformUser.name} (Platform) closed this chat.\nLINK:/support?conversationId=${encodeURIComponent(parsed.data.conversationId)}`;
+  await Promise.all(
+    schoolParticipants.map((row) =>
+      notifyUser({
+        schoolId: participant.conversation.schoolId,
+        userId: row.userId,
+        title: `Support chat closed: ${participant.conversation.subject}`,
         body: notifyBody
       })
     )

@@ -39,11 +39,11 @@ function isActive(pathname: string, item: NavItem) {
 }
 
 export function MobileNav({
-  userName, userEmail, items, moreItems, unreadCount = 0, feedUnreadCount = 0,
+  userName, userEmail, items, moreItems, unreadCount = 0, feedUnreadCount = 0, supportUnreadCount = 0, youtubeUnreadCount = 0,
 }: {
   role: string; userName: string; userEmail: string;
   items: NavItem[]; moreItems: NavItem[];
-  unreadCount?: number; feedUnreadCount?: number;
+  unreadCount?: number; feedUnreadCount?: number; supportUnreadCount?: number; youtubeUnreadCount?: number;
 }) {
   const pathname = usePathname();
   const router = useRouter();
@@ -96,6 +96,8 @@ export function MobileNav({
   function getBadge(href: string) {
     if (href === "/notifications" && unreadCount > 0) return unreadCount;
     if (href === "/feed" && feedUnreadCount > 0) return feedUnreadCount;
+    if (href === "/support" && supportUnreadCount > 0) return supportUnreadCount;
+    if (href === "/youtube-learning" && youtubeUnreadCount > 0) return youtubeUnreadCount;
     return 0;
   }
 

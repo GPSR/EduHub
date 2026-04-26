@@ -31,10 +31,12 @@ type SuggestionItem = {
 
 export function DashboardGlobalSearch({
   initialQuery,
+  searchPath = "/dashboard",
   students,
   teachers
 }: {
   initialQuery: string;
+  searchPath?: string;
   students: StudentSuggestion[];
   teachers: TeacherSuggestion[];
 }) {
@@ -99,13 +101,20 @@ export function DashboardGlobalSearch({
 
   const submitSearch = (value: string) => {
     const q = value.trim();
-    router.push(q ? `/dashboard?q=${encodeURIComponent(q)}` : "/dashboard");
+    router.push(q ? `${searchPath}?q=${encodeURIComponent(q)}` : searchPath);
     setOpen(false);
   };
 
+  const label =
+    teachers.length > 0 ? "Global Search (teachers + students)" : "Global Search (students)";
+  const placeholder =
+    teachers.length > 0
+      ? "Search teacher name/email or student name/ID"
+      : "Search student name, ID, admission no, or roll no";
+
   return (
     <div className={clsx("relative space-y-2", open && "z-[120]")} ref={boxRef}>
-      <label className="text-[12px] font-medium text-white/70">Global Search (teachers + students)</label>
+      <label className="text-[12px] font-medium text-white/70">{label}</label>
       <div className="relative">
         <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-white/45" aria-hidden="true">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
@@ -116,7 +125,7 @@ export function DashboardGlobalSearch({
           name="q"
           value={query}
           autoComplete="off"
-          placeholder="Search teacher name/email or student name/ID"
+          placeholder={placeholder}
           onFocus={() => setOpen(true)}
           onChange={(e) => {
             setQuery(e.target.value);

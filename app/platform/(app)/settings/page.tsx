@@ -3,7 +3,7 @@ import { Card, Badge, SectionHeader } from "@/components/ui";
 import { prisma } from "@/lib/db";
 import { requireSuperAdmin } from "@/lib/platform-require";
 import { ensureBaseModules } from "@/lib/permissions";
-import { CreateCustomSubscriptionForm, CreateModuleForm, SubscriptionPlanSettingsForm } from "./ui";
+import { ApplyIndustryTemplatesForm, CreateCustomSubscriptionForm, CreateModuleForm, SubscriptionPlanSettingsForm } from "./ui";
 import { ensureSubscriptionPlanSettings } from "@/lib/subscription";
 
 const MODULE_ICONS: Record<string, string> = {
@@ -32,7 +32,7 @@ export default async function PlatformSettingsPage() {
   const planAmountByKey = new Map(planSettings.map(p => [p.plan, p.amountCents]));
 
   return (
-    <div className="space-y-5 animate-fade-up">
+    <div className="space-y-5 animate-fade-up pb-safe">
       <SectionHeader title="Platform Settings" subtitle="Modules, subscription plans and global configuration" />
 
       {/* Modules */}
@@ -40,19 +40,23 @@ export default async function PlatformSettingsPage() {
         <div className="mb-4 mt-1">
           <CreateModuleForm />
         </div>
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+        <div className="mb-4">
+          <ApplyIndustryTemplatesForm />
+        </div>
+        <div className="grid grid-cols-1 min-[430px]:grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
           {modules.map(m => (
             <Link
               key={m.id}
               href={`/platform/settings/modules/${m.id}`}
               className="flex items-center gap-2.5 rounded-[13px] border border-white/[0.08]
-                         bg-white/[0.03] px-3.5 py-3 hover:bg-white/[0.07] hover:border-white/[0.13]
+                         min-h-[56px] bg-white/[0.03] px-3.5 py-3 hover:bg-white/[0.07] hover:border-white/[0.13]
+                         active:bg-white/[0.08]
                          transition-all group"
             >
               <span className="text-lg">{MODULE_ICONS[m.key] ?? "•"}</span>
               <div className="min-w-0">
                 <p className="text-[13px] font-semibold text-white/80 group-hover:text-white/95 transition truncate">{m.name}</p>
-                <p className="text-[10px] text-white/35">{m.key}</p>
+                <p className="text-[10px] text-white/35 break-all">{m.key}</p>
               </div>
             </Link>
           ))}

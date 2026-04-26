@@ -5,6 +5,8 @@ import { requirePermission } from "@/lib/require-permission";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { DashboardGlobalSearch } from "../dashboard-global-search";
+import { FolderSlideshow } from "../gallery/folder-slideshow";
+import { getLatestGallerySlideshow } from "@/lib/latest-gallery-slideshow";
 
 function centsToUsd(cents: number) {
   return new Intl.NumberFormat("en-US", {
@@ -33,7 +35,8 @@ export default async function DashboardPage({
     quickSearchStudents,
     quickSearchTeachers,
     feeInvoicedTotals,
-    feeCollectedTotals
+    feeCollectedTotals,
+    latestSlideshow
   ] = await Promise.all([
     prisma.user.count({
       where: { schoolId: session.schoolId, schoolRole: { key: { in: ["TEACHER", "CLASS_TEACHER"] } } }
@@ -77,6 +80,12 @@ export default async function DashboardPage({
     prisma.feePayment.aggregate({
       where: { invoice: { schoolId: session.schoolId } },
       _sum: { amountCents: true }
+    }),
+    getLatestGallerySlideshow({
+      schoolId: session.schoolId,
+      roleKey: session.roleKey,
+      roleId: session.roleId,
+      take: 20
     })
   ]);
 
@@ -258,6 +267,20 @@ export default async function DashboardPage({
           }))}
         />
       </Card>
+
+      {latestSlideshow ? (
+        <Card
+          title={`Gallery Slideshow · ${latestSlideshow.folderName}`}
+          description="Latest school photos visible for your role"
+          accent="teal"
+        >
+          <FolderSlideshow
+            folderId={latestSlideshow.folderId}
+            folderName={latestSlideshow.folderName}
+            items={latestSlideshow.items}
+          />
+        </Card>
+      ) : null}
 
       {query && (matchedStudents.length > 0 || matchedTeachers.length > 0) && (
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">

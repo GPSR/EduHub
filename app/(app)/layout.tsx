@@ -12,14 +12,18 @@ import { getEffectivePermissions, atLeastLevel } from "@/lib/permissions";
 import { prisma } from "@/lib/db";
 import { getUserProfileImageUrl } from "@/lib/uploads";
 import { getUnreadFeedCount } from "@/lib/feed-unread";
+import { getUnreadSupportConversationCount } from "@/lib/support-unread";
+import { getUnreadYouTubeLearningCount } from "@/lib/youtube-learning-unread";
 import { MOBILE_BOTTOM_PRIMARY_LIMIT } from "@/lib/mobile-nav-config";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const { user, session } = await requireUser();
-  const [perms, unreadCount, feedUnreadCount, school, userPhotoUrl] = await Promise.all([
+  const [perms, unreadCount, feedUnreadCount, supportUnreadCount, youtubeUnreadCount, school, userPhotoUrl] = await Promise.all([
     getEffectivePermissions({ schoolId: session.schoolId, userId: session.userId, roleId: session.roleId }),
     prisma.notification.count({ where: { schoolId: session.schoolId, userId: session.userId, readAt: null } }),
     getUnreadFeedCount({ schoolId: session.schoolId, userId: session.userId, roleKey: session.roleKey }),
+    getUnreadSupportConversationCount({ schoolId: session.schoolId, userId: session.userId }),
+    getUnreadYouTubeLearningCount({ schoolId: session.schoolId, userId: session.userId, roleKey: session.roleKey }),
     prisma.school.findUnique({ where: { id: session.schoolId }, select: { brandingLogoUrl: true, name: true } }),
     getUserProfileImageUrl(session.schoolId, user.id)
   ]);
@@ -179,7 +183,17 @@ export default async function AppLayout({ children }: { children: React.ReactNod
                   key={item.href}
                   href={item.href}
                   label={item.label}
-                  badgeCount={item.href === "/notifications" ? unreadCount : item.href === "/feed" ? feedUnreadCount : 0}
+                  badgeCount={
+                    item.href === "/notifications"
+                      ? unreadCount
+                      : item.href === "/feed"
+                        ? feedUnreadCount
+                        : item.href === "/support"
+                          ? supportUnreadCount
+                          : item.href === "/youtube-learning"
+                            ? youtubeUnreadCount
+                            : 0
+                  }
                 />
               ))}
             </nav>
@@ -202,6 +216,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             moreItems={mobileMore}
             unreadCount={unreadCount}
             feedUnreadCount={feedUnreadCount}
+            supportUnreadCount={supportUnreadCount}
+            youtubeUnreadCount={youtubeUnreadCount}
           />
         </div>
 

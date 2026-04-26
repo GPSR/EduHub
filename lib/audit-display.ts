@@ -156,6 +156,14 @@ const ACTION_DISPLAY: Record<string, AuditActionDisplay> = {
     title: "Module field removed",
     description: "An existing field was removed from a module."
   },
+  PLATFORM_MODULE_TEMPLATE_APPLIED: {
+    title: "Module template applied",
+    description: "Industry-standard template fields were applied for a module."
+  },
+  PLATFORM_INDUSTRY_TEMPLATES_APPLIED: {
+    title: "Industry templates applied",
+    description: "Industry-standard module templates were applied across platform modules."
+  },
   PLATFORM_SCHOOL_MODULE_FIELDS_UPDATED: {
     title: "School module fields updated",
     description: "Module field configuration was updated for a school."

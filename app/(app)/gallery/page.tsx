@@ -43,8 +43,14 @@ export default async function GalleryPage({
   const canUpload = session.roleKey === "ADMIN" && (galleryLevel ? atLeastLevel(galleryLevel, "EDIT") : false);
   const canManageFolders =
     session.roleKey === "ADMIN" || (galleryLevel ? atLeastLevel(galleryLevel, "APPROVE") : false);
+  const roleVisibilityWhere =
+    session.roleKey === "ADMIN"
+      ? {}
+      : {
+          OR: [{ roleAccess: { none: {} } }, { roleAccess: { some: { schoolRoleId: session.roleId } } }]
+        };
 
-  const [roles, folders] = await Promise.all([
+  const [roles, folders, latestVisibleItem] = await Promise.all([
     canManageFolders
       ? prisma.schoolRole.findMany({
           where: { schoolId: session.schoolId },
@@ -56,21 +62,33 @@ export default async function GalleryPage({
       where: {
         schoolId: session.schoolId,
         isActive: true,
-        ...(session.roleKey === "ADMIN"
-          ? {}
-          : {
-              OR: [{ roleAccess: { none: {} } }, { roleAccess: { some: { schoolRoleId: session.roleId } } }]
-            })
+        ...roleVisibilityWhere
       },
       include: {
         roleAccess: { include: { schoolRole: { select: { id: true, name: true } } } },
         _count: { select: { items: true } }
       },
       orderBy: [{ createdAt: "desc" }]
+    }),
+    prisma.schoolGalleryItem.findFirst({
+      where: {
+        schoolId: session.schoolId,
+        folder: {
+          schoolId: session.schoolId,
+          isActive: true,
+          ...roleVisibilityWhere
+        }
+      },
+      orderBy: { createdAt: "desc" },
+      select: { folderId: true }
     })
   ]);
 
-  const selectedFolder = folders.find((folder) => folder.id === folderId) ?? folders[0] ?? null;
+  const selectedFolder =
+    folders.find((folder) => folder.id === folderId) ??
+    folders.find((folder) => folder.id === latestVisibleItem?.folderId) ??
+    folders[0] ??
+    null;
   const items = selectedFolder
     ? await prisma.schoolGalleryItem.findMany({
         where: {

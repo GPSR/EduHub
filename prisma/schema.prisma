@@ -79,6 +79,11 @@ enum SchoolCalendarEventType {
   OTHER
 }
 
+enum SchoolCalendarEventAudienceScope {
+  SCHOOL_WIDE
+  CLASS_WISE
+}
+
 enum TeacherSalaryPayCycle {
   MONTHLY
   YEARLY
@@ -190,6 +195,7 @@ model School {
   learningCenterResources               LearningCenterResource[]
   youtubeLearningVideos                 YouTubeLearningVideo[]
   calendarEvents                        SchoolCalendarEvent[]
+  calendarEventTargets                  SchoolCalendarEventClass[]
   teacherSalaryProfiles                 TeacherSalaryProfile[]
   teacherTimetableEntries               TeacherTimetableEntry[]
   leaveRequests                         LeaveRequest[]
@@ -709,6 +715,7 @@ model SchoolCalendarEvent {
   title           String
   description     String?
   eventType       SchoolCalendarEventType @default(OTHER)
+  audienceScope   SchoolCalendarEventAudienceScope @default(SCHOOL_WIDE)
   startsOn        DateTime
   endsOn          DateTime
   createdByUserId String
@@ -717,9 +724,27 @@ model SchoolCalendarEvent {
 
   school        School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
   createdByUser User   @relation("SchoolCalendarCreatedByUser", fields: [createdByUserId], references: [id], onDelete: Cascade)
+  classTargets  SchoolCalendarEventClass[]
 
   @@index([schoolId, startsOn, endsOn])
   @@index([schoolId, eventType, startsOn])
+  @@index([schoolId, audienceScope, startsOn])
+}
+
+model SchoolCalendarEventClass {
+  id        String   @id @default(cuid())
+  schoolId  String
+  eventId   String
+  classId   String
+  createdAt DateTime @default(now())
+
+  school School            @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  event  SchoolCalendarEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  class  Class             @relation(fields: [classId], references: [id], onDelete: Cascade)
+
+  @@unique([eventId, classId])
+  @@index([schoolId, classId])
+  @@index([eventId])
 }
 
 model TeacherSalaryProfile {
@@ -874,6 +899,7 @@ model Class {
   learningCenterResources LearningCenterResource[]
   youtubeLearningVideos   YouTubeLearningVideo[]
   teacherTimetableEntries TeacherTimetableEntry[]
+  calendarEventTargets    SchoolCalendarEventClass[]
 
   @@unique([schoolId, name, section])
   @@index([schoolId])

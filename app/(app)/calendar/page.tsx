@@ -1,10 +1,10 @@
 import Link from "next/link";
 import { Badge, Button, Card, EmptyState, Input, Label, SectionHeader, Textarea } from "@/components/ui";
 import { prisma } from "@/lib/db";
-import { atLeastLevel, getEffectivePermissions } from "@/lib/permissions";
+import { atLeastLevel } from "@/lib/permissions";
 import { requirePermission } from "@/lib/require-permission";
-import { requireSession } from "@/lib/require";
 import { formatMonthKey, monthWindow, parseMonthKey } from "@/lib/leave-utils";
+import { CalendarAudiencePicker } from "./calendar-audience-picker";
 
 const EVENT_TYPE_META = {
   HOLIDAY: { label: "Holiday", tone: "success" as const, icon: "🌴" },
@@ -33,8 +33,7 @@ export default async function CalendarPage({
 }: {
   searchParams: Promise<{ month?: string }>;
 }) {
-  await requirePermission("SCHOOL_CALENDAR", "VIEW");
-  const session = await requireSession();
+  const { session, level } = await requirePermission("SCHOOL_CALENDAR", "VIEW");
   const { month } = await searchParams;
 
   const monthStart = parseMonthKey(month) ?? startOfMonth(new Date());
@@ -44,24 +43,93 @@ export default async function CalendarPage({
 
   const { start: monthRangeStart, end: monthRangeEnd } = monthWindow(monthStart);
 
-  const perms = await getEffectivePermissions({
-    schoolId: session.schoolId,
-    userId: session.userId,
-    roleId: session.roleId
-  });
+  const roleCanManage = new Set(["ADMIN", "HEAD_MASTER", "PRINCIPAL", "CLASS_TEACHER", "TEACHER"]).has(
+    session.roleKey
+  );
+  const canManage = atLeastLevel(level, "EDIT") || roleCanManage;
+  const canViewAllClassEvents = new Set(["ADMIN", "HEAD_MASTER", "PRINCIPAL", "CORRESPONDENT"]).has(session.roleKey);
+  const isTeacherRole = session.roleKey === "TEACHER" || session.roleKey === "CLASS_TEACHER";
 
-  const calendarLevel = perms.SCHOOL_CALENDAR;
-  const canManage = calendarLevel ? atLeastLevel(calendarLevel, "EDIT") : false;
+  const [teacherAssignments, parentStudents] = await Promise.all([
+    isTeacherRole
+      ? prisma.teacherClassAssignment.findMany({
+          where: {
+            schoolId: session.schoolId,
+            userId: session.userId
+          },
+          select: { classId: true }
+        })
+      : Promise.resolve([]),
+    session.roleKey === "PARENT"
+      ? prisma.student.findMany({
+          where: {
+            schoolId: session.schoolId,
+            parents: { some: { userId: session.userId } }
+          },
+          select: { classId: true }
+        })
+      : Promise.resolve([])
+  ]);
 
-  const [monthEvents, upcomingEvents] = await Promise.all([
+  const teacherClassIds = [...new Set(teacherAssignments.map((row) => row.classId).filter(Boolean))];
+  const parentClassIds = [...new Set(parentStudents.map((row) => row.classId).filter(Boolean) as string[])];
+  const viewerClassIds = isTeacherRole ? teacherClassIds : session.roleKey === "PARENT" ? parentClassIds : [];
+
+  const audienceFilter = canViewAllClassEvents
+    ? null
+    : {
+        OR: [
+          { audienceScope: "SCHOOL_WIDE" as const },
+          ...(viewerClassIds.length > 0
+            ? [
+                {
+                  classTargets: {
+                    some: {
+                      classId: { in: viewerClassIds }
+                    }
+                  }
+                }
+              ]
+            : [])
+        ]
+      };
+
+  const [createClasses, monthEvents, upcomingEvents] = await Promise.all([
+    canManage
+      ? isTeacherRole
+        ? teacherClassIds.length > 0
+          ? prisma.class.findMany({
+              where: {
+                schoolId: session.schoolId,
+                id: { in: teacherClassIds }
+              },
+              orderBy: [{ name: "asc" }, { section: "asc" }],
+              select: { id: true, name: true, section: true }
+            })
+          : Promise.resolve([])
+        : prisma.class.findMany({
+            where: { schoolId: session.schoolId },
+            orderBy: [{ name: "asc" }, { section: "asc" }],
+            select: { id: true, name: true, section: true }
+          })
+      : Promise.resolve([]),
     prisma.schoolCalendarEvent.findMany({
       where: {
         schoolId: session.schoolId,
         startsOn: { lte: monthRangeEnd },
-        endsOn: { gte: monthRangeStart }
+        endsOn: { gte: monthRangeStart },
+        ...(audienceFilter ?? {})
       },
       include: {
-        createdByUser: { select: { name: true } }
+        createdByUser: { select: { name: true } },
+        classTargets: {
+          include: {
+            class: {
+              select: { id: true, name: true, section: true }
+            }
+          },
+          orderBy: [{ classId: "asc" }]
+        }
       },
       orderBy: [{ startsOn: "asc" }, { createdAt: "asc" }],
       take: 300
@@ -69,7 +137,18 @@ export default async function CalendarPage({
     prisma.schoolCalendarEvent.findMany({
       where: {
         schoolId: session.schoolId,
-        startsOn: { gte: new Date() }
+        startsOn: { gte: new Date() },
+        ...(audienceFilter ?? {})
+      },
+      include: {
+        classTargets: {
+          include: {
+            class: {
+              select: { id: true, name: true, section: true }
+            }
+          },
+          orderBy: [{ classId: "asc" }]
+        }
       },
       orderBy: [{ startsOn: "asc" }],
       take: 12
@@ -106,7 +185,7 @@ export default async function CalendarPage({
         </div>
       </Card>
 
-      {canManage ? <CreateCalendarEventCard monthKey={activeMonthKey} /> : null}
+      {canManage ? <CreateCalendarEventCard monthKey={activeMonthKey} classes={createClasses} /> : null}
 
       <Card
         title="Monthly Timeline"
@@ -134,8 +213,30 @@ export default async function CalendarPage({
                         <span className="text-base">{meta.icon}</span>
                         <p className="text-[14px] font-semibold text-white/90">{event.title}</p>
                         <Badge tone={meta.tone}>{meta.label}</Badge>
+                        {event.audienceScope === "SCHOOL_WIDE" ? (
+                          <Badge tone="info">School wide</Badge>
+                        ) : (
+                          <Badge tone="neutral">Class wise</Badge>
+                        )}
                       </div>
                       <p className="mt-1 text-[12px] text-white/55">{formatRange(event.startsOn, event.endsOn)}</p>
+                      {event.audienceScope === "CLASS_WISE" ? (
+                        <div className="mt-1.5 flex flex-wrap gap-1.5">
+                          {event.classTargets.length > 0 ? (
+                            event.classTargets.map((target) => (
+                              <span
+                                key={target.id}
+                                className="inline-flex rounded-full border border-white/[0.12] bg-white/[0.05] px-2 py-0.5 text-[11px] text-white/70"
+                              >
+                                {target.class.name}
+                                {target.class.section ? `-${target.class.section}` : ""}
+                              </span>
+                            ))
+                          ) : (
+                            <span className="text-[11px] text-white/45">No class target configured</span>
+                          )}
+                        </div>
+                      ) : null}
                       {event.description ? (
                         <p className="mt-1.5 text-[12px] text-white/65 leading-relaxed whitespace-pre-wrap">
                           {event.description}
@@ -168,6 +269,15 @@ export default async function CalendarPage({
                     <Badge tone={meta.tone}>{meta.label}</Badge>
                   </div>
                   <p className="mt-1 text-[11px] text-white/45">{formatRange(event.startsOn, event.endsOn)}</p>
+                  <p className="mt-0.5 text-[11px] text-white/45">
+                    {event.audienceScope === "SCHOOL_WIDE"
+                      ? "School wide"
+                      : event.classTargets.length > 0
+                        ? event.classTargets
+                            .map((target) => `${target.class.name}${target.class.section ? `-${target.class.section}` : ""}`)
+                            .join(", ")
+                        : "Class wise"}
+                  </p>
                 </div>
               );
             })}
@@ -178,7 +288,13 @@ export default async function CalendarPage({
   );
 }
 
-async function CreateCalendarEventCard({ monthKey }: { monthKey: string }) {
+async function CreateCalendarEventCard({
+  monthKey,
+  classes
+}: {
+  monthKey: string;
+  classes: { id: string; name: string; section: string }[];
+}) {
   const { createSchoolCalendarEventAction } = await import("./actions");
 
   return (
@@ -206,6 +322,8 @@ async function CreateCalendarEventCard({ monthKey }: { monthKey: string }) {
             <option value="OTHER">Other</option>
           </select>
         </div>
+
+        <CalendarAudiencePicker classes={classes} />
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>

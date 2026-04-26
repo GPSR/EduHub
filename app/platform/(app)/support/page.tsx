@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Badge, Button, Card, EmptyState, Label, SectionHeader, Textarea } from "@/components/ui";
 import { prisma } from "@/lib/db";
 import { requirePlatformUser } from "@/lib/platform-require";
+import { LiveChatRefresh } from "@/components/live-chat-refresh";
 
 function timeAgo(date: Date) {
   const diff = Date.now() - date.getTime();
@@ -104,6 +105,7 @@ export default async function PlatformSupportPage({
 
   return (
     <div className="space-y-5 animate-fade-up">
+      <LiveChatRefresh />
       <SectionHeader
         title="Platform Support Chat"
         subtitle="Reply to school-admin conversations opened from school support"
@@ -162,6 +164,7 @@ export default async function PlatformSupportPage({
                       </div>
                       <div className="flex items-center gap-1">
                         <Badge tone="info">Platform</Badge>
+                        {conversation.status === "CLOSED" ? <Badge tone="neutral">Closed</Badge> : null}
                         {unread ? <Badge tone="warning">Unread</Badge> : null}
                       </div>
                     </div>
@@ -234,18 +237,25 @@ export default async function PlatformSupportPage({
 }
 
 async function ReplyPlatformSupportCard({ conversationId }: { conversationId: string }) {
-  const { sendPlatformSupportMessageAction } = await import("./actions");
+  const { closePlatformSupportConversationAction, sendPlatformSupportMessageAction } = await import("./actions");
 
   return (
-    <form action={sendPlatformSupportMessageAction} className="space-y-2">
-      <input type="hidden" name="conversationId" value={conversationId} />
-      <div>
-        <Label required>Reply</Label>
-        <Textarea name="body" rows={3} placeholder="Type your platform response" required />
-      </div>
-      <div className="flex justify-end">
-        <Button type="submit">Send reply</Button>
-      </div>
-    </form>
+    <div className="space-y-3">
+      <form action={sendPlatformSupportMessageAction} className="space-y-2">
+        <input type="hidden" name="conversationId" value={conversationId} />
+        <div>
+          <Label required>Reply</Label>
+          <Textarea name="body" rows={3} placeholder="Type your platform response" required />
+        </div>
+        <div className="flex justify-end">
+          <Button type="submit">Send reply</Button>
+        </div>
+      </form>
+
+      <form action={closePlatformSupportConversationAction} className="flex justify-end">
+        <input type="hidden" name="conversationId" value={conversationId} />
+        <Button type="submit" variant="secondary">Close chat</Button>
+      </form>
+    </div>
   );
 }

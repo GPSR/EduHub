@@ -2,9 +2,15 @@
 
 import { useActionState } from "react";
 import { Button, Input, Label, Select } from "@/components/ui";
-import { addModuleFieldAction, type ModuleFieldState } from "./actions";
+import {
+  addModuleFieldAction,
+  applyModuleIndustryTemplateAction,
+  type ModuleFieldState,
+  type ModuleTemplateState
+} from "./actions";
 
 const initialState: ModuleFieldState = { ok: true };
+const initialTemplateState: ModuleTemplateState = { ok: true };
 
 export function AddModuleFieldForm({ moduleId }: { moduleId: string }) {
   const [state, action, pending] = useActionState(addModuleFieldAction, initialState);
@@ -36,7 +42,7 @@ export function AddModuleFieldForm({ moduleId }: { moduleId: string }) {
         <Input name="optionsCsv" placeholder="Option A, Option B, Option C" />
       </div>
       <label className="md:col-span-2 inline-flex items-center gap-2 text-sm text-white/80">
-        <input type="checkbox" name="isRequired" className="h-4 w-4 accent-indigo-500" />
+        <input type="checkbox" name="isRequired" className="h-5 w-5 sm:h-4 sm:w-4 accent-indigo-500" />
         Required field
       </label>
 
@@ -52,8 +58,42 @@ export function AddModuleFieldForm({ moduleId }: { moduleId: string }) {
       ) : null}
 
       <div className="md:col-span-2 flex justify-end">
-        <Button type="submit" disabled={pending}>
+        <Button type="submit" disabled={pending} className="w-full sm:w-auto">
           {pending ? "Adding..." : "Add field"}
+        </Button>
+      </div>
+    </form>
+  );
+}
+
+export function ApplyModuleTemplateForm({ moduleId }: { moduleId: string }) {
+  const [state, action, pending] = useActionState(applyModuleIndustryTemplateAction, initialTemplateState);
+
+  return (
+    <form action={action} className="space-y-3 rounded-2xl border border-white/10 bg-white/[0.03] p-3.5">
+      <input type="hidden" name="moduleId" value={moduleId} />
+
+      <div>
+        <p className="text-sm font-semibold text-white/85">Apply recommended template for this module</p>
+        <p className="mt-1 text-xs text-white/55">
+          Adds missing industry-standard fields and reactivates disabled template fields. Existing custom fields stay as-is.
+        </p>
+      </div>
+
+      {state.message ? (
+        <div
+          className={
+            "rounded-2xl border p-3 text-sm " +
+            (state.ok ? "border-emerald-500/25 bg-emerald-500/10 text-emerald-100" : "border-white/10 bg-white/[0.04] text-white/80")
+          }
+        >
+          {state.message}
+        </div>
+      ) : null}
+
+      <div className="flex justify-end">
+        <Button type="submit" disabled={pending} className="w-full sm:w-auto">
+          {pending ? "Applying..." : "Apply module template"}
         </Button>
       </div>
     </form>

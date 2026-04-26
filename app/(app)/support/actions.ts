@@ -23,6 +23,10 @@ const ReplySupportSchema = z.object({
   body: z.string().trim().min(1).max(4000)
 });
 
+const CloseSupportSchema = z.object({
+  conversationId: z.string().min(1)
+});
+
 async function createSchoolConversation(args: {
   schoolId: string;
   createdBySchoolUserId: string;
@@ -309,6 +313,62 @@ export async function sendSchoolSupportMessageAction(formData: FormData) {
     userIds: otherSchoolParticipants.map((row) => row.userId),
     title: `Support update: ${participant.conversation.subject}`,
     body: supportPreview(parsed.data.body),
+    conversationId: parsed.data.conversationId
+  });
+
+  redirect(`/support?conversationId=${encodeURIComponent(parsed.data.conversationId)}`);
+}
+
+export async function closeSchoolSupportConversationAction(formData: FormData) {
+  const session = await requireSession();
+  const parsed = CloseSupportSchema.safeParse({
+    conversationId: formData.get("conversationId")
+  });
+  if (!parsed.success) throw new Error(parsed.error.issues[0]?.message ?? "Unable to process request.");
+
+  const participant = await prisma.supportConversationSchoolParticipant.findFirst({
+    where: {
+      conversationId: parsed.data.conversationId,
+      schoolId: session.schoolId,
+      userId: session.userId
+    },
+    include: {
+      user: { select: { name: true } },
+      conversation: {
+        select: {
+          id: true,
+          subject: true,
+          status: true,
+          schoolId: true
+        }
+      }
+    }
+  });
+
+  if (!participant) throw new Error("Conversation not found.");
+  if (participant.conversation.status === "CLOSED") {
+    redirect(`/support?conversationId=${encodeURIComponent(parsed.data.conversationId)}`);
+  }
+
+  await prisma.supportConversation.update({
+    where: { id: parsed.data.conversationId },
+    data: { status: "CLOSED" }
+  });
+
+  const otherSchoolParticipants = await prisma.supportConversationSchoolParticipant.findMany({
+    where: {
+      conversationId: parsed.data.conversationId,
+      schoolId: session.schoolId,
+      userId: { not: session.userId }
+    },
+    select: { userId: true }
+  });
+
+  await notifySchoolUsers({
+    schoolId: session.schoolId,
+    userIds: otherSchoolParticipants.map((row) => row.userId),
+    title: `Support chat closed: ${participant.conversation.subject}`,
+    body: `${participant.user.name} closed this chat.`,
     conversationId: parsed.data.conversationId
   });
 

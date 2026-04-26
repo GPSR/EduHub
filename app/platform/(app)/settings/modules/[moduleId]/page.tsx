@@ -3,7 +3,8 @@ import { notFound } from "next/navigation";
 import { Card, Button, Badge } from "@/components/ui";
 import { prisma } from "@/lib/db";
 import { requireSuperAdmin } from "@/lib/platform-require";
-import { AddModuleFieldForm } from "./ui";
+import { getIndustryTemplateByModuleKey } from "@/lib/module-industry-templates";
+import { AddModuleFieldForm, ApplyModuleTemplateForm } from "./ui";
 import { deleteModuleFieldAction } from "./actions";
 
 export default async function PlatformModuleSettingsPage({
@@ -19,17 +20,18 @@ export default async function PlatformModuleSettingsPage({
     include: { fields: { orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }] } }
   });
   if (!module) return notFound();
+  const industryTemplate = getIndustryTemplateByModuleKey(module.key);
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-start justify-between gap-4">
+    <div className="space-y-6 pb-safe">
+      <div className="flex flex-col items-start gap-2.5 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
         <div>
-          <div className="text-2xl font-semibold">{module.name} Fields</div>
-          <div className="text-sm text-white/60">
-            Module key: <code>{module.key}</code>
+          <div className="text-xl sm:text-2xl font-semibold break-words">{module.name} Fields</div>
+          <div className="text-sm text-white/60 break-all">
+            Module key: <code className="break-all">{module.key}</code>
           </div>
         </div>
-        <Link href="/platform/settings" className="text-sm text-white/70 hover:text-white">
+        <Link href="/platform/settings" className="text-sm text-white/70 hover:text-white active:text-white">
           ← Back to settings
         </Link>
       </div>
@@ -38,22 +40,53 @@ export default async function PlatformModuleSettingsPage({
         <AddModuleFieldForm moduleId={module.id} />
       </Card>
 
+      {industryTemplate ? (
+        <Card
+          title="Industry Workflow And Defaults"
+          description="Recommended business flow and field set for this module."
+          accent="teal"
+        >
+          <div className="space-y-4">
+            <p className="text-sm text-white/75">{industryTemplate.purpose}</p>
+            <div>
+              <p className="mb-2 text-xs font-semibold uppercase tracking-[0.14em] text-white/45">Workflow</p>
+              <ol className="list-decimal space-y-1 pl-4 sm:pl-5 text-sm text-white/75">
+                {industryTemplate.workflow.map((step) => (
+                  <li key={step}>{step}</li>
+                ))}
+              </ol>
+            </div>
+            <div>
+              <p className="mb-2 text-xs font-semibold uppercase tracking-[0.14em] text-white/45">Recommended fields</p>
+              <div className="flex flex-wrap gap-1.5">
+                {industryTemplate.fields.map((field) => (
+                  <Badge key={field.key} tone="neutral">
+                    {field.label}
+                  </Badge>
+                ))}
+              </div>
+            </div>
+            <ApplyModuleTemplateForm moduleId={module.id} />
+          </div>
+        </Card>
+      ) : null}
+
       <Card title="Current Fields">
         <div className="divide-y divide-white/10 border border-white/10 rounded-xl overflow-hidden">
           {module.fields.map((field) => (
-            <div key={field.id} className="px-4 py-3 flex items-center justify-between gap-3">
-              <div>
-                <div className="font-medium flex items-center gap-2">
+            <div key={field.id} className="px-3.5 sm:px-4 py-3 flex flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+              <div className="min-w-0">
+                <div className="font-medium flex flex-wrap items-center gap-2">
                   {field.label}
                   <Badge>{field.fieldType}</Badge>
                   {field.isRequired ? <Badge tone="info">Required</Badge> : null}
                 </div>
-                <div className="text-xs text-white/60">
-                  Key: <code>{field.key}</code>
+                <div className="text-xs text-white/60 break-words">
+                  Key: <code className="break-all">{field.key}</code>
                   {field.optionsJson ? (
                     <>
                       {" "}
-                      • Options: {(safeParseOptions(field.optionsJson) ?? []).join(", ")}
+                      • Options: <span className="break-words">{(safeParseOptions(field.optionsJson) ?? []).join(", ")}</span>
                     </>
                   ) : null}
                 </div>
@@ -61,7 +94,7 @@ export default async function PlatformModuleSettingsPage({
               <form action={deleteModuleFieldAction}>
                 <input type="hidden" name="moduleId" value={module.id} />
                 <input type="hidden" name="fieldId" value={field.id} />
-                <Button type="submit" variant="danger">
+                <Button type="submit" variant="danger" className="w-full sm:w-auto">
                   Remove
                 </Button>
               </form>

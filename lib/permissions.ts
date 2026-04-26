@@ -180,8 +180,8 @@ export async function seedSchoolModulesAndRolePerms(schoolId: string) {
   }
   await setRoleModuleLevel("TEACHER", "YOUTUBE_LEARNING", "EDIT");
   await setRoleModuleLevel("CLASS_TEACHER", "YOUTUBE_LEARNING", "EDIT");
-  await setRoleModuleLevel("TEACHER", "SCHOOL_CALENDAR", "VIEW");
-  await setRoleModuleLevel("CLASS_TEACHER", "SCHOOL_CALENDAR", "VIEW");
+  await setRoleModuleLevel("TEACHER", "SCHOOL_CALENDAR", "EDIT");
+  await setRoleModuleLevel("CLASS_TEACHER", "SCHOOL_CALENDAR", "EDIT");
   await setRoleModuleLevel("TEACHER", "LEAVE_REQUESTS", "EDIT");
   await setRoleModuleLevel("CLASS_TEACHER", "LEAVE_REQUESTS", "APPROVE");
   await setRoleModuleLevel("TEACHER", "REPORTS", "VIEW");
@@ -287,7 +287,13 @@ export async function getEffectivePermissions({
 
   if ((enabled.has("SCHOOL_CALENDAR") || calendarNotConfigured) && !map.SCHOOL_CALENDAR) {
     if (role?.key === "ADMIN") map.SCHOOL_CALENDAR = "ADMIN";
-    else if (role?.key === "HEAD_MASTER" || role?.key === "PRINCIPAL") map.SCHOOL_CALENDAR = "EDIT";
+    else if (
+      role?.key === "HEAD_MASTER" ||
+      role?.key === "PRINCIPAL" ||
+      role?.key === "TEACHER" ||
+      role?.key === "CLASS_TEACHER"
+    )
+      map.SCHOOL_CALENDAR = "EDIT";
     else map.SCHOOL_CALENDAR = "VIEW";
   }
 

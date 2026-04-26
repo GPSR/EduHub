@@ -6,6 +6,7 @@ import { requireSuperAdmin } from "@/lib/platform-require";
 import { revalidatePath } from "next/cache";
 import { auditLog } from "@/lib/audit";
 import { ensureSubscriptionPlanSettings } from "@/lib/subscription";
+import { applyIndustryModuleTemplates } from "@/lib/module-industry-templates";
 
 export type CreateModuleState = { ok: boolean; message?: string };
 
@@ -49,6 +50,7 @@ export async function createModuleAction(_prev: CreateModuleState, formData: For
 
 export type SubscriptionSettingsState = { ok: boolean; message?: string };
 export type CustomSubscriptionState = { ok: boolean; message?: string };
+export type IndustryTemplatesState = { ok: boolean; message?: string };
 
 const PlanSettingsSchema = z.object({
   premiumDays: z.coerce.number().int().min(1).max(3650),
@@ -178,4 +180,43 @@ export async function createCustomSubscriptionAction(
   revalidatePath("/platform");
   revalidatePath("/platform/subscriptions");
   return { ok: true, message: "Custom subscription plan created." };
+}
+
+export async function applyIndustryTemplatesAction(
+  _prev: IndustryTemplatesState,
+  _formData: FormData
+): Promise<IndustryTemplatesState> {
+  const { session } = await requireSuperAdmin();
+  const result = await applyIndustryModuleTemplates();
+
+  await auditLog({
+    actor: { type: "PLATFORM_USER", id: session.platformUserId },
+    action: "PLATFORM_INDUSTRY_TEMPLATES_APPLIED",
+    entityType: "Module",
+    metadata: {
+      appliedModules: result.appliedModules,
+      createdFields: result.createdFields,
+      reactivatedFields: result.reactivatedFields,
+      skippedFields: result.skippedFields,
+      modules: result.details.map((item) => ({
+        moduleKey: item.moduleKey,
+        createdFields: item.createdFields,
+        reactivatedFields: item.reactivatedFields,
+        skippedFields: item.skippedFields
+      }))
+    }
+  });
+
+  revalidatePath("/platform/settings");
+  for (const moduleRow of result.details) {
+    revalidatePath(`/platform/settings/modules/${moduleRow.moduleId}`);
+  }
+
+  return {
+    ok: true,
+    message:
+      result.appliedModules === 0
+        ? "No matching modules found for industry templates."
+        : `Applied industry templates to ${result.appliedModules} module(s): ${result.createdFields} field(s) added, ${result.reactivatedFields} reactivated, ${result.skippedFields} already present.`
+  };
 }
