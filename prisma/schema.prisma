@@ -45,6 +45,56 @@ enum PasswordResetSubjectType {
   SCHOOL_USER
 }
 
+enum GalleryFolderSource {
+  SCHOOL
+  PLATFORM
+}
+
+enum LearningCenterResourceType {
+  NOTE
+  VIDEO
+  LINK
+  DOCUMENT
+}
+
+enum SupportConversationScope {
+  SCHOOL_INTERNAL
+  PLATFORM_SUPPORT
+}
+
+enum SupportConversationStatus {
+  OPEN
+  CLOSED
+}
+
+enum SupportMessageSenderType {
+  SCHOOL_USER
+  PLATFORM_USER
+}
+
+enum SchoolCalendarEventType {
+  HOLIDAY
+  FUNCTION
+  EXAM
+  OTHER
+}
+
+enum TeacherSalaryPayCycle {
+  MONTHLY
+  YEARLY
+}
+
+enum LeaveRequesterType {
+  STUDENT
+  TEACHER
+}
+
+enum LeaveRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
 model Module {
   id        String   @id @default(cuid())
   key       String   @unique
@@ -52,31 +102,36 @@ model Module {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  schoolModules SchoolModule[]
+  schoolModules   SchoolModule[]
   rolePermissions RoleModulePermission[]
   userPermissions UserModulePermission[]
-  fields      ModuleField[]
+  fields          ModuleField[]
 }
 
 model PlatformUser {
-  id           String       @id @default(cuid())
-  email        String       @unique
-  name         String
-  role         PlatformRole @default(SUPER_ADMIN)
-  status       PlatformUserStatus @default(PENDING)
-  isActive     Boolean      @default(true)
-  passwordHash String
-  approvedAt   DateTime?
+  id                       String             @id @default(cuid())
+  email                    String             @unique
+  name                     String
+  role                     PlatformRole       @default(SUPER_ADMIN)
+  status                   PlatformUserStatus @default(PENDING)
+  isActive                 Boolean            @default(true)
+  passwordHash             String
+  approvedAt               DateTime?
   approvedByPlatformUserId String?
-  rejectedAt   DateTime?
-  createdAt    DateTime     @default(now())
-  updatedAt    DateTime     @updatedAt
+  rejectedAt               DateTime?
+  createdAt                DateTime           @default(now())
+  updatedAt                DateTime           @updatedAt
 
-  approvedOnboardingRequests SchoolOnboardingRequest[] @relation("OnboardingApprovedBy")
-  approvedBy PlatformUser? @relation("PlatformUserApprovedBy", fields: [approvedByPlatformUserId], references: [id], onDelete: SetNull)
-  approvedUsers PlatformUser[] @relation("PlatformUserApprovedBy")
-  schoolAssignments PlatformUserSchoolAssignment[]
-  passwordResetTokens PasswordResetToken[]
+  approvedOnboardingRequests      SchoolOnboardingRequest[]                @relation("OnboardingApprovedBy")
+  approvedBy                      PlatformUser?                            @relation("PlatformUserApprovedBy", fields: [approvedByPlatformUserId], references: [id], onDelete: SetNull)
+  approvedUsers                   PlatformUser[]                           @relation("PlatformUserApprovedBy")
+  schoolAssignments               PlatformUserSchoolAssignment[]
+  passwordResetTokens             PasswordResetToken[]
+  galleryFolders                  SchoolGalleryFolder[]                    @relation("SchoolGalleryFolderCreatedByPlatformUser")
+  galleryItems                    SchoolGalleryItem[]                      @relation("SchoolGalleryItemCreatedByPlatformUser")
+  createdSupportConversations     SupportConversation[]                    @relation("SupportConversationCreatedByPlatformUser")
+  supportConversationParticipants SupportConversationPlatformParticipant[]
+  supportMessagesSent             SupportMessage[]                         @relation("SupportMessageSenderPlatformUser")
 }
 
 model PlatformUserSchoolAssignment {
@@ -103,53 +158,65 @@ model School {
   brandingLogoUrl String?
   brandingColor   String?
 
-  studentIdFormat    String @default("STU-{YYYY}-{SEQ}")
-  admissionNoFormat  String @default("ADM-{YYYY}-{SEQ}")
-  studentIdNext      Int    @default(1)
-  admissionNoNext    Int    @default(1)
-  idSequencePad      Int    @default(4)
+  studentIdFormat   String @default("STU-{YYYY}-{SEQ}")
+  admissionNoFormat String @default("ADM-{YYYY}-{SEQ}")
+  studentIdNext     Int    @default(1)
+  admissionNoNext   Int    @default(1)
+  idSequencePad     Int    @default(4)
 
-  subscription Subscription?
-  roles       SchoolRole[]
-  users        User[]
+  subscription  Subscription?
+  roles         SchoolRole[]
+  users         User[]
   academicYears AcademicYear[]
-  classes      Class[]
-  students     Student[]
-  feeInvoices  FeeInvoice[]
-  posts        FeedPost[]
-  invites     SchoolInvite[]
+  classes       Class[]
+  students      Student[]
+  feeInvoices   FeeInvoice[]
+  posts         FeedPost[]
+  invites       SchoolInvite[]
 
-  buses       Bus[]
-  busRoutes   BusRoute[]
+  buses                Bus[]
+  busRoutes            BusRoute[]
   busDriverAssignments BusDriverAssignment[]
 
-  modules     SchoolModule[]
-  roleModulePermissions RoleModulePermission[]
-  userModulePermissions UserModulePermission[]
-  moduleFieldSettings SchoolModuleField[]
-  onboardingRequests SchoolOnboardingRequest[]
-  platformAssignments PlatformUserSchoolAssignment[]
-  passwordResetTokens PasswordResetToken[]
+  modules                               SchoolModule[]
+  roleModulePermissions                 RoleModulePermission[]
+  userModulePermissions                 UserModulePermission[]
+  moduleFieldSettings                   SchoolModuleField[]
+  onboardingRequests                    SchoolOnboardingRequest[]
+  platformAssignments                   PlatformUserSchoolAssignment[]
+  passwordResetTokens                   PasswordResetToken[]
+  galleryFolders                        SchoolGalleryFolder[]
+  galleryItems                          SchoolGalleryItem[]
+  learningCenterResources               LearningCenterResource[]
+  youtubeLearningVideos                 YouTubeLearningVideo[]
+  calendarEvents                        SchoolCalendarEvent[]
+  teacherSalaryProfiles                 TeacherSalaryProfile[]
+  teacherTimetableEntries               TeacherTimetableEntry[]
+  leaveRequests                         LeaveRequest[]
+  supportConversations                  SupportConversation[]
+  supportMessages                       SupportMessage[]
+  supportConversationSchoolParticipants SupportConversationSchoolParticipant[]
+  SchoolGalleryFolderRole               SchoolGalleryFolderRole[]
 }
 
 model SchoolOnboardingRequest {
-  id         String                  @id @default(cuid())
-  schoolName String
-  schoolSlug String
-  adminName  String
-  adminEmail String
-  adminPhoneCountryCode String?
-  adminPhone String?
-  status     OnboardingRequestStatus @default(PENDING)
-  note       String?
-  schoolId   String?
+  id                       String                  @id @default(cuid())
+  schoolName               String
+  schoolSlug               String
+  adminName                String
+  adminEmail               String
+  adminPhoneCountryCode    String?
+  adminPhone               String?
+  status                   OnboardingRequestStatus @default(PENDING)
+  note                     String?
+  schoolId                 String?
   approvedByPlatformUserId String?
-  approvedAt DateTime?
-  rejectedAt DateTime?
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  approvedAt               DateTime?
+  rejectedAt               DateTime?
+  createdAt                DateTime                @default(now())
+  updatedAt                DateTime                @updatedAt
 
-  school School? @relation(fields: [schoolId], references: [id], onDelete: SetNull)
+  school     School?       @relation(fields: [schoolId], references: [id], onDelete: SetNull)
   approvedBy PlatformUser? @relation("OnboardingApprovedBy", fields: [approvedByPlatformUserId], references: [id], onDelete: SetNull)
 
   @@index([status, createdAt])
@@ -171,7 +238,7 @@ model ModuleField {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  module Module @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  module         Module              @relation(fields: [moduleId], references: [id], onDelete: Cascade)
   schoolSettings SchoolModuleField[]
 
   @@unique([moduleId, key])
@@ -199,16 +266,16 @@ model SchoolModuleField {
 }
 
 model SchoolInvite {
-  id        String   @id @default(cuid())
-  schoolId  String
-  email     String
+  id           String    @id @default(cuid())
+  schoolId     String
+  email        String
   schoolRoleId String
-  token     String   @unique
-  expiresAt DateTime
-  usedAt    DateTime?
-  createdAt DateTime @default(now())
+  token        String    @unique
+  expiresAt    DateTime
+  usedAt       DateTime?
+  createdAt    DateTime  @default(now())
 
-  school School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  school     School     @relation(fields: [schoolId], references: [id], onDelete: Cascade)
   schoolRole SchoolRole @relation(fields: [schoolRoleId], references: [id], onDelete: Cascade)
 
   @@index([schoolId, email])
@@ -217,20 +284,20 @@ model SchoolInvite {
 }
 
 model Subscription {
-  id        String   @id @default(cuid())
-  schoolId  String   @unique
-  plan      Plan     @default(PREMIUM)
-  status    String   @default("ACTIVE")
-  startedAt DateTime @default(now())
-  endsAt    DateTime?
-  stripeCustomerId    String?
+  id                   String    @id @default(cuid())
+  schoolId             String    @unique
+  plan                 Plan      @default(PREMIUM)
+  status               String    @default("ACTIVE")
+  startedAt            DateTime  @default(now())
+  endsAt               DateTime?
+  stripeCustomerId     String?
   stripeSubscriptionId String?
-  customPlanId String?
-  amountCents Int @default(0)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  customPlanId         String?
+  amountCents          Int       @default(0)
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
 
-  school School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  school     School                  @relation(fields: [schoolId], references: [id], onDelete: Cascade)
   customPlan CustomSubscriptionPlan? @relation(fields: [customPlanId], references: [id], onDelete: SetNull)
 }
 
@@ -263,32 +330,106 @@ enum AuditActorType {
 }
 
 model AuditLog {
-  id          String         @id @default(cuid())
-  schoolId    String?
-  actorType   AuditActorType @default(SYSTEM)
-  actorId     String?
-  action      String
-  entityType  String?
-  entityId    String?
+  id           String         @id @default(cuid())
+  schoolId     String?
+  actorType    AuditActorType @default(SYSTEM)
+  actorId      String?
+  action       String
+  entityType   String?
+  entityId     String?
   metadataJson String?
-  createdAt   DateTime       @default(now())
+  createdAt    DateTime       @default(now())
 
   @@index([schoolId, createdAt])
   @@index([action, createdAt])
 }
 
 model Notification {
-  id        String   @id @default(cuid())
+  id        String    @id @default(cuid())
   schoolId  String
   userId    String
   title     String
   body      String?
   readAt    DateTime?
-  createdAt DateTime @default(now())
+  createdAt DateTime  @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([schoolId, userId, readAt])
+  @@index([schoolId, createdAt])
+}
+
+model SupportConversation {
+  id                      String                    @id @default(cuid())
+  schoolId                String
+  scope                   SupportConversationScope  @default(SCHOOL_INTERNAL)
+  status                  SupportConversationStatus @default(OPEN)
+  subject                 String
+  createdBySchoolUserId   String?
+  createdByPlatformUserId String?
+  createdAt               DateTime                  @default(now())
+  updatedAt               DateTime                  @updatedAt
+  lastMessageAt           DateTime?
+
+  school                School                                   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  createdBySchoolUser   User?                                    @relation("SupportConversationCreatedBySchoolUser", fields: [createdBySchoolUserId], references: [id], onDelete: SetNull)
+  createdByPlatformUser PlatformUser?                            @relation("SupportConversationCreatedByPlatformUser", fields: [createdByPlatformUserId], references: [id], onDelete: SetNull)
+  schoolParticipants    SupportConversationSchoolParticipant[]
+  platformParticipants  SupportConversationPlatformParticipant[]
+  messages              SupportMessage[]
+
+  @@index([schoolId, createdAt])
+  @@index([schoolId, scope, createdAt])
+  @@index([lastMessageAt])
+}
+
+model SupportConversationSchoolParticipant {
+  id             String    @id @default(cuid())
+  schoolId       String
+  conversationId String
+  userId         String
+  joinedAt       DateTime  @default(now())
+  lastReadAt     DateTime?
+
+  school       School              @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  conversation SupportConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  user         User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([conversationId, userId])
+  @@index([schoolId, userId, joinedAt])
+  @@index([conversationId, joinedAt])
+}
+
+model SupportConversationPlatformParticipant {
+  id             String    @id @default(cuid())
+  conversationId String
+  platformUserId String
+  joinedAt       DateTime  @default(now())
+  lastReadAt     DateTime?
+
+  conversation SupportConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  platformUser PlatformUser        @relation(fields: [platformUserId], references: [id], onDelete: Cascade)
+
+  @@unique([conversationId, platformUserId])
+  @@index([platformUserId, joinedAt])
+}
+
+model SupportMessage {
+  id                   String                   @id @default(cuid())
+  conversationId       String
+  schoolId             String
+  senderType           SupportMessageSenderType
+  senderSchoolUserId   String?
+  senderPlatformUserId String?
+  body                 String
+  createdAt            DateTime                 @default(now())
+
+  conversation       SupportConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  school             School              @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  senderSchoolUser   User?               @relation("SupportMessageSenderSchoolUser", fields: [senderSchoolUserId], references: [id], onDelete: SetNull)
+  senderPlatformUser PlatformUser?       @relation("SupportMessageSenderPlatformUser", fields: [senderPlatformUserId], references: [id], onDelete: SetNull)
+
+  @@index([conversationId, createdAt])
   @@index([schoolId, createdAt])
 }
 
@@ -299,59 +440,73 @@ enum UpdateRequestStatus {
 }
 
 model StudentUpdateRequest {
-  id        String              @id @default(cuid())
-  schoolId  String
-  studentId String
+  id                String              @id @default(cuid())
+  schoolId          String
+  studentId         String
   requestedByUserId String
-  payloadJson String
-  status    UpdateRequestStatus @default(PENDING)
-  reviewedByUserId String?
-  reviewedAt DateTime?
-  decisionNote String?
-  createdAt DateTime @default(now())
+  payloadJson       String
+  status            UpdateRequestStatus @default(PENDING)
+  reviewedByUserId  String?
+  reviewedAt        DateTime?
+  decisionNote      String?
+  createdAt         DateTime            @default(now())
 
-  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  requestedBy User @relation("StudentUpdateRequestedBy", fields: [requestedByUserId], references: [id], onDelete: Cascade)
+  student     Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  requestedBy User    @relation("StudentUpdateRequestedBy", fields: [requestedByUserId], references: [id], onDelete: Cascade)
 
   @@index([schoolId, status, createdAt])
   @@index([schoolId, studentId, createdAt])
 }
 
 model User {
-  id        String   @id @default(cuid())
-  schoolId  String
-  schoolRoleId String
-  email     String
-  name      String
-  firstName String?
-  lastName  String?
-  gender    String?
-  phoneNumber String?
-  alternatePhoneNumber String?
-  address   String?
-  city      String?
-  state     String?
-  country   String?
-  postalCode String?
-  dateOfBirth DateTime?
-  emergencyContactName String?
+  id                    String    @id @default(cuid())
+  schoolId              String
+  schoolRoleId          String
+  email                 String
+  name                  String
+  firstName             String?
+  lastName              String?
+  gender                String?
+  phoneNumber           String?
+  alternatePhoneNumber  String?
+  address               String?
+  city                  String?
+  state                 String?
+  country               String?
+  postalCode            String?
+  dateOfBirth           DateTime?
+  emergencyContactName  String?
   emergencyContactPhone String?
-  notes     String?
-  passwordHash String
-  isActive  Boolean  @default(true)
-  deactivatedAt DateTime?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  notes                 String?
+  passwordHash          String
+  isActive              Boolean   @default(true)
+  deactivatedAt         DateTime?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
 
-  school School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
-  schoolRole SchoolRole @relation(fields: [schoolRoleId], references: [id], onDelete: Restrict)
-  parentLinks StudentParent[]
-  classAssignments TeacherClassAssignment[]
-  notifications Notification[]
-  requestedStudentUpdates StudentUpdateRequest[] @relation("StudentUpdateRequestedBy")
-  busDriverAssignments BusDriverAssignment[]
-  modulePermissions UserModulePermission[]
-  passwordResetTokens PasswordResetToken[]
+  school                          School                                 @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  schoolRole                      SchoolRole                             @relation(fields: [schoolRoleId], references: [id], onDelete: Restrict)
+  parentLinks                     StudentParent[]
+  classAssignments                TeacherClassAssignment[]
+  notifications                   Notification[]
+  requestedStudentUpdates         StudentUpdateRequest[]                 @relation("StudentUpdateRequestedBy")
+  busDriverAssignments            BusDriverAssignment[]
+  modulePermissions               UserModulePermission[]
+  passwordResetTokens             PasswordResetToken[]
+  galleryFolders                  SchoolGalleryFolder[]                  @relation("SchoolGalleryFolderCreatedByUser")
+  galleryItems                    SchoolGalleryItem[]                    @relation("SchoolGalleryItemCreatedByUser")
+  learningCenterResources         LearningCenterResource[]               @relation("LearningCenterCreatedByUser")
+  youtubeLearningVideos           YouTubeLearningVideo[]                 @relation("YouTubeLearningCreatedByUser")
+  calendarEventsCreated           SchoolCalendarEvent[]                  @relation("SchoolCalendarCreatedByUser")
+  teacherSalaryProfiles           TeacherSalaryProfile[]                 @relation("TeacherSalaryProfileUser")
+  teacherTimetableEntries         TeacherTimetableEntry[]                @relation("TeacherTimetableTeacher")
+  teacherTimetableEntriesCreated  TeacherTimetableEntry[]                @relation("TeacherTimetableCreatedByUser")
+  teacherLeaveRequests            LeaveRequest[]                         @relation("TeacherLeaveRequestUser")
+  leaveRequestsRequested          LeaveRequest[]                         @relation("LeaveRequestRequestedByUser")
+  leaveRequestsApproved           LeaveRequest[]                         @relation("LeaveRequestApprovedByUser")
+  createdSupportConversations     SupportConversation[]                  @relation("SupportConversationCreatedBySchoolUser")
+  supportConversationParticipants SupportConversationSchoolParticipant[]
+  supportMessagesSent             SupportMessage[]                       @relation("SupportMessageSenderSchoolUser")
 
   @@unique([schoolId, email])
   @@index([schoolId, schoolRoleId])
@@ -388,10 +543,11 @@ model SchoolRole {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  school School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
-  users User[]
-  invites SchoolInvite[]
-  rolePermissions RoleModulePermission[]
+  school              School                    @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  users               User[]
+  invites             SchoolInvite[]
+  rolePermissions     RoleModulePermission[]
+  galleryFolderAccess SchoolGalleryFolderRole[]
 
   @@unique([schoolId, key])
   @@index([schoolId])
@@ -413,50 +569,245 @@ model SchoolModule {
 }
 
 model RoleModulePermission {
-  id        String   @id @default(cuid())
-  schoolId  String
+  id           String          @id @default(cuid())
+  schoolId     String
   schoolRoleId String
-  moduleId  String
-  level     PermissionLevel @default(VIEW)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  moduleId     String
+  level        PermissionLevel @default(VIEW)
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
 
-  school School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  school     School     @relation(fields: [schoolId], references: [id], onDelete: Cascade)
   schoolRole SchoolRole @relation(fields: [schoolRoleId], references: [id], onDelete: Cascade)
-  module Module @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  module     Module     @relation(fields: [moduleId], references: [id], onDelete: Cascade)
 
   @@unique([schoolId, schoolRoleId, moduleId])
   @@index([schoolId, schoolRoleId])
 }
 
 model UserModulePermission {
-  id        String   @id @default(cuid())
+  id        String          @id @default(cuid())
   schoolId  String
   userId    String
   moduleId  String
   level     PermissionLevel @default(VIEW)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
 
   school School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
   module Module @relation(fields: [moduleId], references: [id], onDelete: Cascade)
 
   @@unique([schoolId, userId, moduleId])
   @@index([schoolId, userId])
 }
 
-model Bus {
-  id        String   @id @default(cuid())
-  schoolId  String
-  name      String
-  plateNumber String?
-  capacity  Int?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+model SchoolGalleryFolder {
+  id                      String              @id @default(cuid())
+  schoolId                String
+  name                    String
+  description             String?
+  source                  GalleryFolderSource @default(SCHOOL)
+  createdByUserId         String?
+  createdByPlatformUserId String?
+  isActive                Boolean             @default(true)
+  createdAt               DateTime            @default(now())
+  updatedAt               DateTime            @updatedAt
 
-  school School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
-  routes BusRoute[]
+  school                School                    @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  createdByUser         User?                     @relation("SchoolGalleryFolderCreatedByUser", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  createdByPlatformUser PlatformUser?             @relation("SchoolGalleryFolderCreatedByPlatformUser", fields: [createdByPlatformUserId], references: [id], onDelete: SetNull)
+  roleAccess            SchoolGalleryFolderRole[]
+  items                 SchoolGalleryItem[]
+
+  @@index([schoolId, createdAt])
+  @@index([schoolId, source, createdAt])
+}
+
+model SchoolGalleryFolderRole {
+  id           String   @id @default(cuid())
+  schoolId     String
+  folderId     String
+  schoolRoleId String
+  createdAt    DateTime @default(now())
+
+  school     School              @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  folder     SchoolGalleryFolder @relation(fields: [folderId], references: [id], onDelete: Cascade)
+  schoolRole SchoolRole          @relation(fields: [schoolRoleId], references: [id], onDelete: Cascade)
+
+  @@unique([folderId, schoolRoleId])
+  @@index([schoolId, schoolRoleId])
+  @@index([folderId])
+}
+
+model SchoolGalleryItem {
+  id                      String   @id @default(cuid())
+  schoolId                String
+  folderId                String
+  title                   String
+  caption                 String?
+  imageUrl                String
+  createdByUserId         String?
+  createdByPlatformUserId String?
+  createdAt               DateTime @default(now())
+
+  school                School              @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  folder                SchoolGalleryFolder @relation(fields: [folderId], references: [id], onDelete: Cascade)
+  createdByUser         User?               @relation("SchoolGalleryItemCreatedByUser", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  createdByPlatformUser PlatformUser?       @relation("SchoolGalleryItemCreatedByPlatformUser", fields: [createdByPlatformUserId], references: [id], onDelete: SetNull)
+
+  @@index([schoolId, createdAt])
+  @@index([folderId, createdAt])
+}
+
+model LearningCenterResource {
+  id              String                     @id @default(cuid())
+  schoolId        String
+  classId         String?
+  title           String
+  summary         String?
+  resourceType    LearningCenterResourceType @default(NOTE)
+  content         String?
+  linkUrl         String?
+  attachmentUrl   String?
+  createdByUserId String
+  createdAt       DateTime                   @default(now())
+  updatedAt       DateTime                   @updatedAt
+
+  school        School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  class         Class? @relation(fields: [classId], references: [id], onDelete: SetNull)
+  createdByUser User   @relation("LearningCenterCreatedByUser", fields: [createdByUserId], references: [id], onDelete: Cascade)
+
+  @@index([schoolId, classId, createdAt])
+}
+
+model YouTubeLearningVideo {
+  id              String   @id @default(cuid())
+  schoolId        String
+  classId         String?
+  title           String
+  description     String?
+  youtubeUrl      String
+  youtubeVideoId  String
+  holidayOnly     Boolean  @default(false)
+  createdByUserId String
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  school        School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  class         Class? @relation(fields: [classId], references: [id], onDelete: SetNull)
+  createdByUser User   @relation("YouTubeLearningCreatedByUser", fields: [createdByUserId], references: [id], onDelete: Cascade)
+
+  @@index([schoolId, classId, createdAt])
+  @@index([schoolId, holidayOnly, createdAt])
+}
+
+model SchoolCalendarEvent {
+  id              String                  @id @default(cuid())
+  schoolId        String
+  title           String
+  description     String?
+  eventType       SchoolCalendarEventType @default(OTHER)
+  startsOn        DateTime
+  endsOn          DateTime
+  createdByUserId String
+  createdAt       DateTime                @default(now())
+  updatedAt       DateTime                @updatedAt
+
+  school        School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  createdByUser User   @relation("SchoolCalendarCreatedByUser", fields: [createdByUserId], references: [id], onDelete: Cascade)
+
+  @@index([schoolId, startsOn, endsOn])
+  @@index([schoolId, eventType, startsOn])
+}
+
+model TeacherSalaryProfile {
+  id                        String                @id @default(cuid())
+  schoolId                  String
+  teacherUserId             String
+  payCycle                  TeacherSalaryPayCycle @default(MONTHLY)
+  grossAmountCents          Int
+  leaveAllowanceDays        Int                   @default(2)
+  deductionPerLeaveDayCents Int                   @default(0)
+  effectiveFrom             DateTime?
+  notes                     String?
+  isActive                  Boolean               @default(true)
+  createdAt                 DateTime              @default(now())
+  updatedAt                 DateTime              @updatedAt
+
+  school      School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  teacherUser User   @relation("TeacherSalaryProfileUser", fields: [teacherUserId], references: [id], onDelete: Cascade)
+
+  @@unique([schoolId, teacherUserId])
+  @@index([schoolId, payCycle, isActive])
+}
+
+model TeacherTimetableEntry {
+  id              String   @id @default(cuid())
+  schoolId        String
+  teacherUserId   String
+  classId         String
+  subjectName     String
+  weekday         Int
+  startTime       String
+  endTime         String
+  room            String?
+  createdByUserId String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  school        School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  teacherUser   User   @relation("TeacherTimetableTeacher", fields: [teacherUserId], references: [id], onDelete: Cascade)
+  class         Class  @relation(fields: [classId], references: [id], onDelete: Cascade)
+  createdByUser User   @relation("TeacherTimetableCreatedByUser", fields: [createdByUserId], references: [id], onDelete: Cascade)
+
+  @@index([schoolId, weekday, startTime])
+  @@index([schoolId, teacherUserId, weekday, startTime])
+  @@index([schoolId, classId, weekday, startTime])
+}
+
+model LeaveRequest {
+  id                String             @id @default(cuid())
+  schoolId          String
+  requesterType     LeaveRequesterType
+  status            LeaveRequestStatus @default(PENDING)
+  studentId         String?
+  teacherUserId     String?
+  requestedByUserId String
+  fromDate          DateTime
+  toDate            DateTime
+  totalDays         Int
+  reason            String
+  decisionNote      String?
+  approvedByUserId  String?
+  approvedAt        DateTime?
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+
+  school          School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  student         Student? @relation(fields: [studentId], references: [id], onDelete: SetNull)
+  teacherUser     User?    @relation("TeacherLeaveRequestUser", fields: [teacherUserId], references: [id], onDelete: SetNull)
+  requestedByUser User     @relation("LeaveRequestRequestedByUser", fields: [requestedByUserId], references: [id], onDelete: Cascade)
+  approvedByUser  User?    @relation("LeaveRequestApprovedByUser", fields: [approvedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([schoolId, status, createdAt])
+  @@index([schoolId, requesterType, fromDate])
+  @@index([schoolId, studentId, fromDate])
+  @@index([schoolId, teacherUserId, fromDate])
+}
+
+model Bus {
+  id          String   @id @default(cuid())
+  schoolId    String
+  name        String
+  plateNumber String?
+  capacity    Int?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  school            School                @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  routes            BusRoute[]
   driverAssignments BusDriverAssignment[]
 
   @@index([schoolId])
@@ -472,22 +823,22 @@ model BusRoute {
   updatedAt DateTime @updatedAt
 
   school School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
-  bus Bus? @relation(fields: [busId], references: [id], onDelete: SetNull)
+  bus    Bus?   @relation(fields: [busId], references: [id], onDelete: SetNull)
 
   @@index([schoolId])
   @@index([busId])
 }
 
 model BusDriverAssignment {
-  id        String   @id @default(cuid())
-  schoolId  String
-  busId     String
-  userId    String
+  id         String   @id @default(cuid())
+  schoolId   String
+  busId      String
+  userId     String
   assignedAt DateTime @default(now())
 
   school School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
-  bus Bus @relation(fields: [busId], references: [id], onDelete: Cascade)
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  bus    Bus    @relation(fields: [busId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([schoolId, userId])
   @@index([schoolId, busId])
@@ -517,21 +868,24 @@ model Class {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  school   School    @relation(fields: [schoolId], references: [id], onDelete: Cascade)
-  students Student[]
-  teacherAssignments TeacherClassAssignment[]
+  school                  School                   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  students                Student[]
+  teacherAssignments      TeacherClassAssignment[]
+  learningCenterResources LearningCenterResource[]
+  youtubeLearningVideos   YouTubeLearningVideo[]
+  teacherTimetableEntries TeacherTimetableEntry[]
 
   @@unique([schoolId, name, section])
   @@index([schoolId])
 }
 
 model TeacherClassAssignment {
-  id        String   @id @default(cuid())
-  schoolId  String
-  userId    String
-  classId   String
-  isClassTeacher Boolean @default(false)
-  createdAt DateTime @default(now())
+  id             String   @id @default(cuid())
+  schoolId       String
+  userId         String
+  classId        String
+  isClassTeacher Boolean  @default(false)
+  createdAt      DateTime @default(now())
 
   user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
   class Class @relation(fields: [classId], references: [id], onDelete: Cascade)
@@ -542,48 +896,49 @@ model TeacherClassAssignment {
 }
 
 model Student {
-  id            String   @id @default(cuid())
-  schoolId      String
-  studentId     String
-  admissionNo   String?
-  fullName      String
-  gender        String?
-  dateOfBirth   DateTime?
-  classId       String?
-  rollNumber    String?
-  bloodGroup    String?
-  address       String?
-  photoUrl      String?
-  joiningDate   DateTime?
+  id               String    @id @default(cuid())
+  schoolId         String
+  studentId        String
+  admissionNo      String?
+  fullName         String
+  gender           String?
+  dateOfBirth      DateTime?
+  classId          String?
+  rollNumber       String?
+  bloodGroup       String?
+  address          String?
+  photoUrl         String?
+  joiningDate      DateTime?
   transportDetails String?
-  medicalNotes  String?
-  documentsJson String?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  medicalNotes     String?
+  documentsJson    String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
 
-  fatherName      String?
-  motherName      String?
-  parentMobiles   String?
-  parentEmails    String?
+  fatherName       String?
+  motherName       String?
+  parentMobiles    String?
+  parentEmails     String?
   parentOccupation String?
-  parentAddress   String?
+  parentAddress    String?
   emergencyContact String?
 
-  guardianName     String?
+  guardianName         String?
   guardianRelationship String?
-  guardianMobile   String?
-  guardianAltContact String?
-  guardianAddress  String?
-  pickupAuthDetails String?
+  guardianMobile       String?
+  guardianAltContact   String?
+  guardianAddress      String?
+  pickupAuthDetails    String?
 
-  school School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
-  class  Class? @relation(fields: [classId], references: [id], onDelete: SetNull)
-  parents StudentParent[]
-  invoices FeeInvoice[]
-  attendance AttendanceRecord[]
-  homework Homework[]
-  examResults ExamResult[]
+  school         School                 @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  class          Class?                 @relation(fields: [classId], references: [id], onDelete: SetNull)
+  parents        StudentParent[]
+  invoices       FeeInvoice[]
+  attendance     AttendanceRecord[]
+  homework       Homework[]
+  examResults    ExamResult[]
   updateRequests StudentUpdateRequest[]
+  leaveRequests  LeaveRequest[]
 
   @@unique([schoolId, studentId])
   @@index([schoolId, classId])
@@ -605,29 +960,29 @@ model StudentParent {
 }
 
 model FeeInvoice {
-  id        String   @id @default(cuid())
-  schoolId  String
-  studentId String
-  title     String
+  id          String    @id @default(cuid())
+  schoolId    String
+  studentId   String
+  title       String
   amountCents Int
-  dueOn     DateTime?
-  status    String   @default("DUE") // DUE, PARTIAL, PAID
-  createdAt DateTime @default(now())
+  dueOn       DateTime?
+  status      String    @default("DUE") // DUE, PARTIAL, PAID
+  createdAt   DateTime  @default(now())
 
-  school  School  @relation(fields: [schoolId], references: [id], onDelete: Cascade)
-  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  school   School       @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  student  Student      @relation(fields: [studentId], references: [id], onDelete: Cascade)
   payments FeePayment[]
 
   @@index([schoolId, studentId, status])
 }
 
 model FeePayment {
-  id        String   @id @default(cuid())
-  invoiceId String
+  id          String   @id @default(cuid())
+  invoiceId   String
   amountCents Int
-  paidAt    DateTime @default(now())
-  method    String?  // CASH, CARD, ONLINE
-  reference String?
+  paidAt      DateTime @default(now())
+  method      String? // CASH, CARD, ONLINE
+  reference   String?
 
   invoice FeeInvoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
 }
@@ -663,13 +1018,13 @@ model AttendanceRecord {
 }
 
 model Homework {
-  id        String   @id @default(cuid())
+  id        String    @id @default(cuid())
   schoolId  String
   studentId String
   title     String
   details   String?
   dueOn     DateTime?
-  createdAt DateTime @default(now())
+  createdAt DateTime  @default(now())
 
   student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
 

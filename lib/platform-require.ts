@@ -29,3 +29,15 @@ export async function requireSuperAdmin() {
   if (session.role !== "SUPER_ADMIN" || user.role !== "SUPER_ADMIN") redirect("/platform");
   return { session, user };
 }
+
+export async function requirePlatformSchoolAccess(schoolId: string) {
+  const { session, user } = await requirePlatformUser();
+  if (user.role === "SUPER_ADMIN") return { session, user };
+
+  const assignment = await prisma.platformUserSchoolAssignment.findFirst({
+    where: { platformUserId: user.id, schoolId },
+    select: { id: true }
+  });
+  if (!assignment) redirect("/platform");
+  return { session, user };
+}

@@ -7,8 +7,10 @@ import { ensureBaseModules } from "@/lib/permissions";
 import { impersonateSchoolAction, impersonateUserAction } from "./actions";
 
 const MODULE_ICONS: Record<string, string> = {
-  STUDENTS: "👥", FEES: "💳", ATTENDANCE: "✅", COMMUNICATION: "📢",
-  ACADEMICS: "📚", REPORTS: "📊", NOTIFICATIONS: "🔔", SETTINGS: "⚙️", DASHBOARD: "◈", USERS: "🛡",
+  STUDENTS: "👥", FEES: "💳", ATTENDANCE: "✅", TIMETABLE: "🗓️", COMMUNICATION: "📢",
+  ACADEMICS: "📚", LEARNING_CENTER: "🧠", REPORTS: "📊", NOTIFICATIONS: "🔔",
+  GALLERY: "🖼️", YOUTUBE_LEARNING: "▶️", SCHOOL_CALENDAR: "🗓️", LEAVE_REQUESTS: "📝",
+  TEACHER_SALARY: "💼", SETTINGS: "⚙️", DASHBOARD: "◈", USERS: "🛡",
 };
 
 function avatarColor(name: string) {
@@ -60,6 +62,9 @@ export default async function PlatformSchoolPage({ params }: { params: Promise<{
             </div>
           </div>
           <div className="flex flex-wrap gap-2">
+            <Link href={`/platform/schools/${school.id}/gallery`}>
+              <Button variant="secondary" size="sm">Manage gallery</Button>
+            </Link>
             <Link href={`/login?schoolSlug=${encodeURIComponent(school.slug)}`}>
               <Button variant="secondary" size="sm">School login</Button>
             </Link>

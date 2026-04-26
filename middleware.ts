@@ -29,6 +29,7 @@ const ROLE_RULES: Array<{ prefix: string; allow: SchoolRoleKey[] }> = [
   { prefix: "/dashboard", allow: ["ADMIN"] },
   { prefix: "/admin/users", allow: ["ADMIN"] },
   { prefix: "/admin/settings", allow: ["ADMIN"] },
+  { prefix: "/admin/teacher-salary", allow: ["ADMIN"] },
   { prefix: "/admin/approvals", allow: ["ADMIN", "PRINCIPAL"] },
   { prefix: "/admin/audit", allow: ["ADMIN", "PRINCIPAL"] },
   { prefix: "/requests/student-profile", allow: ["PARENT"] }

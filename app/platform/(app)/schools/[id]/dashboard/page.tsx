@@ -50,6 +50,9 @@ export default async function PlatformSchoolDashboardPage({ params }: { params: 
           <Link href={`/platform/schools/${school.id}`}>
             <span className="text-sm text-indigo-300 hover:text-indigo-200 transition">Manage →</span>
           </Link>
+          <Link href={`/platform/schools/${school.id}/gallery`}>
+            <span className="text-sm text-cyan-300 hover:text-cyan-200 transition">Gallery →</span>
+          </Link>
         </div>
       </div>
 

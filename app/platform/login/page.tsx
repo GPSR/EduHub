@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Card } from "@/components/ui";
 import { PlatformLoginForm } from "@/components/platform-login-form";
+import { BrandWordmark } from "@/components/brand";
 import { prisma } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
@@ -16,6 +17,7 @@ export default async function PlatformLoginPage() {
         </Link>
         <Card accent="indigo">
           <div className="flex flex-col items-center text-center">
+            <BrandWordmark size="md" href="/platform/login" priority className="mb-2" />
             <h1 className="text-[24px] font-extrabold tracking-tight text-white/95">Platform Sign In</h1>
             <p className="mt-1 text-sm text-white/58">Enter platform admin credentials.</p>
           </div>

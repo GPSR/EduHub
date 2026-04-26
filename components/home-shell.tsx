@@ -16,7 +16,7 @@ const MOBILE_HERO_CHIPS = [
 ];
 
 const MOBILE_STATS = [
-  { icon: "🧩", value: "14", label: "Modules" },
+  { icon: "🧩", value: "21", label: "Modules" },
   { icon: "🌐", value: "1", label: "Platform" },
   { icon: "👨‍👩‍👧", value: "24/7", label: "Parent access" },
   { icon: "👥", value: "∞", label: "Students" },
@@ -66,6 +66,48 @@ const MOBILE_FEATURES = [
     className: "bg-[linear-gradient(135deg,rgba(99,102,241,0.2),rgba(139,92,246,0.08))] border-indigo-300/25",
   },
   {
+    icon: "🧠",
+    label: "Learning",
+    desc: "Class resources",
+    className: "bg-[linear-gradient(135deg,rgba(34,197,94,0.2),rgba(16,185,129,0.08))] border-green-300/25",
+  },
+  {
+    icon: "▶️",
+    label: "YouTube",
+    desc: "Holiday videos",
+    className: "bg-[linear-gradient(135deg,rgba(37,99,235,0.22),rgba(59,130,246,0.08))] border-blue-300/25",
+  },
+  {
+    icon: "🗓️",
+    label: "Calendar",
+    desc: "Events & exams",
+    className: "bg-[linear-gradient(135deg,rgba(6,182,212,0.2),rgba(14,165,233,0.08))] border-cyan-300/25",
+  },
+  {
+    icon: "📝",
+    label: "Leave",
+    desc: "Role approvals",
+    className: "bg-[linear-gradient(135deg,rgba(245,158,11,0.2),rgba(251,191,36,0.08))] border-yellow-300/25",
+  },
+  {
+    icon: "💼",
+    label: "Salary",
+    desc: "Teacher payouts",
+    className: "bg-[linear-gradient(135deg,rgba(14,116,144,0.2),rgba(8,145,178,0.08))] border-sky-300/25",
+  },
+  {
+    icon: "🖼️",
+    label: "Gallery",
+    desc: "Role folders",
+    className: "bg-[linear-gradient(135deg,rgba(251,146,60,0.2),rgba(249,115,22,0.08))] border-orange-300/25",
+  },
+  {
+    icon: "💬",
+    label: "Support",
+    desc: "Role-based chat",
+    className: "bg-[linear-gradient(135deg,rgba(59,130,246,0.2),rgba(14,165,233,0.08))] border-cyan-300/25",
+  },
+  {
     icon: "🚌",
     label: "Transport",
     desc: "Live tracking bus",
@@ -75,19 +117,35 @@ const MOBILE_FEATURES = [
 
 const ALL_MODULES = [
   { icon: "🏠", label: "Dashboard", desc: "Real-time school KPIs" },
+  { icon: "🖼️", label: "Gallery", desc: "Role-based image folders" },
   { icon: "👥", label: "Students", desc: "Admissions and profiles" },
   { icon: "💳", label: "Fees", desc: "Invoices and collections" },
   { icon: "✅", label: "Attendance", desc: "Daily attendance logs" },
   { icon: "🗓️", label: "Timetable", desc: "Class schedules" },
   { icon: "📢", label: "Feed", desc: "Announcements and updates" },
   { icon: "📚", label: "Academics", desc: "Subjects and curriculum" },
+  { icon: "🧠", label: "Learning Center", desc: "Class-based resources" },
+  { icon: "▶️", label: "YouTube Learning", desc: "Class-wise holiday video mapping" },
+  { icon: "🗓️", label: "School Calendar", desc: "Holidays, functions, and exams" },
+  { icon: "📝", label: "Leave Requests", desc: "Student and teacher leave approvals" },
+  { icon: "💼", label: "Teacher Salary", desc: "Monthly/yearly salary with leave deduction" },
   { icon: "📝", label: "Homework", desc: "Assignments tracking" },
   { icon: "🎓", label: "Progress Card", desc: "Exam results and reports" },
   { icon: "📊", label: "Reports", desc: "Analytics and exports" },
   { icon: "🔔", label: "Notifications", desc: "Alerts for users" },
+  { icon: "💬", label: "Support Chat", desc: "Parent-school-platform support" },
   { icon: "🚌", label: "Transport", desc: "Live tracking bus" },
   { icon: "⚙️", label: "School Settings", desc: "School configuration" },
   { icon: "🧑‍💼", label: "Users", desc: "Roles and permissions" },
+] as const;
+
+const DESKTOP_WIDGET_SKINS = [
+  "border-cyan-300/25 bg-[linear-gradient(145deg,rgba(14,165,233,0.22),rgba(2,6,23,0.6))]",
+  "border-indigo-300/25 bg-[linear-gradient(145deg,rgba(99,102,241,0.24),rgba(2,6,23,0.6))]",
+  "border-violet-300/25 bg-[linear-gradient(145deg,rgba(139,92,246,0.22),rgba(2,6,23,0.6))]",
+  "border-emerald-300/25 bg-[linear-gradient(145deg,rgba(16,185,129,0.22),rgba(2,6,23,0.6))]",
+  "border-amber-300/25 bg-[linear-gradient(145deg,rgba(245,158,11,0.2),rgba(2,6,23,0.6))]",
+  "border-rose-300/25 bg-[linear-gradient(145deg,rgba(244,63,94,0.2),rgba(2,6,23,0.6))]"
 ] as const;
 
 export function HomeShell({ isSignedIn }: { isSignedIn: boolean }) {
@@ -208,7 +266,7 @@ export function HomeShell({ isSignedIn }: { isSignedIn: boolean }) {
         <div className="mb-2.5 flex items-center justify-between gap-2">
           <div>
             <p className="text-[12px] font-bold text-white/78">Everything included</p>
-            <p className="text-[9px] text-white/38">14 modules · one platform</p>
+            <p className="text-[9px] text-white/38">21 modules · one platform</p>
           </div>
           <button
             type="button"
@@ -232,7 +290,7 @@ export function HomeShell({ isSignedIn }: { isSignedIn: boolean }) {
 
         {showAllModules && (
           <div className="mt-3 rounded-[14px] border border-white/[0.10] bg-[#0f1728]/70 p-2.5 md:p-3 animate-fade-up">
-            <p className="mb-2 text-[10px] uppercase tracking-[0.1em] text-white/45">All 14 modules</p>
+            <p className="mb-2 text-[10px] uppercase tracking-[0.1em] text-white/45">All 21 modules</p>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
               {ALL_MODULES.map((module) => (
                 <article
@@ -271,6 +329,100 @@ export function HomeShell({ isSignedIn }: { isSignedIn: boolean }) {
     </div>
   );
 
+  const desktopLanding = (
+    <div className="space-y-4">
+      <section className="relative overflow-hidden rounded-[30px] border border-white/[0.12] bg-[linear-gradient(140deg,#091229,#060d1f_52%,#081733)] p-7 lg:p-9">
+        <div className="pointer-events-none absolute -left-16 -top-20 h-56 w-56 rounded-full bg-cyan-400/20 blur-3xl" />
+        <div className="pointer-events-none absolute -right-20 -top-20 h-64 w-64 rounded-full bg-indigo-500/20 blur-3xl" />
+        <div className="pointer-events-none absolute -bottom-20 left-1/3 h-64 w-64 rounded-full bg-violet-500/15 blur-3xl" />
+
+        <div className="relative grid grid-cols-1 gap-6 lg:grid-cols-[1.1fr_1fr] lg:gap-8">
+          <div className="space-y-5">
+            <BrandWordmark size="lg" className="pointer-events-none" />
+
+            <div>
+              <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-cyan-100/75">
+                New School Starter Experience
+              </p>
+              <h1 className="mt-2 text-[40px] leading-[0.95] font-extrabold text-white/95">
+                All modules
+              </h1>
+              <p className="text-[40px] leading-[0.95] font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-cyan-200 via-blue-300 to-indigo-300">
+                visible on day one
+              </p>
+              <p className="mt-3 max-w-[560px] text-[14px] leading-relaxed text-white/60">
+                Every module is highlighted with floating widgets so first-time visitors immediately see
+                the complete school platform value.
+              </p>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              {MOBILE_HERO_CHIPS.map((chip) => (
+                <span key={chip} className="rounded-full border border-white/[0.14] bg-white/[0.05] px-3 py-1 text-[11px] text-white/72">
+                  {chip}
+                </span>
+              ))}
+            </div>
+
+            <div className="rounded-[18px] border border-amber-300/30 bg-amber-500/10 p-4">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-[12px] font-semibold text-amber-100/95">Gallery ready by default</p>
+                  <p className="mt-1 text-[12px] text-amber-50/75">
+                    Folder-level slideshow with save/share controls and optimized full-screen visibility.
+                  </p>
+                </div>
+                <span className="text-2xl">🖼️</span>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2.5">
+              <Link
+                href={primaryHref}
+                className="inline-flex h-11 items-center justify-center rounded-[14px] bg-gradient-to-b from-[#67b4ff] to-[#4f8dfd] px-5 text-[13px] font-bold text-white shadow-[0_12px_28px_-12px_rgba(79,141,253,0.75)] hover:from-[#7ac0ff] hover:to-[#5a95ff]"
+              >
+                {primaryLabel}
+              </Link>
+              <Link
+                href={secondaryHref}
+                className="inline-flex h-11 items-center justify-center rounded-[14px] border border-white/[0.14] bg-white/[0.06] px-5 text-[13px] font-semibold text-white/84 hover:bg-white/[0.12]"
+              >
+                {secondaryLabel}
+              </Link>
+            </div>
+          </div>
+
+          <div className="rounded-[24px] border border-white/[0.10] bg-[#0c162c]/80 p-4">
+            <div className="mb-3 flex items-center justify-between">
+              <p className="text-[12px] font-semibold uppercase tracking-[0.14em] text-white/55">
+                Feature Modules
+              </p>
+              <span className="rounded-full border border-cyan-300/35 bg-cyan-500/15 px-2.5 py-1 text-[10px] font-bold text-cyan-100/90">
+                {ALL_MODULES.length} modules
+              </span>
+            </div>
+            <div className="grid grid-cols-2 gap-2.5">
+              {ALL_MODULES.map((module, idx) => (
+                <article
+                  key={module.label}
+                  className={`module-float-card rounded-[13px] border px-3 py-2.5 ${DESKTOP_WIDGET_SKINS[idx % DESKTOP_WIDGET_SKINS.length]}`}
+                  style={{ animationDelay: `${idx * 85}ms` }}
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-[17px]">{module.icon}</span>
+                    <span className="h-1.5 w-1.5 rounded-full bg-white/70" />
+                  </div>
+                  <p className="mt-1 text-[12px] font-semibold text-white/90">{module.label}</p>
+                  <p className="text-[10px] leading-snug text-white/58">{module.desc}</p>
+                </article>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+  );
+
   /* Signed-in state */
   if (isSignedIn) {
     return (
@@ -290,10 +442,13 @@ export function HomeShell({ isSignedIn }: { isSignedIn: boolean }) {
         <Card title="Quick links" accent="teal">
           <div className="grid grid-cols-2 gap-2">
             {[
+              { href: "/gallery",    icon: "🖼️", label: "Gallery"    },
               { href: "/students",   icon: "👥", label: "Students"   },
+              { href: "/support",    icon: "💬", label: "Support"    },
               { href: "/fees",       icon: "💳", label: "Fees"       },
               { href: "/attendance", icon: "✅", label: "Attendance" },
               { href: "/feed",       icon: "📢", label: "Feed"       },
+              { href: "/learning-center", icon: "🧠", label: "Learning" },
             ].map(item => (
               <Link
                 key={item.href}
@@ -310,5 +465,10 @@ export function HomeShell({ isSignedIn }: { isSignedIn: boolean }) {
     );
   }
 
-  return mobileLanding;
+  return (
+    <>
+      <div className="md:hidden">{mobileLanding}</div>
+      <div className="hidden md:block">{desktopLanding}</div>
+    </>
+  );
 }

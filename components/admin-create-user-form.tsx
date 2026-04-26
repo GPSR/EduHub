@@ -12,9 +12,10 @@ type RoleOption    = { id: string; key: string; name: string };
 type ModuleOption  = { id: string; key: string; name: string };
 
 const MODULE_ICONS: Record<string, string> = {
-  STUDENTS: "👥", FEES: "💳", ATTENDANCE: "✅", COMMUNICATION: "📢",
-  ACADEMICS: "📚", REPORTS: "📊", NOTIFICATIONS: "🔔", SETTINGS: "⚙️",
-  DASHBOARD: "◈", USERS: "🛡",
+  STUDENTS: "👥", FEES: "💳", ATTENDANCE: "✅", TIMETABLE: "🗓️", COMMUNICATION: "📢",
+  ACADEMICS: "📚", LEARNING_CENTER: "🧠", REPORTS: "📊", NOTIFICATIONS: "🔔",
+  GALLERY: "🖼️", YOUTUBE_LEARNING: "▶️", SCHOOL_CALENDAR: "🗓️", LEAVE_REQUESTS: "📝",
+  TEACHER_SALARY: "💼", SETTINGS: "⚙️", DASHBOARD: "◈", USERS: "🛡",
 };
 
 const PERM_LEVELS = [

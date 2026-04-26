@@ -16,26 +16,38 @@ export default async function PlatformAppLayout({ children }: { children: React.
       ? [
           { href: "/platform", label: "Dashboard", icon: "◈" },
           { href: "/platform/schools", label: "Schools", icon: "🏫" },
+          { href: "/platform/gallery", label: "Gallery", icon: "🖼️" },
+          { href: "/platform/support", label: "Support", icon: "💬" },
           { href: "/platform/onboarding-requests", label: "Approvals", icon: "📋" },
           { href: "/platform/users", label: "Users", icon: "🛡" },
           { href: "/platform/subscriptions", label: "Subscriptions", icon: "💎" },
           { href: "/platform/audit", label: "Audit", icon: "🧾" },
           { href: "/platform/settings", label: "Settings", icon: "⚙️" }
         ]
-      : [{ href: "/platform", label: "Dashboard", icon: "◈" }];
+      : [
+          { href: "/platform", label: "Dashboard", icon: "◈" },
+          { href: "/platform/gallery", label: "Gallery", icon: "🖼️" },
+          { href: "/platform/support", label: "Support", icon: "💬" }
+        ];
 
   const mobileNavCandidates =
     user.role === "SUPER_ADMIN"
       ? [
           { href: "/platform", label: "Home", icon: "◈" },
           { href: "/platform/schools", label: "Schools", icon: "🏫" },
+          { href: "/platform/gallery", label: "Gallery", icon: "🖼️" },
+          { href: "/platform/support", label: "Support", icon: "💬" },
           { href: "/platform/onboarding-requests", label: "Approvals", icon: "📋" },
           { href: "/platform/users", label: "Users", icon: "🛡" },
           { href: "/platform/settings", label: "Settings", icon: "⚙️" },
           { href: "/platform/subscriptions", label: "Plans", icon: "💎" },
           { href: "/platform/audit", label: "Audit", icon: "🧾" }
         ]
-      : [{ href: "/platform", label: "Home", icon: "◈" }];
+      : [
+          { href: "/platform", label: "Home", icon: "◈" },
+          { href: "/platform/gallery", label: "Gallery", icon: "🖼️" },
+          { href: "/platform/support", label: "Support", icon: "💬" }
+        ];
   const mobileItems = mobileNavCandidates;
 
   const initials = user.name

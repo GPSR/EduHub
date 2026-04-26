@@ -100,10 +100,10 @@ export default async function StudentVirtualIdCardPage({ params }: { params: Pro
                     alt={school.name}
                     width={56}
                     height={56}
-                    className="h-14 w-14 rounded-[12px] object-cover border border-white/30"
+                    className="h-14 w-14 rounded-full object-contain bg-white/10 p-0.5 border border-white/30"
                   />
                 ) : (
-                  <div className="grid h-14 w-14 place-items-center rounded-[12px] border border-white/30 text-sm font-bold">
+                  <div className="grid h-14 w-14 place-items-center rounded-full border border-white/30 text-sm font-bold">
                     {initials(school.name)}
                   </div>
                 )}

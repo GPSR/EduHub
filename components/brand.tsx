@@ -40,7 +40,7 @@ export function BrandLogo({
             height={iconSize}
             priority
             quality={100}
-            className="rounded-2xl ring-1 ring-white/10 transition-transform duration-200 group-hover:scale-[1.05]"
+            className="rounded-full bg-white/[0.04] p-[2px] object-contain ring-1 ring-white/10 transition-transform duration-200 group-hover:scale-[1.05]"
           />
           <span className={clsx("font-semibold tracking-tight", brandTextSize(size))}>EduHub</span>
         </span>
@@ -60,9 +60,9 @@ export function BrandIcon({
 }) {
   return (
     <Link href={href} aria-label="Go to home">
-      <span className="group relative inline-flex rounded-2xl p-[1px] shadow-[0_18px_45px_-28px_rgba(0,0,0,0.9)]">
-        <span className="pointer-events-none absolute -inset-3 rounded-3xl bg-gradient-to-b from-blue-400/30 via-cyan-300/12 to-transparent blur-xl opacity-70 group-hover:opacity-100 transition" />
-        <span className="relative inline-flex overflow-hidden rounded-2xl border border-white/10 bg-[#111a2d]/90 p-1.5 backdrop-blur">
+      <span className="group relative inline-flex rounded-[999px] p-[1px] shadow-[0_18px_45px_-28px_rgba(0,0,0,0.9)]">
+        <span className="pointer-events-none absolute -inset-3 rounded-[999px] bg-gradient-to-b from-blue-400/30 via-cyan-300/12 to-transparent blur-xl opacity-70 group-hover:opacity-100 transition" />
+        <span className="relative inline-flex overflow-hidden rounded-[999px] border border-white/10 bg-[#111a2d]/90 p-1.5 backdrop-blur">
           <Image
             src="/brand/eduhub-icon.png"
             alt="EduHub"
@@ -71,7 +71,7 @@ export function BrandIcon({
             priority
             quality={100}
             className={clsx(
-              "rounded-xl ring-1 ring-white/10 hover:ring-white/20 transition saturate-125 contrast-110",
+              "rounded-full bg-white/[0.04] p-[2px] object-contain ring-1 ring-white/10 hover:ring-white/20 transition saturate-125 contrast-110",
               "transition-transform duration-200 group-hover:scale-[1.06]",
               className
             )}
@@ -104,7 +104,7 @@ export function BrandWordmark({
         height={dimension}
         priority={priority}
         quality={100}
-        className="h-auto w-auto max-w-full drop-shadow-[0_10px_22px_rgba(0,0,0,0.35)]"
+        className="h-auto w-auto max-w-full rounded-[24px] bg-white/[0.02] object-contain p-[2px] drop-shadow-[0_10px_22px_rgba(0,0,0,0.35)]"
       />
     </Link>
   );

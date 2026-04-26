@@ -7,6 +7,7 @@ import Image from "next/image";
 import { getSchoolIdCardTemplate } from "@/lib/id-card-template";
 import { getSchoolStudentDemographicsConfig, type StudentDemographicsConfig } from "@/lib/student-demographics";
 import { getSchoolProfile, type SchoolProfile } from "@/lib/school-profile";
+import { ensureBaseModules } from "@/lib/permissions";
 
 export default async function AdminSettingsPage({
   searchParams,
@@ -14,17 +15,18 @@ export default async function AdminSettingsPage({
   searchParams: Promise<{ roleId?: string }>;
 }) {
   const { session } = await requirePermission("SETTINGS", "ADMIN");
+  await ensureBaseModules();
   const { roleId } = await searchParams;
-  const [school, roles, schoolModules, classes, idCardTemplate, demographicsConfig, schoolProfile] = await Promise.all([
+  const [school, roles, modules, schoolModuleRows, classes, idCardTemplate, demographicsConfig, schoolProfile] = await Promise.all([
     prisma.school.findUnique({ where: { id: session.schoolId } }),
     prisma.schoolRole.findMany({
       where: { schoolId: session.schoolId },
       orderBy: [{ isSystem: "desc" }, { name: "asc" }],
     }),
+    prisma.module.findMany({ orderBy: { name: "asc" } }),
     prisma.schoolModule.findMany({
       where: { schoolId: session.schoolId },
       include: { module: true },
-      orderBy: { module: { name: "asc" } },
     }),
     prisma.class.findMany({
       where: { schoolId: session.schoolId },
@@ -34,6 +36,13 @@ export default async function AdminSettingsPage({
     getSchoolStudentDemographicsConfig(session.schoolId),
     getSchoolProfile(session.schoolId)
   ]);
+  const enabledByModuleId = new Map(schoolModuleRows.map((row) => [row.moduleId, row.enabled]));
+  const schoolModules = modules.map((module) => ({
+    id: module.id,
+    name: module.name,
+    key: module.key,
+    enabled: enabledByModuleId.get(module.id) ?? false
+  }));
 
   if (!school) {
     return (
@@ -67,7 +76,7 @@ export default async function AdminSettingsPage({
 
       <Card title="School Modules" description="Enable or disable modules for all roles." accent="teal">
         <SchoolModulesClientForm
-          modules={schoolModules.map(m => ({ id: m.module.id, name: m.module.name, key: m.module.key, enabled: m.enabled }))}
+          modules={schoolModules}
         />
       </Card>
 
@@ -102,9 +111,9 @@ async function SchoolLogoPanel({ logoUrl }: { logoUrl?: string | null }) {
     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
       <div className="flex items-center gap-3">
         {logoUrl ? (
-          <Image src={logoUrl} alt="School logo" width={56} height={56} className="h-14 w-14 rounded-[12px] object-cover border border-white/[0.10]" />
+          <Image src={logoUrl} alt="School logo" width={56} height={56} className="h-14 w-14 rounded-full object-contain bg-white/[0.03] p-0.5 border border-white/[0.10]" />
         ) : (
-          <div className="h-14 w-14 rounded-[12px] border border-white/[0.10] bg-white/[0.04] grid place-items-center text-[11px] text-white/40">No logo</div>
+          <div className="h-14 w-14 rounded-full border border-white/[0.10] bg-white/[0.04] grid place-items-center text-[11px] text-white/40">No logo</div>
         )}
         <div className="min-w-0">
           <Label required>Upload logo</Label>
