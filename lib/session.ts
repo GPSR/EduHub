@@ -1,57 +1,39 @@
 import { cookies } from "next/headers";
-import { SignJWT, jwtVerify } from "jose";
-import { z } from "zod";
+import { SchoolSessionClaimsSchema, type SchoolSessionClaims } from "@/lib/auth-claims";
+import { getExpiredSessionCookieOptions, getPrimarySessionCookieName, getReadableSessionCookieNames, getSessionCookieOptions } from "@/lib/auth-cookie";
+import { hasTokenSecret, signScopedToken, verifyScopedToken } from "@/lib/auth-token";
 
-const SESSION_COOKIE = "ssa_session";
-
-const SessionSchema = z.object({
-  userId: z.string(),
-  schoolId: z.string(),
-  roleId: z.string(),
-  roleKey: z.string()
-});
-
-export type Session = z.infer<typeof SessionSchema>;
-
-function getSecret() {
-  const secret = process.env.AUTH_SECRET;
-  if (!secret) throw new Error("Missing AUTH_SECRET");
-  return new TextEncoder().encode(secret);
-}
+export type Session = SchoolSessionClaims;
 
 export async function signSessionToken(session: Session) {
-  return new SignJWT(session)
-    .setProtectedHeader({ alg: "HS256" })
-    .setIssuedAt()
-    .setExpirationTime("7d")
-    .sign(getSecret());
+  return signScopedToken("school", session, session.userId);
 }
 
 export async function createSessionCookie(session: Session) {
   const token = await signSessionToken(session);
   const cookieStore = await cookies();
-  cookieStore.set(SESSION_COOKIE, token, {
-    httpOnly: true,
-    sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
-    path: "/"
-  });
+  const primaryName = getPrimarySessionCookieName("school");
+  cookieStore.set(primaryName, token, getSessionCookieOptions("school"));
+  const clearOptions = getExpiredSessionCookieOptions();
+  for (const name of getReadableSessionCookieNames("school")) {
+    if (name !== primaryName) cookieStore.set(name, "", clearOptions);
+  }
 }
 
 export async function clearSessionCookie() {
   const cookieStore = await cookies();
-  cookieStore.set(SESSION_COOKIE, "", { path: "/", expires: new Date(0) });
+  const clearOptions = getExpiredSessionCookieOptions();
+  for (const name of getReadableSessionCookieNames("school")) {
+    cookieStore.set(name, "", clearOptions);
+  }
 }
 
 export async function getSession(): Promise<Session | null> {
   const cookieStore = await cookies();
-  const token = cookieStore.get(SESSION_COOKIE)?.value;
+  const token = getReadableSessionCookieNames("school")
+    .map((name) => cookieStore.get(name)?.value)
+    .find((value): value is string => Boolean(value));
   if (!token) return null;
-  if (!process.env.AUTH_SECRET) return null;
-  try {
-    const { payload } = await jwtVerify(token, getSecret());
-    return SessionSchema.parse(payload);
-  } catch {
-    return null;
-  }
+  if (!hasTokenSecret("school")) return null;
+  return verifyScopedToken("school", token, SchoolSessionClaimsSchema);
 }

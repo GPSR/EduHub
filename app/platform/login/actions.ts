@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import { verifyPassword } from "@/lib/password";
 import { createPlatformSessionCookie } from "@/lib/platform-session";
 import { auditLog } from "@/lib/audit";
+import { buildRateLimitKey, consumeRateLimitAttempt, readRequestIp } from "@/lib/rate-limit";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 
@@ -13,6 +14,9 @@ const LoginSchema = z.object({
   email: z.string().email(),
   password: z.string().min(8)
 });
+
+const INVALID_LOGIN_MESSAGE = "Invalid email or password.";
+const DUMMY_PASSWORD_HASH = "$2a$10$7EqJtq98hPqEX7fNZaFWoOHiR6f/6sVQqlhK/SXxPxq8np5xpoE3.";
 
 export async function platformLoginAction(
   _prev: PlatformLoginState,
@@ -28,19 +32,22 @@ export async function platformLoginAction(
   }
 
   const email = parsed.data.email.toLowerCase();
-  let user = await prisma.platformUser.findUnique({ where: { email } });
-  if (!user) return { ok: false, message: "Invalid email or password." };
-  if (user.role === "SUPER_ADMIN" && user.status !== "APPROVED") {
-    user = await prisma.platformUser.update({
-      where: { id: user.id },
-      data: { status: "APPROVED", approvedAt: user.approvedAt ?? new Date(), rejectedAt: null }
-    });
+  const ip = await readRequestIp();
+  const throttle = await consumeRateLimitAttempt({
+    scope: "PLATFORM_LOGIN",
+    key: buildRateLimitKey(ip, email),
+    maxAttempts: 6,
+    windowMs: 10 * 60 * 1000
+  });
+  if (throttle.limited) {
+    return { ok: false, message: "Too many sign-in attempts. Please wait a few minutes and try again." };
   }
+
+  const user = await prisma.platformUser.findUnique({ where: { email } });
+  const ok = await verifyPassword(parsed.data.password, user?.passwordHash ?? DUMMY_PASSWORD_HASH);
+  if (!ok || !user) return { ok: false, message: INVALID_LOGIN_MESSAGE };
   if (!user.isActive) return { ok: false, message: "Your platform user is deactivated. Contact super admin." };
   if (user.status !== "APPROVED") return { ok: false, message: "Your platform user is pending super admin approval." };
-
-  const ok = await verifyPassword(parsed.data.password, user.passwordHash);
-  if (!ok) return { ok: false, message: "Invalid email or password." };
 
   await auditLog({
     actor: { type: "PLATFORM_USER", id: user.id },

@@ -28,16 +28,16 @@
     "platform:release-ready": "npm run platform:compat && npm run mobile:build:android && npm run mobile:build:ios"
   },
   "dependencies": {
-    "@capacitor/android": "^7.0.0",
-    "@capacitor/app": "^7.0.0",
-    "@capacitor/core": "^7.0.0",
-    "@capacitor/haptics": "^7.0.0",
-    "@capacitor/ios": "^7.0.0",
-    "@capacitor/keyboard": "^7.0.0",
-    "@capacitor/network": "^7.0.0",
-    "@capacitor/splash-screen": "^7.0.0",
-    "@capacitor/status-bar": "^7.0.0",
-    "@capgo/capacitor-native-biometric": "^7.6.0",
+    "@capacitor/android": "^8.3.1",
+    "@capacitor/app": "^8.1.0",
+    "@capacitor/core": "^8.3.1",
+    "@capacitor/haptics": "^8.0.2",
+    "@capacitor/ios": "^8.3.1",
+    "@capacitor/keyboard": "^8.0.3",
+    "@capacitor/network": "^8.0.1",
+    "@capacitor/splash-screen": "^8.0.1",
+    "@capacitor/status-bar": "^8.0.2",
+    "@capgo/capacitor-native-biometric": "^8.4.2",
     "@prisma/adapter-better-sqlite3": "^7.7.0",
     "@prisma/client": "^6.7.0",
     "@prisma/engines": "^7.7.0",
@@ -54,7 +54,7 @@
   },
   "devDependencies": {
     "@capacitor/assets": "^3.0.5",
-    "@capacitor/cli": "^7.0.0",
+    "@capacitor/cli": "^8.3.1",
     "@types/bcryptjs": "^2.4.6",
     "@types/node": "^22.14.0",
     "@types/nodemailer": "^8.0.0",
@@ -67,5 +67,13 @@
     "prisma": "^6.7.0",
     "tailwindcss": "^3.4.17",
     "typescript": "^5.8.3"
+  },
+  "overrides": {
+    "next": {
+      "postcss": "^8.5.12"
+    },
+    "rollup-plugin-terser": {
+      "serialize-javascript": "^7.0.5"
+    }
   }
 }

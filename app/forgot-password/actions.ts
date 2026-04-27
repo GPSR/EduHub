@@ -4,6 +4,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { auditLog } from "@/lib/audit";
 import { createPasswordResetToken, sendPasswordResetEmail } from "@/lib/password-reset";
+import { buildRateLimitKey, consumeRateLimitAttempt, readRequestIp } from "@/lib/rate-limit";
 
 export type ForgotPasswordState = { ok: boolean; message: string };
 
@@ -34,6 +35,16 @@ export async function requestSchoolUserPasswordResetAction(
 
   const schoolSlug = parsed.data.schoolSlug.toLowerCase();
   const email = parsed.data.email.toLowerCase();
+  const ip = await readRequestIp();
+  const throttle = await consumeRateLimitAttempt({
+    scope: "SCHOOL_FORGOT_PASSWORD",
+    key: buildRateLimitKey(ip, schoolSlug, email),
+    maxAttempts: 5,
+    windowMs: 15 * 60 * 1000
+  });
+  if (throttle.limited) {
+    return { ok: true, message: GENERIC_SUCCESS_MESSAGE };
+  }
 
   const school = await prisma.school.findUnique({
     where: { slug: schoolSlug },

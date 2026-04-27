@@ -21,7 +21,13 @@ A multi-tenant school management SaaS MVP built with Next.js + Prisma.
 2. Create `.env`
    - `cp .env.example .env`
    - Set `LOCAL_DATABASE_URL` for local development
-   - Set `AUTH_SECRET` (any long random string)
+   - Set `AUTH_SECRET` (minimum 32 chars random secret)
+   - Optional hardening:
+     - `AUTH_SECRET_SCHOOL` and `AUTH_SECRET_PLATFORM` for separate token keys
+     - `SCHOOL_SESSION_TTL` and `PLATFORM_SESSION_TTL` (for example `12h`, `8h`)
+     - `AUTH_TOKEN_ISSUER`, `AUTH_AUDIENCE_SCHOOL`, `AUTH_AUDIENCE_PLATFORM`
+   - Platform bootstrap protection:
+     - `PLATFORM_ONBOARD_SECRET` (minimum 16 chars; required in production)
 3. Create the database
    - `npm run db:push`
 4. Run the app

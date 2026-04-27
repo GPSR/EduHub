@@ -3,6 +3,7 @@ import { z } from "zod";
 import { getSession } from "@/lib/session";
 import { getEffectivePermissions, atLeastLevel } from "@/lib/permissions";
 import { prisma } from "@/lib/db";
+import { resolveActiveSchoolSession } from "@/lib/auth-session";
 
 const PayloadSchema = z.object({
   busId: z.string().min(1),
@@ -24,7 +25,7 @@ function latestTripStatus(meta: string | null): "STARTED" | "ENDED" | null {
 }
 
 export async function POST(req: Request) {
-  const session = await getSession();
+  const session = await resolveActiveSchoolSession(await getSession());
   if (!session) return NextResponse.json({ ok: false, message: "Unauthorized" }, { status: 401 });
 
   const perms = await getEffectivePermissions({

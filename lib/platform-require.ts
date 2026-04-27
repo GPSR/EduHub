@@ -1,27 +1,24 @@
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
-import { getPlatformSession } from "@/lib/platform-session";
+import { clearPlatformSessionCookie, getPlatformSession } from "@/lib/platform-session";
+import { resolveActivePlatformSessionWithUser } from "@/lib/auth-session";
 
 export async function requirePlatformSession() {
-  const session = await getPlatformSession();
-  if (!session) redirect("/platform/login");
-  return session;
+  const resolved = await resolveActivePlatformSessionWithUser(await getPlatformSession());
+  if (!resolved) {
+    await clearPlatformSessionCookie();
+    redirect("/platform/login");
+  }
+  return resolved.session;
 }
 
 export async function requirePlatformUser() {
-  const session = await requirePlatformSession();
-  const user = await prisma.platformUser.findUnique({ where: { id: session.platformUserId } });
-  if (!user) redirect("/platform/login");
-  if (user.role === "SUPER_ADMIN" && user.status !== "APPROVED") {
-    await prisma.platformUser.update({
-      where: { id: user.id },
-      data: { status: "APPROVED", approvedAt: user.approvedAt ?? new Date(), rejectedAt: null }
-    });
-    return { session, user: { ...user, status: "APPROVED" } };
+  const resolved = await resolveActivePlatformSessionWithUser(await getPlatformSession());
+  if (!resolved) {
+    await clearPlatformSessionCookie();
+    redirect("/platform/login");
   }
-  if (!user.isActive) redirect("/platform/login");
-  if (user.status !== "APPROVED") redirect("/platform/login");
-  return { session, user };
+  return resolved;
 }
 
 export async function requireSuperAdmin() {

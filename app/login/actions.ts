@@ -5,6 +5,7 @@ import { verifyPassword } from "@/lib/password";
 import { createSessionCookie } from "@/lib/session";
 import { auditLog } from "@/lib/audit";
 import { ensureSchoolSubscriptionActive } from "@/lib/subscription";
+import { buildRateLimitKey, consumeRateLimitAttempt, readRequestIp } from "@/lib/rate-limit";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 
@@ -15,6 +16,18 @@ const LoginSchema = z.object({
   password: z.string().min(6),
   schoolSlug: z.string().min(2)
 });
+
+const INVALID_LOGIN_MESSAGE = "Invalid email or password.";
+const DUMMY_PASSWORD_HASH = "$2a$10$7EqJtq98hPqEX7fNZaFWoOHiR6f/6sVQqlhK/SXxPxq8np5xpoE3.";
+
+function sanitizeNextPath(raw: FormDataEntryValue | null) {
+  if (typeof raw !== "string") return null;
+  const value = raw.trim();
+  if (!value) return null;
+  if (!value.startsWith("/") || value.startsWith("//")) return null;
+  if (/[\r\n]/.test(value)) return null;
+  return value;
+}
 
 export async function loginAction(_prev: LoginState, formData: FormData): Promise<LoginState> {
   const parsed = LoginSchema.safeParse({
@@ -27,8 +40,21 @@ export async function loginAction(_prev: LoginState, formData: FormData): Promis
     return { ok: false, message };
   }
 
+  const email = parsed.data.email.toLowerCase();
+  const schoolSlug = parsed.data.schoolSlug.toLowerCase();
+  const ip = await readRequestIp();
+  const throttle = await consumeRateLimitAttempt({
+    scope: "SCHOOL_LOGIN",
+    key: buildRateLimitKey(ip, schoolSlug, email),
+    maxAttempts: 8,
+    windowMs: 10 * 60 * 1000
+  });
+  if (throttle.limited) {
+    return { ok: false, message: "Too many sign-in attempts. Please wait a few minutes and try again." };
+  }
+
   const school = await prisma.school.findUnique({
-    where: { slug: parsed.data.schoolSlug.toLowerCase() }
+    where: { slug: schoolSlug }
   });
   if (!school || !school.isActive)
     return { ok: false, message: "School not found or inactive." };
@@ -37,13 +63,11 @@ export async function loginAction(_prev: LoginState, formData: FormData): Promis
   if (!sub.ok) return { ok: false, message: sub.reason };
 
   const user = await prisma.user.findUnique({
-    where: { schoolId_email: { schoolId: school.id, email: parsed.data.email.toLowerCase() } }
+    where: { schoolId_email: { schoolId: school.id, email } }
   });
-  if (!user) return { ok: false, message: "Invalid email or password." };
+  const ok = await verifyPassword(parsed.data.password, user?.passwordHash ?? DUMMY_PASSWORD_HASH);
+  if (!ok || !user) return { ok: false, message: INVALID_LOGIN_MESSAGE };
   if (!user.isActive) return { ok: false, message: "Your account is inactive. Contact the school admin." };
-
-  const ok = await verifyPassword(parsed.data.password, user.passwordHash);
-  if (!ok) return { ok: false, message: "Invalid email or password." };
 
   await auditLog({
     actor: { type: "SCHOOL_USER", id: user.id, schoolId: school.id },
@@ -54,5 +78,5 @@ export async function loginAction(_prev: LoginState, formData: FormData): Promis
   const role = await prisma.schoolRole.findUnique({ where: { id: user.schoolRoleId } });
   if (!role) return { ok: false, message: "Account is misconfigured (missing role)." };
   await createSessionCookie({ userId: user.id, schoolId: school.id, roleId: role.id, roleKey: role.key });
-  redirect("/dashboard");
+  redirect(sanitizeNextPath(formData.get("next")) ?? "/dashboard");
 }

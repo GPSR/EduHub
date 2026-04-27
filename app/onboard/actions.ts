@@ -80,6 +80,6 @@ export async function onboardAction(_prev: OnboardState, formData: FormData): Pr
     if (raw.toLowerCase().includes("unique constraint")) {
       return { ok: false, message: "A similar onboarding request already exists." };
     }
-    return { ok: false, message: `Request submission failed: ${raw}` };
+    return { ok: false, message: "Request submission failed. Please try again shortly." };
   }
 }

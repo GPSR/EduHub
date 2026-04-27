@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getPlatformSession } from "@/lib/platform-session";
+import { resolveActivePlatformSession } from "@/lib/auth-session";
 
 export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> }) {
-  const session = await getPlatformSession();
+  const session = await resolveActivePlatformSession(await getPlatformSession());
   if (!session) return NextResponse.json({ ok: false, message: "Unauthorized" }, { status: 401 });
 
   const { id: schoolId } = await ctx.params;

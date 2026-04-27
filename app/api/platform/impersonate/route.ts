@@ -4,9 +4,11 @@ import { getPlatformSession } from "@/lib/platform-session";
 import { signSessionToken } from "@/lib/session";
 import { auditLog } from "@/lib/audit";
 import { ensureSchoolSubscriptionActive } from "@/lib/subscription";
+import { resolveActivePlatformSession } from "@/lib/auth-session";
+import { getExpiredSessionCookieOptions, getPrimarySessionCookieName, getReadableSessionCookieNames, getSessionCookieOptions } from "@/lib/auth-cookie";
 
 export async function POST(req: Request) {
-  const platformSession = await getPlatformSession();
+  const platformSession = await resolveActivePlatformSession(await getPlatformSession());
   if (!platformSession) return NextResponse.json({ ok: false, message: "Unauthorized" }, { status: 401 });
 
   const body = (await req.json().catch(() => null)) as
@@ -32,12 +34,12 @@ export async function POST(req: Request) {
 
   const token = await signSessionToken({ userId: user.id, schoolId: user.schoolId, roleId: role.id, roleKey: role.key });
   const res = NextResponse.json({ ok: true });
-  res.cookies.set("ssa_session", token, {
-    httpOnly: true,
-    sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
-    path: "/"
-  });
+  const primarySessionCookie = getPrimarySessionCookieName("school");
+  res.cookies.set(primarySessionCookie, token, getSessionCookieOptions("school"));
+  const clearOptions = getExpiredSessionCookieOptions();
+  for (const name of getReadableSessionCookieNames("school")) {
+    if (name !== primarySessionCookie) res.cookies.set(name, "", clearOptions);
+  }
 
   await auditLog({
     actor: { type: "PLATFORM_USER", id: platformSession.platformUserId },

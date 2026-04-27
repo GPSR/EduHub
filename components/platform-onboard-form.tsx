@@ -6,11 +6,19 @@ import { platformOnboardAction, type PlatformOnboardState } from "@/app/platform
 
 const initialState: PlatformOnboardState = { ok: true };
 
-export function PlatformOnboardForm() {
+export function PlatformOnboardForm({ requireSetupKey }: { requireSetupKey: boolean }) {
   const [state, action, pending] = useActionState(platformOnboardAction, initialState);
 
   return (
     <form action={action} className="space-y-3">
+      {requireSetupKey ? (
+        <div>
+          <Label>Setup Key</Label>
+          <Input name="setupKey" type="password" minLength={16} required />
+          <div className="mt-1 text-xs text-white/50">Use the secure onboarding key configured by your platform owner.</div>
+        </div>
+      ) : null}
+
       <div>
         <Label>Name</Label>
         <Input name="name" placeholder="Platform Admin" required />
@@ -37,4 +45,3 @@ export function PlatformOnboardForm() {
     </form>
   );
 }
-

@@ -4,12 +4,15 @@ import { Button, Card } from "@/components/ui";
 import { PlatformOnboardForm } from "@/components/platform-onboard-form";
 import { BrandIcon } from "@/components/brand";
 import { prisma } from "@/lib/db";
+import { platformOnboardNeedsSetupKey, platformOnboardReady } from "@/lib/platform-onboard-guard";
 
 export const dynamic = "force-dynamic";
 
 export default async function PlatformOnboardPage() {
   const existing = await prisma.platformUser.findFirst({ select: { id: true } });
   if (existing) redirect("/platform/login");
+  const ready = platformOnboardReady();
+  const requireSetupKey = platformOnboardNeedsSetupKey();
 
   return (
     <main className="min-h-dvh md:min-h-screen flex items-start md:items-center justify-center px-4 sm:px-6 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))]">
@@ -29,7 +32,7 @@ export default async function PlatformOnboardPage() {
               <div className="pointer-events-none absolute -left-10 -top-12 h-40 w-40 rounded-full bg-blue-400/20 blur-3xl" />
               <div className="relative">
                 <div className="flex justify-center lg:justify-start">
-                  <BrandIcon size={78} />
+                  <BrandIcon size={90} />
                 </div>
                 <h1 className="mt-4 text-2xl sm:text-3xl font-bold tracking-tight text-white/95 text-center lg:text-left">
                   Platform Setup
@@ -52,7 +55,13 @@ export default async function PlatformOnboardPage() {
           </Card>
 
           <Card title="Create First Super Admin" description="This is required only once" accent="indigo">
-            <PlatformOnboardForm />
+            {ready ? (
+              <PlatformOnboardForm requireSetupKey={requireSetupKey} />
+            ) : (
+              <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-100">
+                Platform onboarding is locked. Configure <code>PLATFORM_ONBOARD_SECRET</code> with at least 16 characters and restart the app.
+              </div>
+            )}
           </Card>
         </div>
       </div>

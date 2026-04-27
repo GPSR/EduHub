@@ -2,9 +2,10 @@ import { NextResponse } from "next/server";
 import { getSession } from "@/lib/session";
 import { getEffectivePermissions, atLeastLevel } from "@/lib/permissions";
 import { getLiveTransportForSchool, getParentAssignedBusIds } from "@/lib/transport";
+import { resolveActiveSchoolSession } from "@/lib/auth-session";
 
 export async function GET() {
-  const session = await getSession();
+  const session = await resolveActiveSchoolSession(await getSession());
   if (!session) return NextResponse.json({ ok: false, message: "Unauthorized" }, { status: 401 });
 
   const perms = await getEffectivePermissions({

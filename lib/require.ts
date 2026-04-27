@@ -1,13 +1,14 @@
 import { redirect } from "next/navigation";
-import { getSession } from "@/lib/session";
 import { prisma } from "@/lib/db";
-import { ensureSchoolSubscriptionActive } from "@/lib/subscription";
+import { clearSessionCookie, getSession } from "@/lib/session";
+import { resolveActiveSchoolSession } from "@/lib/auth-session";
 
 export async function requireSession() {
-  const session = await getSession();
-  if (!session) redirect("/login");
-  const sub = await ensureSchoolSubscriptionActive(session.schoolId);
-  if (!sub.ok) redirect("/login");
+  const session = await resolveActiveSchoolSession(await getSession());
+  if (!session) {
+    await clearSessionCookie();
+    redirect("/login");
+  }
   return session;
 }
 

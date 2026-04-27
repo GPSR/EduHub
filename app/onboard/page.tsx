@@ -3,9 +3,10 @@ import { BrandWordmark } from "@/components/brand";
 import { Button, Card } from "@/components/ui";
 import { OnboardForm } from "@/components/onboard-form";
 import { getSession } from "@/lib/session";
+import { resolveActiveSchoolSession } from "@/lib/auth-session";
 
 export default async function OnboardPage() {
-  const session = await getSession();
+  const session = await resolveActiveSchoolSession(await getSession());
 
   return (
     <main className="min-h-dvh md:min-h-screen flex items-start justify-center px-3 sm:px-4 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))]">
@@ -24,7 +25,7 @@ export default async function OnboardPage() {
         <Card accent="indigo" className="overflow-hidden">
           <div className="flex flex-col items-center text-center">
             <div className="mb-2">
-              <BrandWordmark size="sm" />
+              <BrandWordmark size="md" />
             </div>
             <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-white/95">School onboarding</h1>
             <p className="mt-1 text-sm sm:text-base text-white/60">Fill this form once. It takes about 2 minutes.</p>

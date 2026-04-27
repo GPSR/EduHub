@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { jwtVerify } from "jose";
+import { KnownSchoolRoleKeySchema, PlatformSessionClaimsSchema, SchoolSessionClaimsSchema, type KnownSchoolRoleKey } from "@/lib/auth-claims";
 import { hostWithoutPort, isPlatformHost } from "@/lib/app-env";
+import { getExpiredSessionCookieOptions, getReadableSessionCookieNames } from "@/lib/auth-cookie";
+import { verifyScopedToken } from "@/lib/auth-token";
 
 const PUBLIC_ROUTES = new Set([
   "/",
@@ -15,48 +17,53 @@ const PUBLIC_ROUTES = new Set([
   "/platform/onboard"
 ]);
 
-type SchoolRoleKey =
-  | "ADMIN"
-  | "HEAD_MASTER"
-  | "PRINCIPAL"
-  | "CLASS_TEACHER"
-  | "TEACHER"
-  | "PARENT"
-  | "BUS_ASSISTANT"
-  | "CORRESPONDENT";
+const ROLE_SECURITY_LEVEL: Record<KnownSchoolRoleKey, number> = {
+  ADMIN: 100,
+  PRINCIPAL: 75,
+  HEAD_MASTER: 70,
+  CORRESPONDENT: 65,
+  CLASS_TEACHER: 60,
+  TEACHER: 50,
+  PARENT: 40,
+  BUS_ASSISTANT: 35
+};
 
-const ROLE_RULES: Array<{ prefix: string; allow: SchoolRoleKey[] }> = [
-  { prefix: "/dashboard", allow: ["ADMIN"] },
-  { prefix: "/admin/users", allow: ["ADMIN"] },
-  { prefix: "/admin/settings", allow: ["ADMIN"] },
-  { prefix: "/admin/teacher-salary", allow: ["ADMIN"] },
-  { prefix: "/admin/approvals", allow: ["ADMIN", "PRINCIPAL"] },
-  { prefix: "/admin/audit", allow: ["ADMIN", "PRINCIPAL"] },
-  { prefix: "/requests/student-profile", allow: ["PARENT"] }
+const MIN_SECURITY_ROUTES: Array<{ prefix: string; level: number }> = [
+  { prefix: "/dashboard", level: 100 },
+  { prefix: "/admin/users", level: 100 },
+  { prefix: "/admin/settings", level: 100 },
+  { prefix: "/admin/teacher-salary", level: 100 },
+  { prefix: "/admin/approvals", level: 75 },
+  { prefix: "/admin/audit", level: 75 }
 ];
 
-async function getSchoolRoleFromToken(token: string): Promise<SchoolRoleKey | null> {
-  const secret = process.env.AUTH_SECRET;
-  if (!secret) return null;
-  try {
-    const { payload } = await jwtVerify(token, new TextEncoder().encode(secret));
-    const roleKey = String(payload.roleKey ?? "");
-    if (
-      roleKey === "ADMIN" ||
-      roleKey === "HEAD_MASTER" ||
-      roleKey === "PRINCIPAL" ||
-      roleKey === "CLASS_TEACHER" ||
-      roleKey === "TEACHER" ||
-      roleKey === "PARENT" ||
-      roleKey === "BUS_ASSISTANT" ||
-      roleKey === "CORRESPONDENT"
-    ) {
-      return roleKey;
-    }
-    return null;
-  } catch {
-    return null;
+const PARENT_ONLY_ROUTES = ["/requests/student-profile"];
+
+function readCookie(req: NextRequest, names: string[]) {
+  for (const name of names) {
+    const value = req.cookies.get(name)?.value;
+    if (value) return value;
   }
+  return null;
+}
+
+function redirectToAuth(req: NextRequest, loginPath: "/login" | "/platform/login", scope: "school" | "platform") {
+  const url = req.nextUrl.clone();
+  url.pathname = loginPath;
+  const nextPath = `${req.nextUrl.pathname}${req.nextUrl.search}`;
+  if (nextPath && nextPath !== loginPath) {
+    url.searchParams.set("next", nextPath);
+  }
+  const response = NextResponse.redirect(url);
+  const clearOptions = getExpiredSessionCookieOptions();
+  for (const name of getReadableSessionCookieNames(scope)) {
+    response.cookies.set(name, "", clearOptions);
+  }
+  return response;
+}
+
+function fallbackPathForRole(roleKey: string) {
+  return roleKey === "PARENT" ? "/students" : "/feed";
 }
 
 export function middleware(req: NextRequest) {
@@ -94,32 +101,44 @@ export function middleware(req: NextRequest) {
   }
   if (pathname.startsWith("/platform")) {
     if (PUBLIC_ROUTES.has(pathname)) return NextResponse.next();
-    const token = req.cookies.get("ssa_platform_session")?.value;
+    const token = readCookie(req, getReadableSessionCookieNames("platform"));
     if (!token) {
-      const url = req.nextUrl.clone();
-      url.pathname = "/platform/login";
-      url.searchParams.set("next", pathname);
-      return NextResponse.redirect(url);
+      return redirectToAuth(req, "/platform/login", "platform");
+    }
+    const platformSession = await verifyScopedToken("platform", token, PlatformSessionClaimsSchema);
+    if (!platformSession) {
+      return redirectToAuth(req, "/platform/login", "platform");
     }
     return NextResponse.next();
   }
   if (PUBLIC_ROUTES.has(pathname)) return NextResponse.next();
-  const token = req.cookies.get("ssa_session")?.value;
+  const token = readCookie(req, getReadableSessionCookieNames("school"));
   if (!token) {
+    return redirectToAuth(req, "/login", "school");
+  }
+  const schoolSession = await verifyScopedToken("school", token, SchoolSessionClaimsSchema);
+  if (!schoolSession) {
+    return redirectToAuth(req, "/login", "school");
+  }
+
+  if (
+    PARENT_ONLY_ROUTES.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`)) &&
+    schoolSession.roleKey !== "PARENT"
+  ) {
     const url = req.nextUrl.clone();
-    url.pathname = "/login";
-    url.searchParams.set("next", pathname);
+    url.pathname = fallbackPathForRole(schoolSession.roleKey);
     return NextResponse.redirect(url);
   }
-  const roleKey = await getSchoolRoleFromToken(token);
-  if (roleKey) {
-    const rule = ROLE_RULES.find((r) => pathname === r.prefix || pathname.startsWith(`${r.prefix}/`));
-    if (rule && !rule.allow.includes(roleKey)) {
-      const url = req.nextUrl.clone();
-      url.pathname = roleKey === "PARENT" ? "/students" : "/feed";
-      return NextResponse.redirect(url);
-    }
+
+  const rule = MIN_SECURITY_ROUTES.find((r) => pathname === r.prefix || pathname.startsWith(`${r.prefix}/`));
+  const knownRole = KnownSchoolRoleKeySchema.safeParse(schoolSession.roleKey);
+  const roleLevel = knownRole.success ? ROLE_SECURITY_LEVEL[knownRole.data] : 0;
+  if (rule && roleLevel < rule.level) {
+    const url = req.nextUrl.clone();
+    url.pathname = fallbackPathForRole(schoolSession.roleKey);
+    return NextResponse.redirect(url);
   }
+
   return NextResponse.next();
   })();
 }

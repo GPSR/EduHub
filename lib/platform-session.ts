@@ -1,51 +1,35 @@
 import { cookies } from "next/headers";
-import { SignJWT, jwtVerify } from "jose";
-import { z } from "zod";
+import { PlatformSessionClaimsSchema, type PlatformSessionClaims } from "@/lib/auth-claims";
+import { getExpiredSessionCookieOptions, getPrimarySessionCookieName, getReadableSessionCookieNames, getSessionCookieOptions } from "@/lib/auth-cookie";
+import { hasTokenSecret, signScopedToken, verifyScopedToken } from "@/lib/auth-token";
 
-const PLATFORM_SESSION_COOKIE = "ssa_platform_session";
-
-const PlatformSessionSchema = z.object({
-  platformUserId: z.string(),
-  role: z.enum(["SUPER_ADMIN", "SUPPORT_USER"])
-});
-
-export type PlatformSession = z.infer<typeof PlatformSessionSchema>;
-
-function getSecret() {
-  const secret = process.env.AUTH_SECRET;
-  if (!secret) throw new Error("Missing AUTH_SECRET");
-  return new TextEncoder().encode(secret);
-}
+export type PlatformSession = PlatformSessionClaims;
 
 export async function createPlatformSessionCookie(session: PlatformSession) {
-  const token = await new SignJWT(session)
-    .setProtectedHeader({ alg: "HS256" })
-    .setIssuedAt()
-    .setExpirationTime("7d")
-    .sign(getSecret());
+  const token = await signScopedToken("platform", session, session.platformUserId);
   const cookieStore = await cookies();
-  cookieStore.set(PLATFORM_SESSION_COOKIE, token, {
-    httpOnly: true,
-    sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
-    path: "/"
-  });
+  const primaryName = getPrimarySessionCookieName("platform");
+  cookieStore.set(primaryName, token, getSessionCookieOptions("platform"));
+  const clearOptions = getExpiredSessionCookieOptions();
+  for (const name of getReadableSessionCookieNames("platform")) {
+    if (name !== primaryName) cookieStore.set(name, "", clearOptions);
+  }
 }
 
 export async function clearPlatformSessionCookie() {
   const cookieStore = await cookies();
-  cookieStore.set(PLATFORM_SESSION_COOKIE, "", { path: "/", expires: new Date(0) });
+  const clearOptions = getExpiredSessionCookieOptions();
+  for (const name of getReadableSessionCookieNames("platform")) {
+    cookieStore.set(name, "", clearOptions);
+  }
 }
 
 export async function getPlatformSession(): Promise<PlatformSession | null> {
   const cookieStore = await cookies();
-  const token = cookieStore.get(PLATFORM_SESSION_COOKIE)?.value;
+  const token = getReadableSessionCookieNames("platform")
+    .map((name) => cookieStore.get(name)?.value)
+    .find((value): value is string => Boolean(value));
   if (!token) return null;
-  if (!process.env.AUTH_SECRET) return null;
-  try {
-    const { payload } = await jwtVerify(token, getSecret());
-    return PlatformSessionSchema.parse(payload);
-  } catch {
-    return null;
-  }
+  if (!hasTokenSecret("platform")) return null;
+  return verifyScopedToken("platform", token, PlatformSessionClaimsSchema);
 }

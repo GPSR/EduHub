@@ -1,9 +1,10 @@
 import { getSession } from "@/lib/session";
 import { HomeShell } from "@/components/home-shell";
 import { prisma } from "@/lib/db";
+import { resolveActiveSchoolSession } from "@/lib/auth-session";
 
 export default async function HomePage() {
-  const session = await getSession();
+  const session = await resolveActiveSchoolSession(await getSession());
   const user = session
     ? await prisma.user.findUnique({
       where: { id: session.userId },

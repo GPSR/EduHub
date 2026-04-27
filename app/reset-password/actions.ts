@@ -3,6 +3,8 @@
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { hashPassword } from "@/lib/password";
+import { hashToken } from "@/lib/token";
+import { buildRateLimitKey, consumeRateLimitAttempt, readRequestIp } from "@/lib/rate-limit";
 
 export type ResetPasswordState = { ok: boolean; message: string };
 
@@ -24,8 +26,22 @@ export async function resetPasswordWithTokenAction(
   if (!parsed.success) return { ok: false, message: parsed.error.issues[0]?.message ?? "Invalid input." };
   if (parsed.data.password !== parsed.data.confirmPassword) return { ok: false, message: "Passwords do not match." };
 
-  const token = await prisma.passwordResetToken.findUnique({
-    where: { token: parsed.data.token },
+  const ip = await readRequestIp();
+  const throttle = await consumeRateLimitAttempt({
+    scope: "PASSWORD_RESET_SUBMIT",
+    key: buildRateLimitKey(ip, parsed.data.token),
+    maxAttempts: 8,
+    windowMs: 30 * 60 * 1000
+  });
+  if (throttle.limited) {
+    return { ok: false, message: "Too many reset attempts. Request a fresh reset link and try again." };
+  }
+
+  const tokenHash = hashToken(parsed.data.token);
+  const token = await prisma.passwordResetToken.findFirst({
+    where: {
+      OR: [{ token: parsed.data.token }, { token: tokenHash }]
+    },
     select: {
       id: true,
       usedAt: true,
@@ -45,9 +61,17 @@ export async function resetPasswordWithTokenAction(
     if (token.subjectType === "PLATFORM_USER") {
       if (!token.platformUserId) throw new Error("invalid_token_subject");
       await tx.platformUser.update({ where: { id: token.platformUserId }, data: { passwordHash } });
+      await tx.passwordResetToken.updateMany({
+        where: { subjectType: "PLATFORM_USER", platformUserId: token.platformUserId, usedAt: null },
+        data: { usedAt: new Date() }
+      });
     } else {
       if (!token.userId) throw new Error("invalid_token_subject");
       await tx.user.update({ where: { id: token.userId }, data: { passwordHash } });
+      await tx.passwordResetToken.updateMany({
+        where: { subjectType: "SCHOOL_USER", userId: token.userId, usedAt: null },
+        data: { usedAt: new Date() }
+      });
     }
 
     await tx.passwordResetToken.update({

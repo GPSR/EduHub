@@ -4,12 +4,15 @@ import { prisma } from "@/lib/db";
 import { hashPassword } from "@/lib/password";
 import { createPlatformSessionCookie } from "@/lib/platform-session";
 import { auditLog } from "@/lib/audit";
+import { buildRateLimitKey, consumeRateLimitAttempt, readRequestIp } from "@/lib/rate-limit";
+import { platformOnboardNeedsSetupKey, platformOnboardReady, verifyPlatformOnboardSetupKey } from "@/lib/platform-onboard-guard";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 
 export type PlatformOnboardState = { ok: boolean; message?: string };
 
 const OnboardSchema = z.object({
+  setupKey: z.string().optional(),
   name: z.string().min(2),
   email: z.string().email(),
   password: z.string().min(10)
@@ -20,6 +23,7 @@ export async function platformOnboardAction(
   formData: FormData
 ): Promise<PlatformOnboardState> {
   const parsed = OnboardSchema.safeParse({
+    setupKey: String(formData.get("setupKey") ?? "").trim() || undefined,
     name: formData.get("name"),
     email: formData.get("email"),
     password: formData.get("password")
@@ -28,8 +32,29 @@ export async function platformOnboardAction(
     const message = parsed.error.issues[0]?.message ?? "Please check your inputs.";
     return { ok: false, message };
   }
+  if (!platformOnboardReady()) {
+    return { ok: false, message: "Platform onboarding is locked. Contact the system administrator." };
+  }
 
+  const ip = await readRequestIp();
   const email = parsed.data.email.toLowerCase();
+  const throttle = await consumeRateLimitAttempt({
+    scope: "PLATFORM_ONBOARD",
+    key: buildRateLimitKey(ip, email),
+    maxAttempts: 5,
+    windowMs: 15 * 60 * 1000
+  });
+  if (throttle.limited) {
+    return { ok: false, message: "Too many setup attempts. Please wait and try again." };
+  }
+
+  if (platformOnboardNeedsSetupKey()) {
+    const setupKey = parsed.data.setupKey ?? "";
+    if (!verifyPlatformOnboardSetupKey(setupKey)) {
+      return { ok: false, message: "Invalid setup key." };
+    }
+  }
+
   const passwordHash = await hashPassword(parsed.data.password);
 
   let user:

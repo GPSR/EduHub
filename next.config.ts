@@ -11,12 +11,17 @@ const withPWA = withPWAInit({
   }
 });
 
-const serverActionBodySizeLimit = "1gb";
+type ServerActionBodySizeLimit = NonNullable<
+  NonNullable<NextConfig["experimental"]>["serverActions"]
+>["bodySizeLimit"];
+
+const serverActionBodySizeLimit: ServerActionBodySizeLimit =
+  (process.env.SERVER_ACTION_BODY_LIMIT as ServerActionBodySizeLimit | undefined) ?? "12mb";
 
 const nextConfig: NextConfig = {
   experimental: {
     serverActions: {
-      // Allows larger gallery upload payloads for multi-file submits.
+      // Keep action payloads bounded to reduce abuse risk.
       bodySizeLimit: serverActionBodySizeLimit
     }
   }

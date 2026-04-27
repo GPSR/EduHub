@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import { hashToken } from "@/lib/token";
 import { ResetPasswordForm } from "./ui";
 
 export default async function ResetPasswordPage({
@@ -17,8 +18,11 @@ export default async function ResetPasswordPage({
     );
   }
 
-  const resetToken = await prisma.passwordResetToken.findUnique({
-    where: { token },
+  const tokenHash = hashToken(token);
+  const resetToken = await prisma.passwordResetToken.findFirst({
+    where: {
+      OR: [{ token }, { token: tokenHash }]
+    },
     select: { id: true, usedAt: true, expiresAt: true }
   });
 
