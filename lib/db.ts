@@ -2,6 +2,8 @@ import { PrismaClient } from "@prisma/client";
 
 declare global {
   // eslint-disable-next-line no-var
+  var neonDb: PrismaClient | undefined;
+  // eslint-disable-next-line no-var
   var prisma: PrismaClient | undefined;
 }
 
@@ -23,10 +25,17 @@ function ensureDatabaseUrl() {
 
 ensureDatabaseUrl();
 
-export const prisma =
+export const db =
+  globalThis.neonDb ??
   globalThis.prisma ??
   new PrismaClient({
     log: ["error", "warn"]
   });
 
-if (process.env.NODE_ENV !== "production") globalThis.prisma = prisma;
+// Keep backward compatibility while we migrate naming across the app.
+export const prisma = db;
+
+if (process.env.NODE_ENV !== "production") {
+  globalThis.neonDb = db;
+  globalThis.prisma = db;
+}
