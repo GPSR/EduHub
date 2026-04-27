@@ -22,7 +22,7 @@ export default async function LoginPage({
         <Card accent="indigo" className="overflow-hidden">
           <div className="flex flex-col items-center text-center">
             <div className="mb-2">
-              <BrandWordmark size="sm" />
+              <BrandWordmark size="lg" priority className="max-w-[190px]" />
             </div>
             <h1 className="text-[24px] font-extrabold tracking-tight text-white/95">Sign in to EduHub</h1>
             <p className="mt-1 text-sm text-white/58">Enter your credentials to continue.</p>

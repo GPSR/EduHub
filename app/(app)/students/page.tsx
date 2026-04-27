@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Card, Button, Badge, SectionHeader, EmptyState } from "@/components/ui";
-import { prisma } from "@/lib/db";
+import { db } from "@/lib/db";
 import { requireSession } from "@/lib/require";
 import { atLeastLevel, getEffectivePermissions } from "@/lib/permissions";
 import { requirePermission } from "@/lib/require-permission";
@@ -40,19 +40,19 @@ export default async function StudentsPage({
 
   const [students, quickSearchTeachers, latestSlideshow] = await Promise.all([
     session.roleKey === "PARENT"
-      ? prisma.student.findMany({
+      ? db.student.findMany({
           where: { schoolId: session.schoolId, parents: { some: { userId: session.userId } } },
           orderBy: { fullName: "asc" },
           include: { class: true },
         })
-      : prisma.student.findMany({
+      : db.student.findMany({
           where: { schoolId: session.schoolId },
           orderBy: { createdAt: "desc" },
           take: 220,
           include: { class: true },
         }),
     session.roleKey === "ADMIN"
-      ? prisma.user.findMany({
+      ? db.user.findMany({
           where: {
             schoolId: session.schoolId,
             schoolRole: { key: { in: ["TEACHER", "CLASS_TEACHER"] } }
@@ -101,7 +101,7 @@ export default async function StudentsPage({
         )}
       </div>
 
-      <Card className="relative z-[110] overflow-visible">
+      <Card className="relative z-[110] overflow-visible hidden md:block">
         <DashboardGlobalSearch
           initialQuery={query}
           searchPath="/students"
@@ -124,6 +124,7 @@ export default async function StudentsPage({
 
       {latestSlideshow ? (
         <Card
+          className="hidden md:block"
           title={`Gallery Slideshow · ${latestSlideshow.folderName}`}
           description="Latest school photos visible for your role"
           accent="teal"

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState, useEffect, useRef, useState, type FormEvent, type InvalidEvent } from "react";
+import { useActionState, useEffect, useLayoutEffect, useRef, useState, type FormEvent, type InvalidEvent } from "react";
 import { Card } from "@/components/ui";
 import { BrandWordmark } from "@/components/brand";
 import { createDemoRequestAction, type DemoRequestState } from "@/app/demo-request/actions";
@@ -199,13 +199,28 @@ export function HomeShell({ isSignedIn, userName }: { isSignedIn: boolean; userN
   const [slug, setSlug] = useState<string | undefined>(undefined);
   const [showDesktopAllModulesPage, setShowDesktopAllModulesPage] = useState(false);
   const [showMobileAllModules, setShowMobileAllModules] = useState(false);
+  const [mobileAllModulesOpenToken, setMobileAllModulesOpenToken] = useState(0);
   const [pauseDesktopModulesAutoscroll, setPauseDesktopModulesAutoscroll] = useState(false);
   const [demoRequestOpen, setDemoRequestOpen] = useState(false);
   const [demoState, demoAction, demoPending] = useActionState(createDemoRequestAction, initialDemoRequestState);
   const [selectedCountryCode, setSelectedCountryCode] = useState("+1");
   const [showCountryNameInDropdown, setShowCountryNameInDropdown] = useState(false);
   const desktopModulesScrollerRef = useRef<HTMLDivElement | null>(null);
+  const mobileAllModulesScrollRef = useRef<HTMLDivElement | null>(null);
+  const mobileAllModulesPanelRef = useRef<HTMLDivElement | null>(null);
   const demoFormRef = useRef<HTMLFormElement | null>(null);
+
+  const openMobileAllModules = () => {
+    if (typeof document !== "undefined") {
+      const active = document.activeElement;
+      if (active instanceof HTMLElement) active.blur();
+    }
+    if (typeof window !== "undefined") {
+      window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+    }
+    setMobileAllModulesOpenToken((value) => value + 1);
+    setShowMobileAllModules(true);
+  };
 
   useEffect(() => {
     try {
@@ -261,6 +276,47 @@ export function HomeShell({ isSignedIn, userName }: { isSignedIn: boolean; userN
       window.cancelAnimationFrame(rafId);
     };
   }, [isSignedIn, onboarded, pauseDesktopModulesAutoscroll]);
+
+  useLayoutEffect(() => {
+    if (!showMobileAllModules) return;
+    if (typeof document === "undefined" || typeof window === "undefined") return;
+
+    const previousBodyOverflow = document.body.style.overflow;
+    const previousHtmlOverflow = document.documentElement.style.overflow;
+    document.body.style.overflow = "hidden";
+    document.documentElement.style.overflow = "hidden";
+
+    const resetToTop = () => {
+      window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+      document.scrollingElement?.scrollTo({ top: 0, left: 0, behavior: "auto" });
+      mobileAllModulesPanelRef.current?.scrollTo({ top: 0, left: 0, behavior: "auto" });
+      const node = mobileAllModulesScrollRef.current;
+      if (!node) return;
+      node.scrollTop = 0;
+      node.scrollLeft = 0;
+      node.scrollTo({ top: 0, left: 0, behavior: "auto" });
+      const firstTile = node.querySelector<HTMLElement>('[data-module-index="0"]');
+      if (firstTile) firstTile.scrollIntoView({ block: "start", inline: "nearest" });
+    };
+
+    // iOS/Capacitor can restore previous scroll; reset across a few ticks.
+    resetToTop();
+    const rafId1 = window.requestAnimationFrame(() => resetToTop());
+    const rafId2 = window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(() => resetToTop());
+    });
+    const timeoutId = window.setTimeout(() => resetToTop(), 120);
+    const timeoutId2 = window.setTimeout(() => resetToTop(), 260);
+
+    return () => {
+      window.cancelAnimationFrame(rafId1);
+      window.cancelAnimationFrame(rafId2);
+      window.clearTimeout(timeoutId);
+      window.clearTimeout(timeoutId2);
+      document.body.style.overflow = previousBodyOverflow;
+      document.documentElement.style.overflow = previousHtmlOverflow;
+    };
+  }, [showMobileAllModules, mobileAllModulesOpenToken]);
 
   const loginHref = slug ? `/login?schoolSlug=${encodeURIComponent(slug)}` : "/login";
   const primaryHref = onboarded ? loginHref : "/onboard";
@@ -370,7 +426,7 @@ export function HomeShell({ isSignedIn, userName }: { isSignedIn: boolean; userN
         <div className="mt-3 flex justify-center">
           <button
             type="button"
-            onClick={() => setShowMobileAllModules(true)}
+            onClick={openMobileAllModules}
             className="inline-flex items-center justify-center rounded-[12px] border border-cyan-300/35 bg-cyan-500/15 px-4 py-2 text-[12px] font-semibold text-cyan-100/95 transition hover:bg-cyan-500/24"
           >
             View all modules
@@ -598,15 +654,18 @@ export function HomeShell({ isSignedIn, userName }: { isSignedIn: boolean; userN
       <div className="md:hidden">{mobileLanding}</div>
       <div className="hidden md:block">{showDesktopAllModulesPage ? desktopAllModulesCenterPage : desktopLanding}</div>
       {showMobileAllModules ? (
-        <div className="fixed inset-0 z-[175] md:hidden flex items-center justify-center bg-black/75 backdrop-blur-sm p-3">
+        <div className="fixed inset-0 z-[220] md:hidden flex items-start justify-center bg-[#030815]/92 backdrop-blur-md p-0">
           <button
             type="button"
             aria-label="Close all modules view"
             onClick={() => setShowMobileAllModules(false)}
             className="absolute inset-0"
           />
-          <div className="relative w-full h-[min(94vh,980px)] rounded-[18px] border border-white/[0.14] bg-[#0b1426]/96 shadow-[0_28px_70px_-28px_rgba(0,0,0,0.95)] overflow-hidden">
-            <div className="flex items-center justify-between gap-3 border-b border-white/[0.08] px-4 py-3">
+          <div
+            ref={mobileAllModulesPanelRef}
+            className="relative w-full h-dvh rounded-none border border-white/[0.14] bg-[#0b1426]/98 shadow-[0_28px_70px_-28px_rgba(0,0,0,0.95)] overflow-hidden"
+          >
+            <div className="flex items-center justify-between gap-3 border-b border-white/[0.08] px-4 py-[max(0.75rem,env(safe-area-inset-top))]">
               <div>
                 <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-cyan-100/80">All Modules</p>
                 <p className="mt-0.5 text-[12px] text-white/65">Explore complete module details.</p>
@@ -621,11 +680,16 @@ export function HomeShell({ isSignedIn, userName }: { isSignedIn: boolean; userN
               </button>
             </div>
 
-            <div className="h-[calc(94vh-72px)] overflow-y-auto px-3 py-3.5">
+            <div
+              key={`mobile-all-modules-${mobileAllModulesOpenToken}`}
+              ref={mobileAllModulesScrollRef}
+              className="h-[calc(100dvh-72px)] overflow-y-auto px-3 py-3.5 pb-[max(1rem,env(safe-area-inset-bottom))] [overflow-anchor:none]"
+            >
               <div className="grid grid-cols-1 gap-2.5">
                 {ALL_MODULES.map((module, idx) => (
                   <article
                     key={`mobile-all-${module.label}`}
+                    data-module-index={idx}
                     className={`rounded-[14px] border px-3.5 py-3 ${DESKTOP_WIDGET_SKINS[idx % DESKTOP_WIDGET_SKINS.length]}`}
                   >
                     <div className="flex items-center justify-between gap-2">

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState, useEffect, useRef, useState, type FormEvent, type InvalidEvent } from "react";
+import { useActionState, useEffect, useLayoutEffect, useRef, useState, type FormEvent, type InvalidEvent } from "react";
 import { BrandWordmark } from "@/components/brand";
 import { Badge, Card } from "@/components/ui";
 import { createDemoRequestAction, type DemoRequestState } from "@/app/demo-request/actions";
@@ -230,14 +230,29 @@ export function ProductHomePage({ isSignedIn, userName }: ProductHomePageProps) 
   const [demoState, demoAction, demoPending] = useActionState(createDemoRequestAction, initialDemoRequestState);
   const [pauseModuleCatalogAutoscroll, setPauseModuleCatalogAutoscroll] = useState(false);
   const [showAllModules, setShowAllModules] = useState(false);
+  const [allModulesOpenToken, setAllModulesOpenToken] = useState(0);
   const [selectedCountryCode, setSelectedCountryCode] = useState("+1");
   const [showCountryNameInDropdown, setShowCountryNameInDropdown] = useState(false);
   const demoFormRef = useRef<HTMLFormElement | null>(null);
   const moduleCatalogScrollerRef = useRef<HTMLDivElement | null>(null);
+  const allModulesScrollRef = useRef<HTMLDivElement | null>(null);
+  const allModulesPanelRef = useRef<HTMLDivElement | null>(null);
   const name = userName?.trim();
   const welcomeLine = name
     ? `Welcome back, ${name}. You can continue where you left off or explore the full product overview.`
     : "EduHub helps schools run academics, operations, communication, and administration with AI-powered intelligence from one secure platform.";
+
+  const openAllModules = () => {
+    if (typeof document !== "undefined") {
+      const active = document.activeElement;
+      if (active instanceof HTMLElement) active.blur();
+    }
+    if (typeof window !== "undefined") {
+      window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+    }
+    setAllModulesOpenToken((value) => value + 1);
+    setShowAllModules(true);
+  };
 
   useEffect(() => {
     if (demoState.ok && demoState.message) {
@@ -281,6 +296,47 @@ export function ProductHomePage({ isSignedIn, userName }: ProductHomePageProps) 
       window.cancelAnimationFrame(rafId);
     };
   }, [pauseModuleCatalogAutoscroll]);
+
+  useLayoutEffect(() => {
+    if (!showAllModules) return;
+    if (typeof document === "undefined" || typeof window === "undefined") return;
+
+    const previousBodyOverflow = document.body.style.overflow;
+    const previousHtmlOverflow = document.documentElement.style.overflow;
+    document.body.style.overflow = "hidden";
+    document.documentElement.style.overflow = "hidden";
+
+    const resetToTop = () => {
+      window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+      document.scrollingElement?.scrollTo({ top: 0, left: 0, behavior: "auto" });
+      allModulesPanelRef.current?.scrollTo({ top: 0, left: 0, behavior: "auto" });
+      const node = allModulesScrollRef.current;
+      if (!node) return;
+      node.scrollTop = 0;
+      node.scrollLeft = 0;
+      node.scrollTo({ top: 0, left: 0, behavior: "auto" });
+      const firstTile = node.querySelector<HTMLElement>('[data-module-index="0"]');
+      if (firstTile) firstTile.scrollIntoView({ block: "start", inline: "nearest" });
+    };
+
+    // iOS/Capacitor can restore previous scroll; reset across a few ticks.
+    resetToTop();
+    const rafId1 = window.requestAnimationFrame(() => resetToTop());
+    const rafId2 = window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(() => resetToTop());
+    });
+    const timeoutId = window.setTimeout(() => resetToTop(), 120);
+    const timeoutId2 = window.setTimeout(() => resetToTop(), 260);
+
+    return () => {
+      window.cancelAnimationFrame(rafId1);
+      window.cancelAnimationFrame(rafId2);
+      window.clearTimeout(timeoutId);
+      window.clearTimeout(timeoutId2);
+      document.body.style.overflow = previousBodyOverflow;
+      document.documentElement.style.overflow = previousHtmlOverflow;
+    };
+  }, [showAllModules, allModulesOpenToken]);
 
   return (
     <main className="relative min-h-dvh md:min-h-screen overflow-x-clip pb-[max(2rem,env(safe-area-inset-bottom))]">
@@ -497,7 +553,7 @@ export function ProductHomePage({ isSignedIn, userName }: ProductHomePageProps) 
           <div className="mt-4 flex justify-center">
             <button
               type="button"
-              onClick={() => setShowAllModules(true)}
+              onClick={openAllModules}
               aria-expanded={showAllModules}
               className="inline-flex items-center justify-center rounded-[12px] border border-cyan-300/35 bg-cyan-500/15 px-4 py-2 text-[12px] font-semibold text-cyan-100/95 transition hover:bg-cyan-500/24"
             >
@@ -606,15 +662,18 @@ export function ProductHomePage({ isSignedIn, userName }: ProductHomePageProps) 
         </footer>
       </div>
       {showAllModules ? (
-        <div className="fixed inset-0 z-[175] flex items-center justify-center bg-black/75 backdrop-blur-sm p-3 sm:p-5">
+        <div className="fixed inset-0 z-[220] flex items-start sm:items-center justify-center bg-[#030815]/92 backdrop-blur-md p-0 sm:p-5">
           <button
             type="button"
             aria-label="Close all modules view"
             onClick={() => setShowAllModules(false)}
             className="absolute inset-0"
           />
-          <div className="relative w-full max-w-[1220px] h-[min(92vh,980px)] rounded-[20px] border border-white/[0.14] bg-[#0b1426]/96 shadow-[0_28px_70px_-28px_rgba(0,0,0,0.95)] overflow-hidden">
-            <div className="flex items-center justify-between gap-3 border-b border-white/[0.08] px-4 py-3 sm:px-5">
+          <div
+            ref={allModulesPanelRef}
+            className="relative w-full h-dvh sm:h-[min(92vh,980px)] sm:max-w-[1220px] rounded-none sm:rounded-[20px] border border-white/[0.14] bg-[#0b1426]/98 shadow-[0_28px_70px_-28px_rgba(0,0,0,0.95)] overflow-hidden"
+          >
+            <div className="flex items-center justify-between gap-3 border-b border-white/[0.08] px-4 py-[max(0.75rem,env(safe-area-inset-top))] sm:px-5 sm:py-3">
               <div>
                 <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-cyan-100/80">All Modules</p>
                 <p className="mt-0.5 text-[13px] text-white/65">Explore the complete EduHub module catalog.</p>
@@ -629,11 +688,16 @@ export function ProductHomePage({ isSignedIn, userName }: ProductHomePageProps) 
               </button>
             </div>
 
-            <div className="h-[calc(92vh-74px)] overflow-y-auto px-4 py-4 sm:px-5 sm:py-5">
+            <div
+              key={`all-modules-${allModulesOpenToken}`}
+              ref={allModulesScrollRef}
+              className="h-[calc(100dvh-76px)] sm:h-[calc(92vh-74px)] overflow-y-auto px-4 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:px-5 sm:py-5 [overflow-anchor:none]"
+            >
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 {MODULE_CATALOG.map((moduleItem, index) => (
                   <article
                     key={`all-${moduleItem.label}`}
+                    data-module-index={index}
                     className={`rounded-[15px] border px-4 py-3.5 ${MODULE_TILE_SKINS[index % MODULE_TILE_SKINS.length]}`}
                   >
                     <div className="flex items-center justify-between gap-2">

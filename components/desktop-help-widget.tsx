@@ -34,11 +34,8 @@ export function DesktopHelpWidget({
   const rootRef = useRef<HTMLDivElement | null>(null);
   const pathname = usePathname();
 
-  const hideOnRoutePrefixes = ["/login", "/onboard", "/platform/login", "/platform/onboard"];
-  const routeHidden = pathname
-    ? hideOnRoutePrefixes.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`))
-    : false;
-  const shouldHideWidget = isSignedIn || routeHidden;
+  const shouldShowOnRoute = pathname === "/";
+  const shouldHideWidget = isSignedIn || !shouldShowOnRoute;
 
   useEffect(() => {
     const syncNative = () => {
