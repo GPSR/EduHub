@@ -243,6 +243,61 @@ const SendResetSchema = z.object({
   userId: z.string().min(1)
 });
 
+const AssignUserTaskSchema = z.object({
+  userId: z.string().min(1),
+  taskTitle: z.string().trim().min(2).max(120),
+  taskDescription: z.string().trim().max(1000).optional(),
+  dueDate: z.string().trim().optional(),
+  modulePath: z.string().trim().max(120).optional()
+});
+
+export async function assignUserTaskAction(formData: FormData) {
+  const { session } = await requirePermission("USERS", "ADMIN");
+  const parsed = AssignUserTaskSchema.safeParse({
+    userId: formData.get("userId"),
+    taskTitle: formData.get("taskTitle"),
+    taskDescription: String(formData.get("taskDescription") ?? "").trim() || undefined,
+    dueDate: String(formData.get("dueDate") ?? "").trim() || undefined,
+    modulePath: String(formData.get("modulePath") ?? "").trim() || undefined
+  });
+  if (!parsed.success) throw new Error("Unable to assign task.");
+
+  const target = await prisma.user.findFirst({
+    where: { id: parsed.data.userId, schoolId: session.schoolId, isActive: true },
+    select: { id: true, name: true }
+  });
+  if (!target) throw new Error("Unable to assign task.");
+
+  const dueText = parsed.data.dueDate ? `Due: ${parsed.data.dueDate}` : null;
+  const pathText = parsed.data.modulePath ? `Open: ${parsed.data.modulePath}` : null;
+  const descriptionText = parsed.data.taskDescription ? parsed.data.taskDescription : null;
+  const body = [descriptionText, dueText, pathText].filter(Boolean).join(" · ");
+
+  await prisma.notification.create({
+    data: {
+      schoolId: session.schoolId,
+      userId: target.id,
+      title: `Task assigned: ${parsed.data.taskTitle}`,
+      body: body || null
+    }
+  });
+
+  await auditLog({
+    actor: { type: "SCHOOL_USER", id: session.userId, schoolId: session.schoolId },
+    action: "SCHOOL_USER_TASK_ASSIGNED",
+    entityType: "User",
+    entityId: target.id,
+    schoolId: session.schoolId,
+    metadata: {
+      taskTitle: parsed.data.taskTitle,
+      dueDate: parsed.data.dueDate ?? null,
+      modulePath: parsed.data.modulePath ?? null
+    }
+  });
+
+  redirect(`/admin/users?task=assigned#user-${target.id}`);
+}
+
 export async function sendUserPasswordResetAction(formData: FormData) {
   const { session } = await requirePermission("USERS", "ADMIN");
   const parsed = SendResetSchema.safeParse({ userId: formData.get("userId") });

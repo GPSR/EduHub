@@ -205,6 +205,7 @@ model School {
   calendarEvents                        SchoolCalendarEvent[]
   calendarEventTargets                  SchoolCalendarEventClass[]
   teacherSalaryProfiles                 TeacherSalaryProfile[]
+  teacherSalaryPayouts                  TeacherSalaryPayout[]
   teacherTimetableEntries               TeacherTimetableEntry[]
   leaveRequests                         LeaveRequest[]
   supportConversations                  SupportConversation[]
@@ -537,6 +538,7 @@ model User {
   youtubeLearningVideos           YouTubeLearningVideo[]                 @relation("YouTubeLearningCreatedByUser")
   calendarEventsCreated           SchoolCalendarEvent[]                  @relation("SchoolCalendarCreatedByUser")
   teacherSalaryProfiles           TeacherSalaryProfile[]                 @relation("TeacherSalaryProfileUser")
+  teacherSalaryPayouts            TeacherSalaryPayout[]                  @relation("TeacherSalaryPayoutUser")
   teacherTimetableEntries         TeacherTimetableEntry[]                @relation("TeacherTimetableTeacher")
   teacherTimetableEntriesCreated  TeacherTimetableEntry[]                @relation("TeacherTimetableCreatedByUser")
   teacherLeaveRequests            LeaveRequest[]                         @relation("TeacherLeaveRequestUser")
@@ -798,6 +800,26 @@ model TeacherSalaryProfile {
 
   @@unique([schoolId, teacherUserId])
   @@index([schoolId, payCycle, isActive])
+}
+
+model TeacherSalaryPayout {
+  id             String                @id @default(cuid())
+  schoolId       String
+  teacherUserId  String
+  payCycle       TeacherSalaryPayCycle @default(MONTHLY)
+  periodKey      String
+  paidAmountCents Int
+  paidOn         DateTime
+  paymentMode    String?
+  reference      String?
+  notes          String?
+  createdAt      DateTime              @default(now())
+
+  school      School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  teacherUser User   @relation("TeacherSalaryPayoutUser", fields: [teacherUserId], references: [id], onDelete: Cascade)
+
+  @@index([schoolId, payCycle, periodKey, paidOn])
+  @@index([schoolId, teacherUserId, payCycle, periodKey, createdAt])
 }
 
 model TeacherTimetableEntry {

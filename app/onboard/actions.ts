@@ -74,8 +74,8 @@ export async function onboardAction(_prev: OnboardState, formData: FormData): Pr
   } catch (e) {
     console.error("onboardAction error:", e);
     const raw = e instanceof Error ? e.message : "unknown_error";
-    if (raw.toLowerCase().includes("database_url")) {
-      return { ok: false, message: "Server is missing DATABASE_URL configuration." };
+    if (raw.toLowerCase().includes("database_url") || raw.toLowerCase().includes("neon_database_url")) {
+      return { ok: false, message: "Server is missing NEON_DATABASE_URL configuration." };
     }
     if (raw.toLowerCase().includes("unique constraint")) {
       return { ok: false, message: "A similar onboarding request already exists." };

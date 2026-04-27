@@ -1,8 +1,8 @@
 import { spawnSync } from "node:child_process";
 
-const localUrl = process.env.LOCAL_DATABASE_URL?.trim();
+const neonUrl = process.env.NEON_DATABASE_URL?.trim();
 const fallbackUrl = process.env.DATABASE_URL?.trim();
-const databaseUrl = localUrl || fallbackUrl;
+const databaseUrl = neonUrl || fallbackUrl;
 
 if (process.env.NODE_ENV === "production") {
   console.error("Refusing to run local db push in production.");
@@ -10,7 +10,7 @@ if (process.env.NODE_ENV === "production") {
 }
 
 if (!databaseUrl) {
-  console.error("Missing LOCAL_DATABASE_URL (preferred) or DATABASE_URL for local db push.");
+  console.error("Missing NEON_DATABASE_URL (preferred) or DATABASE_URL for db push.");
   process.exit(1);
 }
 

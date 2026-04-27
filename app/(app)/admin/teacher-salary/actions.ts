@@ -16,6 +16,17 @@ const UpsertTeacherSalarySchema = z.object({
   notes: z.string().trim().max(600).optional()
 });
 
+const RecordTeacherSalaryPayoutSchema = z.object({
+  teacherUserId: z.string().min(1),
+  payCycle: z.enum(["MONTHLY", "YEARLY"]),
+  periodKey: z.string().trim().min(4).max(16),
+  paidAmount: z.coerce.number().min(0).max(10_000_000),
+  paidOn: z.string().trim().min(1),
+  paymentMode: z.string().trim().max(50).optional(),
+  reference: z.string().trim().max(120).optional(),
+  notes: z.string().trim().max(600).optional()
+});
+
 export async function upsertTeacherSalaryProfileAction(formData: FormData) {
   const { session } = await requirePermission("TEACHER_SALARY", "ADMIN");
   if (session.roleKey !== "ADMIN") throw new Error("Only school admin can manage teacher salary.");
@@ -78,4 +89,56 @@ export async function upsertTeacherSalaryProfileAction(formData: FormData) {
   });
 
   redirect("/admin/teacher-salary");
+}
+
+export async function recordTeacherSalaryPayoutAction(formData: FormData) {
+  const { session } = await requirePermission("TEACHER_SALARY", "ADMIN");
+  if (session.roleKey !== "ADMIN") throw new Error("Only school admin can manage teacher salary.");
+
+  const parsed = RecordTeacherSalaryPayoutSchema.safeParse({
+    teacherUserId: formData.get("teacherUserId"),
+    payCycle: formData.get("payCycle"),
+    periodKey: formData.get("periodKey"),
+    paidAmount: formData.get("paidAmount"),
+    paidOn: formData.get("paidOn"),
+    paymentMode: String(formData.get("paymentMode") ?? "").trim() || undefined,
+    reference: String(formData.get("reference") ?? "").trim() || undefined,
+    notes: String(formData.get("notes") ?? "").trim() || undefined
+  });
+
+  if (!parsed.success) {
+    throw new Error(parsed.error.issues[0]?.message ?? "Unable to process request.");
+  }
+
+  const teacherUser = await prisma.user.findFirst({
+    where: {
+      id: parsed.data.teacherUserId,
+      schoolId: session.schoolId,
+      schoolRole: { key: { in: ["TEACHER", "CLASS_TEACHER"] } }
+    },
+    select: { id: true }
+  });
+  if (!teacherUser) throw new Error("Invalid teacher selected.");
+
+  const paidOn = parseDateOnlyInput(parsed.data.paidOn);
+  if (!paidOn) throw new Error("Invalid payout date.");
+
+  await prisma.teacherSalaryPayout.create({
+    data: {
+      schoolId: session.schoolId,
+      teacherUserId: teacherUser.id,
+      payCycle: parsed.data.payCycle,
+      periodKey: parsed.data.periodKey,
+      paidAmountCents: Math.round(parsed.data.paidAmount * 100),
+      paidOn,
+      paymentMode: parsed.data.paymentMode,
+      reference: parsed.data.reference,
+      notes: parsed.data.notes
+    }
+  });
+
+  const cycleQuery = parsed.data.payCycle === "MONTHLY"
+    ? `cycle=MONTHLY&month=${encodeURIComponent(parsed.data.periodKey)}`
+    : `cycle=YEARLY&year=${encodeURIComponent(parsed.data.periodKey)}`;
+  redirect(`/admin/teacher-salary?${cycleQuery}&teacherId=${encodeURIComponent(teacherUser.id)}&payout=saved`);
 }

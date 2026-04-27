@@ -26,7 +26,7 @@ const serverUrl = process.env.CAPACITOR_SERVER_URL ?? prodServerUrl;
 const isCleartext = serverUrl.startsWith("http://");
 
 const config: CapacitorConfig = {
-  appId: 'com.softlanetech.schools.zv5a529zpj',
+  appId: 'com.softlanetech.schools.eduhub26042701',
   appName: 'Schools',
   webDir: 'capacitor_www',
 
