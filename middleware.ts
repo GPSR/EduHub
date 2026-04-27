@@ -39,6 +39,35 @@ const MIN_SECURITY_ROUTES: Array<{ prefix: string; level: number }> = [
 
 const PARENT_ONLY_ROUTES = ["/requests/student-profile"];
 
+const BASE_SECURITY_HEADERS: Array<[string, string]> = [
+  ["X-Frame-Options", "DENY"],
+  ["X-Content-Type-Options", "nosniff"],
+  ["Referrer-Policy", "strict-origin-when-cross-origin"],
+  ["Permissions-Policy", "camera=(), microphone=(), geolocation=(), payment=(), usb=()"],
+  ["Cross-Origin-Opener-Policy", "same-origin"],
+  ["Cross-Origin-Resource-Policy", "same-site"],
+  ["X-DNS-Prefetch-Control", "off"],
+  ["Origin-Agent-Cluster", "?1"],
+  ["Content-Security-Policy", "frame-ancestors 'none'; base-uri 'self'; form-action 'self'"],
+];
+
+function isSecureRequest(req: NextRequest) {
+  const forwardedProto = req.headers.get("x-forwarded-proto")?.split(",")[0]?.trim().toLowerCase();
+  return req.nextUrl.protocol === "https:" || forwardedProto === "https";
+}
+
+function withSecurityHeaders(req: NextRequest, res: NextResponse) {
+  for (const [key, value] of BASE_SECURITY_HEADERS) {
+    res.headers.set(key, value);
+  }
+
+  if (isSecureRequest(req)) {
+    res.headers.set("Strict-Transport-Security", "max-age=63072000; includeSubDomains; preload");
+  }
+
+  return res;
+}
+
 function readCookie(req: NextRequest, names: string[]) {
   for (const name of names) {
     const value = req.cookies.get(name)?.value;
@@ -59,7 +88,7 @@ function redirectToAuth(req: NextRequest, loginPath: "/login" | "/platform/login
   for (const name of getReadableSessionCookieNames(scope)) {
     response.cookies.set(name, "", clearOptions);
   }
-  return response;
+  return withSecurityHeaders(req, response);
 }
 
 function fallbackPathForRole(roleKey: string) {
@@ -140,7 +169,7 @@ export function middleware(req: NextRequest) {
   }
 
   return NextResponse.next();
-  })();
+  })().then((response) => withSecurityHeaders(req, response));
 }
 
 export const config = {

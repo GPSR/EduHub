@@ -93,6 +93,7 @@ export function CapacitorInit() {
 
         // App comes back to foreground — refresh data
         App.addListener("appStateChange", ({ isActive }) => {
+          window.dispatchEvent(new CustomEvent("app-state-change", { detail: { isActive } }));
           if (isActive) {
             // Dispatch a custom event that pages can listen to
             window.dispatchEvent(new Event("app-foreground"));

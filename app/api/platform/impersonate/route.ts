@@ -1,13 +1,22 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/db";
+import { db } from "@/lib/db";
 import { getPlatformSession } from "@/lib/platform-session";
 import { signSessionToken } from "@/lib/session";
 import { auditLog } from "@/lib/audit";
 import { ensureSchoolSubscriptionActive } from "@/lib/subscription";
 import { resolveActivePlatformSession } from "@/lib/auth-session";
 import { getExpiredSessionCookieOptions, getPrimarySessionCookieName, getReadableSessionCookieNames, getSessionCookieOptions } from "@/lib/auth-cookie";
+import { buildRateLimitKey, consumeRateLimitAttempt, readRequestIp } from "@/lib/rate-limit";
+import { isJsonRequest, isTrustedMutationRequest } from "@/lib/request-security";
 
 export async function POST(req: Request) {
+  if (!isTrustedMutationRequest(req)) {
+    return NextResponse.json({ ok: false, message: "Blocked by request origin policy." }, { status: 403 });
+  }
+  if (!isJsonRequest(req)) {
+    return NextResponse.json({ ok: false, message: "Content-Type must be application/json." }, { status: 415 });
+  }
+
   const platformSession = await resolveActivePlatformSession(await getPlatformSession());
   if (!platformSession) return NextResponse.json({ ok: false, message: "Unauthorized" }, { status: 401 });
 
@@ -17,17 +26,34 @@ export async function POST(req: Request) {
   const schoolId = String(body?.schoolId ?? "");
   const userId = String(body?.userId ?? "");
   if (!schoolId || !userId) return NextResponse.json({ ok: false, message: "Invalid request." }, { status: 400 });
+
+  const ip = await readRequestIp();
+  const throttle = await consumeRateLimitAttempt({
+    scope: "PLATFORM_IMPERSONATE",
+    key: buildRateLimitKey(ip, platformSession.platformUserId, schoolId),
+    maxAttempts: 25,
+    windowMs: 5 * 60 * 1000
+  });
+  if (throttle.limited) {
+    return NextResponse.json(
+      { ok: false, message: "Too many impersonation attempts. Please retry shortly." },
+      { status: 429, headers: { "Retry-After": String(throttle.retryAfterSeconds) } }
+    );
+  }
+
   if (platformSession.role !== "SUPER_ADMIN") {
-    const assigned = await prisma.platformUserSchoolAssignment.findFirst({
+    const assigned = await db.platformUserSchoolAssignment.findFirst({
       where: { platformUserId: platformSession.platformUserId, schoolId },
       select: { id: true }
     });
     if (!assigned) return NextResponse.json({ ok: false, message: "Not assigned to this school." }, { status: 403 });
   }
 
-  const user = await prisma.user.findFirst({ where: { id: userId, schoolId } });
+  const user = await db.user.findFirst({ where: { id: userId, schoolId } });
   if (!user) return NextResponse.json({ ok: false, message: "User not found." }, { status: 404 });
-  const role = await prisma.schoolRole.findUnique({ where: { id: user.schoolRoleId } });
+  if (!user.isActive) return NextResponse.json({ ok: false, message: "User account is inactive." }, { status: 400 });
+
+  const role = await db.schoolRole.findFirst({ where: { id: user.schoolRoleId, schoolId } });
   if (!role) return NextResponse.json({ ok: false, message: "User role missing." }, { status: 400 });
   const sub = await ensureSchoolSubscriptionActive(user.schoolId);
   if (!sub.ok) return NextResponse.json({ ok: false, message: sub.reason }, { status: 400 });

@@ -2,7 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { CheckboxBulkActions } from "@/components/checkbox-bulk-actions";
 import { Badge, Button, Card, EmptyState, Input, Label, SectionHeader, Textarea } from "@/components/ui";
-import { prisma } from "@/lib/db";
+import { db } from "@/lib/db";
 import { atLeastLevel, getEffectivePermissions } from "@/lib/permissions";
 import { requirePermission } from "@/lib/require-permission";
 import { requireSession } from "@/lib/require";
@@ -52,13 +52,13 @@ export default async function GalleryPage({
 
   const [roles, folders, latestVisibleItem] = await Promise.all([
     canManageFolders
-      ? prisma.schoolRole.findMany({
+      ? db.schoolRole.findMany({
           where: { schoolId: session.schoolId },
           orderBy: [{ isSystem: "desc" }, { name: "asc" }],
           select: { id: true, name: true }
         })
       : Promise.resolve([]),
-    prisma.schoolGalleryFolder.findMany({
+    db.schoolGalleryFolder.findMany({
       where: {
         schoolId: session.schoolId,
         isActive: true,
@@ -70,7 +70,7 @@ export default async function GalleryPage({
       },
       orderBy: [{ createdAt: "desc" }]
     }),
-    prisma.schoolGalleryItem.findFirst({
+    db.schoolGalleryItem.findFirst({
       where: {
         schoolId: session.schoolId,
         folder: {
@@ -90,7 +90,7 @@ export default async function GalleryPage({
     folders[0] ??
     null;
   const items = selectedFolder
-    ? await prisma.schoolGalleryItem.findMany({
+    ? await db.schoolGalleryItem.findMany({
         where: {
           schoolId: session.schoolId,
           folderId: selectedFolder.id
@@ -169,7 +169,7 @@ export default async function GalleryPage({
       {selectedFolder && items.length > 0 ? (
         <Card
           title={`Slideshow · ${selectedFolder.name}`}
-          description="Folder-level slideshow with quick save/share actions"
+          description="Swipe-enabled slideshow with full-screen view, share, and download actions"
           accent="teal"
         >
           <FolderSlideshow
@@ -204,27 +204,27 @@ export default async function GalleryPage({
         ) : items.length === 0 ? (
           <EmptyState icon="🖼️" title="No images yet" description="Upload the first image to this folder." />
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 gap-2 sm:gap-2.5">
             {items.map((item) => {
               const by = item.createdByUser?.name ?? item.createdByPlatformUser?.name ?? "System";
               return (
                 <article
                   key={item.id}
-                  className="overflow-hidden rounded-[16px] border border-white/[0.08] bg-white/[0.03]"
+                  className="overflow-hidden rounded-[10px] border border-white/[0.08] bg-white/[0.03]"
                 >
-                  <div className="relative aspect-[4/3] bg-[#0d1424]">
+                  <div className="relative aspect-square bg-[#0d1424]">
                     <Image
                       src={item.imageUrl}
                       alt={item.title}
                       fill
-                      sizes="(min-width: 1024px) 28vw, (min-width: 640px) 44vw, 94vw"
+                      sizes="(min-width: 1024px) 16vw, (min-width: 640px) 22vw, 31vw"
                       className="object-cover"
                     />
                   </div>
-                  <div className="space-y-1 px-3 py-3">
-                    <p className="text-[13px] font-semibold text-white/90">{item.title}</p>
-                    {item.caption ? <p className="text-[12px] text-white/60 line-clamp-2">{item.caption}</p> : null}
-                    <p className="text-[11px] text-white/35">
+                  <div className="space-y-0.5 px-2 py-1.5">
+                    <p className="line-clamp-1 text-[11px] font-semibold text-white/90">{item.title}</p>
+                    {item.caption ? <p className="text-[10px] text-white/60 line-clamp-1">{item.caption}</p> : null}
+                    <p className="text-[9px] text-white/35">
                       {by} · {timeAgo(item.createdAt)}
                     </p>
                   </div>

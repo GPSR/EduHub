@@ -63,11 +63,30 @@ export function MobileBiometricGate() {
 
   const inFlightRef = useRef(false);
   const unlockedRef = useRef(false);
+  const lastUnlockAtRef = useRef(0);
+  const sessionUnlockUntilRef = useRef(0);
+  const foregroundGraceUntilRef = useRef(0);
+  const backgroundedAtRef = useRef(0);
+  const lastForegroundEventAtRef = useRef(0);
 
   const [locked, setLocked] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [unlockLabel, setUnlockLabel] = useState("biometrics");
+  const FOREGROUND_REAUTH_GRACE_MS = 5000;
+  const SESSION_UNLOCK_TTL_MS = 15 * 60 * 1000;
+  const FOREGROUND_EVENT_DEBOUNCE_MS = 1200;
+  const MIN_BACKGROUND_REAUTH_MS = 10000;
+
+  const markUnlocked = useCallback(() => {
+    const now = Date.now();
+    unlockedRef.current = true;
+    lastUnlockAtRef.current = now;
+    sessionUnlockUntilRef.current = now + SESSION_UNLOCK_TTL_MS;
+    foregroundGraceUntilRef.current = now + FOREGROUND_REAUTH_GRACE_MS;
+    setLocked(false);
+    setErrorMessage(null);
+  }, []);
 
   useEffect(() => {
     if (!native) {
@@ -106,26 +125,36 @@ export function MobileBiometricGate() {
 
       if (!check.isAvailable) {
         // No biometrics and no secure device credential; do not trap the user.
-        setLocked(false);
-        unlockedRef.current = true;
+        markUnlocked();
         return;
       }
 
-      await NativeBiometric.verifyIdentity({
-        reason: "Unlock EduHub",
-        title: "Unlock EduHub",
-        subtitle: "Secure access",
-        description: "Confirm your identity to continue",
-        negativeButtonText: "Cancel",
-        useFallback: true,
-        fallbackTitle: "Use passcode",
-        maxAttempts: 5,
-      });
+      await Promise.race([
+        NativeBiometric.verifyIdentity({
+          reason: "Unlock EduHub",
+          title: "Unlock EduHub",
+          subtitle: "Secure access",
+          description: "Confirm your identity to continue",
+          negativeButtonText: "Cancel",
+          useFallback: true,
+          fallbackTitle: "Use passcode",
+          maxAttempts: 5,
+        }),
+        new Promise((_, reject) => {
+          window.setTimeout(() => reject(new Error("BIOMETRIC_TIMEOUT")), 25000);
+        }),
+      ]);
 
-      unlockedRef.current = true;
-      setLocked(false);
+      markUnlocked();
       void haptic("success");
     } catch (error) {
+      if (error instanceof Error && error.message === "BIOMETRIC_TIMEOUT") {
+        setErrorMessage("Face ID took too long. Tap unlock to try again.");
+        setLocked(true);
+        unlockedRef.current = false;
+        return;
+      }
+
       const code =
         typeof error === "object" && error && "code" in error
           ? Number((error as { code?: unknown }).code)
@@ -138,8 +167,7 @@ export function MobileBiometricGate() {
           code === BiometricAuthError.PASSCODE_NOT_SET
         ) {
           // Device cannot authenticate yet; allow access instead of hard lock.
-          unlockedRef.current = true;
-          setLocked(false);
+          markUnlocked();
           return;
         }
 
@@ -165,20 +193,48 @@ export function MobileBiometricGate() {
       setLoading(false);
       inFlightRef.current = false;
     }
-  }, [shouldProtectRoute]);
+  }, [markUnlocked, shouldProtectRoute]);
 
   useEffect(() => {
     if (!shouldProtectRoute) {
       setLocked(false);
       setLoading(false);
       setErrorMessage(null);
-      unlockedRef.current = false;
       return;
     }
 
-    if (unlockedRef.current) return;
+    if (unlockedRef.current && Date.now() < sessionUnlockUntilRef.current) {
+      setLocked(false);
+      return;
+    }
+
+    unlockedRef.current = false;
     void promptUnlock();
   }, [promptUnlock, shouldProtectRoute]);
+
+  useEffect(() => {
+    if (!native) return;
+
+    const onAppStateChange = (event: Event) => {
+      const detail = (event as CustomEvent<{ isActive?: boolean }>).detail;
+      if (detail?.isActive === false) {
+        backgroundedAtRef.current = Date.now();
+      }
+    };
+
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "hidden") {
+        backgroundedAtRef.current = Date.now();
+      }
+    };
+
+    window.addEventListener("app-state-change", onAppStateChange as EventListener);
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    return () => {
+      window.removeEventListener("app-state-change", onAppStateChange as EventListener);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+    };
+  }, [native]);
 
   useEffect(() => {
     if (!native) return;
@@ -186,6 +242,17 @@ export function MobileBiometricGate() {
     const onForeground = () => {
       if (!biometricEnabled) return;
       if (!routeNeedsBiometric(window.location.pathname)) return;
+      if (inFlightRef.current) return;
+
+      const now = Date.now();
+      if (now - lastForegroundEventAtRef.current < FOREGROUND_EVENT_DEBOUNCE_MS) return;
+      lastForegroundEventAtRef.current = now;
+
+      if (now < foregroundGraceUntilRef.current) return;
+      if (unlockedRef.current && now - lastUnlockAtRef.current < FOREGROUND_REAUTH_GRACE_MS) return;
+      if (unlockedRef.current && backgroundedAtRef.current > 0 && now - backgroundedAtRef.current < MIN_BACKGROUND_REAUTH_MS) return;
+      if (unlockedRef.current && now < sessionUnlockUntilRef.current) return;
+
       unlockedRef.current = false;
       setLocked(true);
       void promptUnlock();

@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
+import { isNative } from "@/lib/native";
 
 type DesktopHelpWidgetProps = {
   callNumberLabel?: string;
@@ -19,6 +20,15 @@ export function DesktopHelpWidget({
   emailHref = "mailto:info@softlanetech.com"
 }: DesktopHelpWidgetProps) {
   const [open, setOpen] = useState(false);
+  const [native, setNative] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    const byRuntime = isNative();
+    const byClass =
+      document.documentElement.classList.contains("native-shell") ||
+      document.body.classList.contains("native-shell");
+    const byUserAgent = /capacitor/i.test(window.navigator.userAgent);
+    return byRuntime || byClass || byUserAgent;
+  });
   const rootRef = useRef<HTMLDivElement | null>(null);
   const pathname = usePathname();
 
@@ -29,6 +39,32 @@ export function DesktopHelpWidget({
     "/platform/onboard",
   ]);
   const shouldHideWidget = pathname ? hideOnRoutes.has(pathname) : false;
+
+  useEffect(() => {
+    const syncNative = () => {
+      const byRuntime = isNative();
+      const byClass =
+        typeof document !== "undefined" &&
+        (document.documentElement.classList.contains("native-shell") ||
+          document.body.classList.contains("native-shell"));
+      const byUserAgent = typeof navigator !== "undefined" && /capacitor/i.test(navigator.userAgent);
+      setNative(byRuntime || byClass || byUserAgent);
+    };
+
+    syncNative();
+
+    const observer = new MutationObserver(syncNative);
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
+    observer.observe(document.body, { attributes: true, attributeFilter: ["class"] });
+
+    window.addEventListener("focus", syncNative);
+    window.addEventListener("app-foreground", syncNative);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("focus", syncNative);
+      window.removeEventListener("app-foreground", syncNative);
+    };
+  }, []);
 
   useEffect(() => {
     function onPointerDown(event: MouseEvent) {
@@ -52,7 +88,7 @@ export function DesktopHelpWidget({
     };
   }, [open]);
 
-  if (shouldHideWidget) return null;
+  if (native || shouldHideWidget) return null;
 
   return (
     <div

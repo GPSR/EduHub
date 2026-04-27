@@ -2,8 +2,9 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getSession } from "@/lib/session";
 import { getEffectivePermissions, atLeastLevel } from "@/lib/permissions";
-import { prisma } from "@/lib/db";
+import { db } from "@/lib/db";
 import { resolveActiveSchoolSession } from "@/lib/auth-session";
+import { isJsonRequest, isTrustedMutationRequest } from "@/lib/request-security";
 
 const PayloadSchema = z.object({
   busId: z.string().min(1),
@@ -25,6 +26,13 @@ function latestTripStatus(meta: string | null): "STARTED" | "ENDED" | null {
 }
 
 export async function POST(req: Request) {
+  if (!isTrustedMutationRequest(req)) {
+    return NextResponse.json({ ok: false, message: "Blocked by request origin policy." }, { status: 403 });
+  }
+  if (!isJsonRequest(req)) {
+    return NextResponse.json({ ok: false, message: "Content-Type must be application/json." }, { status: 415 });
+  }
+
   const session = await resolveActiveSchoolSession(await getSession());
   if (!session) return NextResponse.json({ ok: false, message: "Unauthorized" }, { status: 401 });
 
@@ -40,21 +48,21 @@ export async function POST(req: Request) {
   const parsed = PayloadSchema.safeParse(body);
   if (!parsed.success) return NextResponse.json({ ok: false, message: "Invalid GPS payload." }, { status: 400 });
 
-  const bus = await prisma.bus.findFirst({
+  const bus = await db.bus.findFirst({
     where: { id: parsed.data.busId, schoolId: session.schoolId },
     select: { id: true }
   });
   if (!bus) return NextResponse.json({ ok: false, message: "Bus not found." }, { status: 404 });
 
   if (session.roleKey === "BUS_ASSISTANT") {
-    const assignment = await prisma.busDriverAssignment.findFirst({
+    const assignment = await db.busDriverAssignment.findFirst({
       where: { schoolId: session.schoolId, userId: session.userId, busId: bus.id },
       select: { id: true }
     });
     if (!assignment) return NextResponse.json({ ok: false, message: "Bus not assigned to this driver." }, { status: 403 });
   }
 
-  const trip = await prisma.auditLog.findFirst({
+  const trip = await db.auditLog.findFirst({
     where: { schoolId: session.schoolId, action: "BUS_TRIP_STATUS", entityType: "Bus", entityId: bus.id },
     orderBy: { createdAt: "desc" },
     select: { metadataJson: true }
@@ -64,7 +72,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: false, message: "Start trip first, then stream GPS." }, { status: 409 });
   }
 
-  await prisma.auditLog.create({
+  await db.auditLog.create({
     data: {
       schoolId: session.schoolId,
       actorType: "SCHOOL_USER",

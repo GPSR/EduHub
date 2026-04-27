@@ -71,19 +71,19 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       <div className="min-h-dvh md:min-h-screen overflow-x-clip">
         <header className="header-safe sticky top-0 z-20 border-b border-white/[0.10] bg-[#0f1728]/80 backdrop-blur-2xl">
           <div className="mx-auto w-full max-w-[1320px] px-3 sm:px-4 md:px-6">
-            <div className="relative flex h-[66px] items-center justify-between gap-3 md:hidden">
+            <div className="relative flex h-[74px] items-center justify-between gap-3 md:hidden">
               <MobileProfileTrigger userName={user.name} photoUrl={userPhotoUrl ?? undefined} />
               <Link href="/dashboard" className="absolute left-1/2 -translate-x-1/2 inline-flex items-center justify-center">
                 {school?.brandingLogoUrl ? (
                   <Image
                     src={school.brandingLogoUrl}
                     alt="School Logo"
-                    width={44}
-                    height={44}
-                    className="h-[44px] w-[44px] rounded-full object-contain bg-white/[0.04] p-0.5 border border-white/[0.14] shadow-[0_12px_26px_-16px_rgba(79,141,253,0.85)]"
+                    width={56}
+                    height={56}
+                    className="h-[56px] w-[56px] rounded-full object-contain bg-white/[0.04] p-0.5 border border-white/[0.16] shadow-[0_16px_32px_-18px_rgba(79,141,253,0.9)]"
                   />
                 ) : (
-                  <BrandIcon size={42} />
+                  <BrandIcon size={54} />
                 )}
               </Link>
               <span className="inline-flex min-w-[68px] justify-center rounded-full border border-blue-400/35 bg-blue-500/18 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-blue-100/90">
@@ -97,12 +97,12 @@ export default async function AppLayout({ children }: { children: React.ReactNod
                   <Image
                     src={school.brandingLogoUrl}
                     alt="School Logo"
-                    width={34}
-                    height={34}
-                    className="h-[34px] w-[34px] rounded-full object-contain bg-white/[0.04] p-0.5 border border-white/[0.14] shadow-[0_10px_20px_-16px_rgba(79,141,253,0.8)]"
+                    width={40}
+                    height={40}
+                    className="h-[40px] w-[40px] rounded-full object-contain bg-white/[0.04] p-0.5 border border-white/[0.16] shadow-[0_12px_24px_-16px_rgba(79,141,253,0.88)]"
                   />
                 ) : (
-                  <BrandIcon size={34} href="/dashboard" />
+                  <BrandIcon size={40} href="/dashboard" />
                 )}
                 <div className="h-6 w-px bg-white/[0.10]" />
                 <span className="inline-flex rounded-full border border-blue-400/35 bg-blue-500/18 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-widest text-blue-100/90">
