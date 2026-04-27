@@ -299,10 +299,10 @@ export function HomeShell({ isSignedIn, userName }: { isSignedIn: boolean; userN
         </div>
         <p className="inline-flex items-center gap-1.5 rounded-full border border-cyan-300/35 bg-cyan-500/12 px-2.5 py-1 text-[9px] font-bold uppercase tracking-[0.12em] text-cyan-100/90">
           <span className="h-1.5 w-1.5 rounded-full bg-cyan-300" />
-          School Management Product
+          School Management Platform
         </p>
         <h2 className="mt-2 text-[22px] font-extrabold leading-[1.05] text-white/95">
-          A complete digital operating system for schools with AI.
+          Run your school from one platform with AI.
         </h2>
         <p className="mx-auto mt-2 max-w-[320px] text-[11.5px] leading-relaxed text-white/58">
           Short overview for app and mobile web. Admissions, fees, attendance, communication, and operations from one platform.
