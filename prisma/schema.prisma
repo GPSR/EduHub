@@ -44,6 +44,7 @@ enum DemoRequestStatus {
   NEW
   CONTACTED
   CLOSED
+  NOT_AVAILABLE
 }
 
 enum PasswordResetSubjectType {

@@ -10,13 +10,22 @@ const STATUS_OPTIONS: Array<{ value: "ALL" | DemoRequestStatus; label: string }>
   { value: "NEW", label: "New" },
   { value: "CONTACTED", label: "Contacted" },
   { value: "CLOSED", label: "Closed" },
+  { value: "NOT_AVAILABLE", label: "Not Available" },
 ];
-const REQUEST_STATUS_OPTIONS: DemoRequestStatus[] = ["NEW", "CONTACTED", "CLOSED"];
+const REQUEST_STATUS_OPTIONS: DemoRequestStatus[] = ["NEW", "CONTACTED", "CLOSED", "NOT_AVAILABLE"];
 
-function statusTone(status: DemoRequestStatus): "warning" | "info" | "neutral" {
+function statusTone(status: DemoRequestStatus): "warning" | "info" | "danger" | "neutral" {
   if (status === "NEW") return "warning";
   if (status === "CONTACTED") return "info";
+  if (status === "NOT_AVAILABLE") return "danger";
   return "neutral";
+}
+
+function statusLabel(status: DemoRequestStatus): string {
+  if (status === "NEW") return "New";
+  if (status === "CONTACTED") return "Contacted";
+  if (status === "CLOSED") return "Closed";
+  return "Not Available";
 }
 
 export default async function PlatformDemoRequestsPage({
@@ -29,7 +38,7 @@ export default async function PlatformDemoRequestsPage({
 
   const query = typeof q === "string" ? q.trim().slice(0, 80) : "";
   const statusFilter: "ALL" | DemoRequestStatus =
-    status === "NEW" || status === "CONTACTED" || status === "CLOSED" || status === "ALL" ? status : "ALL";
+    status === "NEW" || status === "CONTACTED" || status === "CLOSED" || status === "NOT_AVAILABLE" || status === "ALL" ? status : "ALL";
 
   const where: Prisma.DemoRequestWhereInput = {};
   if (statusFilter !== "ALL") {
@@ -119,7 +128,9 @@ export default async function PlatformDemoRequestsPage({
           <EmptyState icon="📬" title="No demo requests" description="New demo enquiries will appear here." />
         ) : (
           <div className="divide-y divide-white/[0.06]">
-            {requests.map((request, index) => (
+            {requests.map((request, index) => {
+              const isLocked = Boolean(request.reviewedAt);
+              return (
               <div
                 key={request.id}
                 className={`px-2 py-4 ${index === 0 ? "rounded-t-[12px]" : ""} ${index === requests.length - 1 ? "rounded-b-[12px]" : ""}`}
@@ -133,7 +144,7 @@ export default async function PlatformDemoRequestsPage({
                     <div className="mt-1.5 flex flex-wrap items-center gap-2 text-[12px] text-white/45">
                       <a href={`mailto:${request.email}`} className="hover:text-cyan-200 transition">{request.email}</a>
                       <span>·</span>
-                      <a href={`tel:${request.mobileNumber.replace(/\s+/g, "")}`} className="hover:text-cyan-200 transition">
+                      <a href={`tel:${request.mobileNumber.replace(/[^+\d]/g, "")}`} className="hover:text-cyan-200 transition">
                         {request.mobileNumber}
                       </a>
                       <span>·</span>
@@ -141,7 +152,7 @@ export default async function PlatformDemoRequestsPage({
                     </div>
                   </div>
                   <div className="flex flex-col items-end gap-1">
-                    <Badge tone={statusTone(request.status)}>{request.status}</Badge>
+                    <Badge tone={statusTone(request.status)}>{statusLabel(request.status)}</Badge>
                     <span className="text-[11px] text-white/40">{request.createdAt.toLocaleDateString()}</span>
                   </div>
                 </div>
@@ -156,11 +167,12 @@ export default async function PlatformDemoRequestsPage({
                       <select
                         name="status"
                         defaultValue={request.status}
+                        disabled={isLocked}
                         className="w-full rounded-[9px] border border-white/[0.14] bg-[#111c30]/90 px-2.5 py-1.5 text-[12px] text-white outline-none transition focus:border-cyan-300/65"
                       >
                         {REQUEST_STATUS_OPTIONS.map((statusOption) => (
                           <option key={statusOption} value={statusOption}>
-                            {statusOption}
+                            {statusLabel(statusOption)}
                           </option>
                         ))}
                       </select>
@@ -173,19 +185,27 @@ export default async function PlatformDemoRequestsPage({
                         defaultValue={request.note ?? ""}
                         maxLength={500}
                         placeholder="Add follow-up note for platform team"
+                        disabled={isLocked}
                         className="w-full rounded-[9px] border border-white/[0.14] bg-[#111c30]/90 px-2.5 py-1.5 text-[12px] text-white outline-none transition placeholder:text-white/35 focus:border-cyan-300/65"
                       />
                     </label>
                     <div className="self-end">
                       <button
                         type="submit"
+                        disabled={isLocked}
                         className="inline-flex min-h-[32px] items-center justify-center rounded-[9px] bg-gradient-to-b from-[#67b4ff] to-[#4f8dfd] px-3 py-1.5 text-[12px] font-semibold text-white transition hover:from-[#7ac0ff] hover:to-[#5a95ff]"
                       >
-                        Save
+                        {isLocked ? "Saved" : "Save"}
                       </button>
                     </div>
                   </div>
                 </form>
+
+                {isLocked ? (
+                  <p className="mt-1.5 text-[11px] text-amber-200/85">
+                    Locked after first save. This request can no longer be modified.
+                  </p>
+                ) : null}
 
                 <div className="mt-2 text-[11px] text-white/45">
                   {request.reviewedBy
@@ -198,7 +218,8 @@ export default async function PlatformDemoRequestsPage({
                   <p className="mt-1.5 text-[12px] italic text-white/55">Note: {request.note}</p>
                 ) : null}
               </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </Card>

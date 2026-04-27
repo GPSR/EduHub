@@ -7,7 +7,7 @@ import { requirePlatformUser } from "@/lib/platform-require";
 
 const UpdateDemoRequestSchema = z.object({
   requestId: z.string().cuid("Invalid request identifier."),
-  status: z.enum(["NEW", "CONTACTED", "CLOSED"], { message: "Invalid request status." }),
+  status: z.enum(["NEW", "CONTACTED", "CLOSED", "NOT_AVAILABLE"], { message: "Invalid request status." }),
   note: z
     .string()
     .max(500, "Note is too long.")
@@ -32,7 +32,10 @@ export async function updateDemoRequestAction(formData: FormData) {
   }
 
   await prisma.demoRequest.updateMany({
-    where: { id: parsed.data.requestId },
+    where: {
+      id: parsed.data.requestId,
+      reviewedAt: null,
+    },
     data: {
       status: parsed.data.status,
       note: parsed.data.note,

@@ -1,20 +1,34 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { usePathname } from "next/navigation";
 
 type DesktopHelpWidgetProps = {
   callNumberLabel?: string;
   callHref?: string;
   whatsappHref?: string;
+  emailLabel?: string;
+  emailHref?: string;
 };
 
 export function DesktopHelpWidget({
   callNumberLabel = "+1 609 608 6379",
   callHref = "tel:+16096086379",
-  whatsappHref = "https://wa.me/16096086379?text=Hi%20EduHub"
+  whatsappHref = "https://wa.me/16096086379?text=Hi%20EduHub",
+  emailLabel = "info@softlanetech.com",
+  emailHref = "mailto:info@softlanetech.com"
 }: DesktopHelpWidgetProps) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement | null>(null);
+  const pathname = usePathname();
+
+  const hideOnRoutes = new Set([
+    "/login",
+    "/onboard",
+    "/platform/login",
+    "/platform/onboard",
+  ]);
+  const shouldHideWidget = pathname ? hideOnRoutes.has(pathname) : false;
 
   useEffect(() => {
     function onPointerDown(event: MouseEvent) {
@@ -38,13 +52,27 @@ export function DesktopHelpWidget({
     };
   }, [open]);
 
+  if (shouldHideWidget) return null;
+
   return (
     <div
       ref={rootRef}
-      className="fixed top-[max(0.75rem,env(safe-area-inset-top,0px))] right-[max(0.75rem,env(safe-area-inset-right,0px))] md:top-auto md:bottom-5 md:right-5 z-[140]"
+      className="fixed right-[max(1rem,env(safe-area-inset-right,0px))] bottom-[max(1rem,env(safe-area-inset-bottom,0px))] md:bottom-5 md:right-6 z-[140]"
     >
       {open ? (
-        <div className="absolute top-[calc(100%+0.55rem)] md:top-auto md:bottom-[62px] right-0 flex flex-col items-end gap-2.5 animate-fade-up">
+        <div className="absolute bottom-[calc(100%+0.55rem)] right-0 flex flex-col items-end gap-2.5 animate-fade-up">
+          <a
+            href={emailHref}
+            onClick={() => setOpen(false)}
+            className="group inline-flex items-center gap-2 rounded-full border border-white/[0.16] bg-[#231535]/95 px-3 py-1.5 md:px-3.5 md:py-2 text-[11px] md:text-[12px] font-semibold text-white shadow-[0_18px_32px_-24px_rgba(0,0,0,0.92)] backdrop-blur-xl transition hover:bg-[#2b1b44]"
+            title={emailLabel}
+          >
+            <span className="grid h-5 w-5 md:h-6 md:w-6 place-items-center rounded-full bg-gradient-to-b from-[#7dd3fc] to-[#38bdf8] text-[10px] md:text-[11px] text-[#06263a]">
+              ✉
+            </span>
+            <span>Email</span>
+          </a>
+
           <a
             href={callHref}
             onClick={() => setOpen(false)}
@@ -76,11 +104,11 @@ export function DesktopHelpWidget({
         type="button"
         onClick={() => setOpen((prev) => !prev)}
         aria-expanded={open}
-        aria-label={open ? "Close help options" : "Open help options"}
+        aria-label={open ? "Close contact options" : "Open contact options"}
         className="inline-flex items-center gap-2 rounded-full border border-white/[0.2] bg-[#231535] px-3.5 py-1.5 md:px-4 md:py-2 text-[11px] md:text-[12px] font-semibold text-white shadow-[0_20px_35px_-25px_rgba(0,0,0,0.95)] transition hover:bg-[#2b1b44]"
       >
         <span className="inline-flex h-2 w-2 rounded-full bg-emerald-400" />
-        Help
+        Contact Us
       </button>
     </div>
   );

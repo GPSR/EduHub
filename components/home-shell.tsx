@@ -1,10 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { useActionState, useEffect, useRef, useState, type FormEvent, type InvalidEvent } from "react";
 import { Card } from "@/components/ui";
 import { BrandWordmark } from "@/components/brand";
-import { DesktopHelpWidget } from "@/components/desktop-help-widget";
+import { createDemoRequestAction, type DemoRequestState } from "@/app/demo-request/actions";
 
 const STORAGE_KEY = "eduhub_onboarded_v1";
 const STORAGE_SLUG_KEY = "eduhub_school_slug_v1";
@@ -15,6 +15,13 @@ const MOBILE_HERO_CHIPS = [
   "🔐 Role-based",
   "🌐 Works offline",
 ];
+
+const PRIMARY_USER_GROUPS = [
+  "Administration",
+  "Teachers",
+  "Parents & Students",
+  "Platform Team",
+] as const;
 
 const MOBILE_STATS = [
   { icon: "🧩", value: "21", label: "Modules" },
@@ -147,13 +154,58 @@ const DESKTOP_WIDGET_SKINS = [
 
 const DESKTOP_MODULES_AUTOSCROLL_PX_PER_SEC = 72;
 
+const COUNTRY_CODE_OPTIONS = [
+  { value: "+1", country: "US / Canada" },
+  { value: "+91", country: "India" },
+  { value: "+44", country: "United Kingdom" },
+  { value: "+61", country: "Australia" },
+  { value: "+971", country: "UAE" },
+  { value: "+65", country: "Singapore" },
+  { value: "+966", country: "Saudi Arabia" },
+  { value: "+974", country: "Qatar" },
+  { value: "+27", country: "South Africa" },
+  { value: "+880", country: "Bangladesh" }
+] as const;
+
+type DemoFieldElement = HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement;
+
+function setDemoFieldValidationMessage(event: InvalidEvent<DemoFieldElement>) {
+  const target = event.currentTarget;
+  let message = "";
+
+  if (target.validity.valueMissing) {
+    message = target.dataset.msgRequired ?? "This field is required.";
+  } else if (target.validity.typeMismatch) {
+    message = target.dataset.msgType ?? "Please enter a valid value.";
+  } else if (target.validity.patternMismatch) {
+    message = target.dataset.msgPattern ?? "Please enter a valid value.";
+  } else if (target.validity.tooShort) {
+    message = target.dataset.msgMin ?? "Input is too short.";
+  } else if (target.validity.tooLong) {
+    message = target.dataset.msgMax ?? "Input is too long.";
+  }
+
+  target.setCustomValidity(message);
+}
+
+function clearDemoFieldValidationMessage(event: FormEvent<DemoFieldElement>) {
+  event.currentTarget.setCustomValidity("");
+}
+
+const initialDemoRequestState: DemoRequestState = { ok: true, message: "", fieldErrors: {} };
+
 export function HomeShell({ isSignedIn, userName }: { isSignedIn: boolean; userName?: string | null }) {
   const [onboarded, setOnboarded] = useState<boolean | null>(null);
   const [slug, setSlug] = useState<string | undefined>(undefined);
-  const [showAllModules, setShowAllModules] = useState(false);
   const [showDesktopAllModulesPage, setShowDesktopAllModulesPage] = useState(false);
+  const [showMobileAllModules, setShowMobileAllModules] = useState(false);
   const [pauseDesktopModulesAutoscroll, setPauseDesktopModulesAutoscroll] = useState(false);
+  const [demoRequestOpen, setDemoRequestOpen] = useState(false);
+  const [demoState, demoAction, demoPending] = useActionState(createDemoRequestAction, initialDemoRequestState);
+  const [selectedCountryCode, setSelectedCountryCode] = useState("+1");
+  const [showCountryNameInDropdown, setShowCountryNameInDropdown] = useState(false);
   const desktopModulesScrollerRef = useRef<HTMLDivElement | null>(null);
+  const demoFormRef = useRef<HTMLFormElement | null>(null);
 
   useEffect(() => {
     try {
@@ -164,6 +216,14 @@ export function HomeShell({ isSignedIn, userName }: { isSignedIn: boolean; userN
       setSlug(undefined);
     }
   }, []);
+
+  useEffect(() => {
+    if (demoState.ok && demoState.message) {
+      demoFormRef.current?.reset();
+      setSelectedCountryCode("+1");
+      setShowCountryNameInDropdown(false);
+    }
+  }, [demoState]);
 
   useEffect(() => {
     if (onboarded === null) return;
@@ -227,131 +287,96 @@ export function HomeShell({ isSignedIn, userName }: { isSignedIn: boolean; userN
             <div className="h-9 w-full rounded-[13px] bg-white/[0.04] animate-pulse" />
           </div>
         </div>
-        <DesktopHelpWidget />
       </>
     );
   }
 
   const mobileLanding = (
     <div className="space-y-3 md:space-y-4">
-      <section className="rounded-[24px] border border-white/[0.12] bg-[#070e1c] px-4 pt-5 pb-4 md:px-6 md:pt-6 md:pb-5 text-center">
-        <div className="flex flex-col items-center">
-          <div className="mx-auto mb-2">
-            <BrandWordmark size="md" className="pointer-events-none" />
-          </div>
-          <div className="inline-flex items-center gap-1.5 rounded-full border border-cyan-300/35 bg-cyan-500/12 px-2.5 py-1">
-            <span className="h-1.5 w-1.5 rounded-full bg-cyan-300" />
-            <span className="text-[9px] font-bold uppercase tracking-[0.12em] text-cyan-100/90">
-              School Management Platform
-            </span>
-          </div>
+      <section className="rounded-[24px] border border-white/[0.12] bg-[#070e1c] px-4 py-5 text-center">
+        <div className="mx-auto mb-2 flex justify-center">
+          <BrandWordmark size="md" className="pointer-events-none" />
         </div>
-        <h2 className="mt-2 text-[22px] md:text-[30px] font-extrabold leading-[1.05] text-white/95">Run your school</h2>
-        <p className="text-[22px] md:text-[30px] font-extrabold leading-[1.05] text-transparent bg-clip-text bg-gradient-to-r from-blue-300 via-cyan-200 to-violet-300">
-          from one platform
+        <p className="inline-flex items-center gap-1.5 rounded-full border border-cyan-300/35 bg-cyan-500/12 px-2.5 py-1 text-[9px] font-bold uppercase tracking-[0.12em] text-cyan-100/90">
+          <span className="h-1.5 w-1.5 rounded-full bg-cyan-300" />
+          School Management Product
         </p>
-        <p className="mx-auto mt-2 max-w-[290px] md:max-w-[580px] text-[11.5px] md:text-[13px] leading-relaxed text-white/52">
-          EduHub unifies admissions, fees, attendance, communication and transport.
-        </p>
-        <div className="mt-2.5 flex flex-wrap items-center justify-center gap-1.5">
-          {MOBILE_HERO_CHIPS.map((chip) => (
-            <span
-              key={chip}
-              className="rounded-full border border-white/[0.10] bg-white/[0.04] px-2 py-0.5 text-[9px] text-white/62"
-            >
-              {chip}
-            </span>
-          ))}
-        </div>
-      </section>
-
-      <section className="relative overflow-hidden rounded-[20px] border border-white/[0.10] bg-[linear-gradient(135deg,rgba(59,130,246,0.15),rgba(139,92,246,0.10),#0b1323)] px-4 py-4 md:px-6 md:py-5">
-        <div className="pointer-events-none absolute -top-6 -right-4 h-20 w-20 rounded-full border border-white/[0.05]" />
-        <div className="pointer-events-none absolute -top-12 -right-10 h-36 w-36 rounded-full border border-white/[0.04]" />
-
-        <h3 className="text-[15px] font-extrabold leading-tight text-white/95">
-          Get your school online{" "}
-          <span className="bg-gradient-to-r from-blue-300 to-cyan-200 bg-clip-text text-transparent">in minutes</span>
-        </h3>
-        <p className="mt-1.5 text-[11px] leading-relaxed text-white/55">
-          One platform for admissions, daily ops, parent communication, fees, and more.
+        <h2 className="mt-2 text-[22px] font-extrabold leading-[1.05] text-white/95">
+          A complete digital operating system for schools with AI.
+        </h2>
+        <p className="mx-auto mt-2 max-w-[320px] text-[11.5px] leading-relaxed text-white/58">
+          Short overview for app and mobile web. Admissions, fees, attendance, communication, and operations from one platform.
         </p>
 
         <div className="mt-3 space-y-2">
           <Link
-            href={primaryHref}
+            href="/onboard"
             className="flex h-10 items-center justify-center rounded-[13px] bg-gradient-to-b from-[#67b4ff] to-[#4f8dfd] text-[12px] font-bold text-white shadow-[0_10px_24px_-14px_rgba(79,141,253,0.75)]"
           >
-            {primaryLabel}
+            Onboard School
           </Link>
           <Link
-            href={secondaryHref}
+            href={loginHref}
             className="flex h-9 items-center justify-center rounded-[13px] border border-white/[0.12] bg-white/[0.06] text-[12px] font-semibold text-white/82"
           >
-            {secondaryLabel}
+            Login
           </Link>
-          <p className="pt-0.5 text-center text-[9.5px] text-white/34">Free to start · No credit card required</p>
-        </div>
-      </section>
-
-      <section className="flex gap-2 overflow-x-auto px-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden md:grid md:grid-cols-4 md:gap-2 md:overflow-visible md:px-0">
-        {MOBILE_STATS.map((item) => (
-          <article
-            key={item.label}
-            className="min-w-[72px] md:min-w-0 flex-1 rounded-[13px] border border-white/[0.09] bg-white/[0.04] px-2 py-2 md:py-3 text-center"
-          >
-            <div className="text-[13px]">{item.icon}</div>
-            <div className="text-[14px] font-extrabold text-white/92">{item.value}</div>
-            <div className="mt-0.5 text-[8.5px] leading-tight text-white/45">{item.label}</div>
-          </article>
-        ))}
-      </section>
-
-      <section className="rounded-[20px] border border-white/[0.08] bg-white/[0.025] p-3 md:p-4">
-        <div className="mb-2.5 flex items-center justify-between gap-2">
-          <div>
-            <p className="text-[12px] font-bold text-white/78">Everything included</p>
-            <p className="text-[9px] text-white/38">All Modules · one platform</p>
-          </div>
           <button
             type="button"
-            onClick={() => setShowAllModules((prev) => !prev)}
-            aria-expanded={showAllModules}
-            className="rounded-full border border-emerald-300/35 bg-emerald-500/12 px-2 py-1 text-[9px] font-bold text-emerald-100/95 transition hover:bg-emerald-500/20"
+            onClick={() => setDemoRequestOpen(true)}
+            className="flex h-9 w-full items-center justify-center rounded-[13px] border border-cyan-300/35 bg-cyan-500/16 text-[12px] font-semibold text-cyan-100/95 transition hover:bg-cyan-500/24"
           >
-            {showAllModules ? "Hide Modules" : "All Modules"}
+            Request Demo
           </button>
+          <p className="px-2 text-[10px] leading-relaxed text-white/55">
+            Need a guided walkthrough? Share a few details and our team will reach you within 24 hours.
+          </p>
         </div>
+      </section>
 
-        <div className="grid grid-cols-4 md:grid-cols-8 gap-1.5 md:gap-2">
-          {LANDING_MOBILE_FEATURES.map((item) => (
-            <article key={item.label} className={`rounded-[12px] border px-1.5 py-1.5 md:px-2 md:py-2 ${item.className}`}>
-              <div className="text-[15px] md:text-[16px]">{item.icon}</div>
-              <div className="mt-1 text-[9px] md:text-[10px] font-bold leading-tight text-white/88">{item.label}</div>
-              <div className="mt-0.5 text-[8.5px] md:text-[9px] leading-tight text-white/50">{item.desc}</div>
+      <section className="rounded-[20px] border border-white/[0.10] bg-white/[0.03] px-3 py-3.5">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-cyan-100/78">Primary user groups</p>
+        <div className="mt-2 grid grid-cols-2 gap-2">
+          {PRIMARY_USER_GROUPS.map((group) => (
+            <div key={group} className="rounded-[11px] border border-white/[0.12] bg-white/[0.03] px-2.5 py-2 text-[11px] font-medium text-white/82">
+              {group}
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section className="rounded-[20px] border border-white/[0.08] bg-white/[0.025] p-3">
+        <div className="flex items-center justify-between gap-2">
+          <div>
+            <p className="text-[12px] font-bold text-white/78">Key modules</p>
+            <p className="text-[9px] text-white/38">Mobile-first tiles for quick product overview</p>
+          </div>
+        </div>
+        <div className="mt-2.5 grid grid-cols-2 gap-2">
+          {LANDING_MOBILE_FEATURES.slice(0, 10).map((module) => (
+            <article
+              key={module.label}
+              className={`rounded-[13px] border px-2.5 py-2.5 ${module.className}`}
+            >
+              <div className="flex items-center justify-between gap-1.5">
+                <span className="text-[15px]">{module.icon}</span>
+                <span className="h-1.5 w-1.5 rounded-full bg-cyan-100/90" />
+              </div>
+              <p className="mt-1 text-[11px] font-semibold text-white/92">{module.label}</p>
+              <p className="mt-0.5 text-[9.5px] text-white/62">{module.desc}</p>
             </article>
           ))}
         </div>
-
-        {showAllModules && (
-          <div className="mt-3 rounded-[14px] border border-white/[0.10] bg-[#0f1728]/70 p-2.5 md:p-3 animate-fade-up">
-            <p className="mb-2 text-[10px] uppercase tracking-[0.1em] text-white/45">All Modules</p>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-              {LANDING_MODULES.map((module) => (
-                <article
-                  key={module.label}
-                  className="rounded-[11px] border border-white/[0.10] bg-white/[0.03] px-2 py-2"
-                >
-                  <div className="text-[14px]">{module.icon}</div>
-                  <div className="mt-1 text-[10px] font-semibold text-white/88 leading-tight">{module.label}</div>
-                  <div className="mt-0.5 text-[9px] text-white/50 leading-tight">{module.desc}</div>
-                </article>
-              ))}
-            </div>
-          </div>
-        )}
+        <div className="mt-3 flex justify-center">
+          <button
+            type="button"
+            onClick={() => setShowMobileAllModules(true)}
+            className="inline-flex items-center justify-center rounded-[12px] border border-cyan-300/35 bg-cyan-500/15 px-4 py-2 text-[12px] font-semibold text-cyan-100/95 transition hover:bg-cyan-500/24"
+          >
+            View all modules
+          </button>
+        </div>
       </section>
-
     </div>
   );
 
@@ -572,7 +597,320 @@ export function HomeShell({ isSignedIn, userName }: { isSignedIn: boolean; userN
     <>
       <div className="md:hidden">{mobileLanding}</div>
       <div className="hidden md:block">{showDesktopAllModulesPage ? desktopAllModulesCenterPage : desktopLanding}</div>
-      <DesktopHelpWidget />
+      {showMobileAllModules ? (
+        <div className="fixed inset-0 z-[175] md:hidden flex items-center justify-center bg-black/75 backdrop-blur-sm p-3">
+          <button
+            type="button"
+            aria-label="Close all modules view"
+            onClick={() => setShowMobileAllModules(false)}
+            className="absolute inset-0"
+          />
+          <div className="relative w-full h-[min(94vh,980px)] rounded-[18px] border border-white/[0.14] bg-[#0b1426]/96 shadow-[0_28px_70px_-28px_rgba(0,0,0,0.95)] overflow-hidden">
+            <div className="flex items-center justify-between gap-3 border-b border-white/[0.08] px-4 py-3">
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-cyan-100/80">All Modules</p>
+                <p className="mt-0.5 text-[12px] text-white/65">Explore complete module details.</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowMobileAllModules(false)}
+                className="inline-flex h-8 w-8 items-center justify-center rounded-[10px] border border-white/[0.14] bg-white/[0.03] text-white/75 transition hover:bg-white/[0.09] hover:text-white"
+                aria-label="Close"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="h-[calc(94vh-72px)] overflow-y-auto px-3 py-3.5">
+              <div className="grid grid-cols-1 gap-2.5">
+                {ALL_MODULES.map((module, idx) => (
+                  <article
+                    key={`mobile-all-${module.label}`}
+                    className={`rounded-[14px] border px-3.5 py-3 ${DESKTOP_WIDGET_SKINS[idx % DESKTOP_WIDGET_SKINS.length]}`}
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-[19px]">{module.icon}</span>
+                      <span className="h-2 w-2 rounded-full bg-cyan-100/85" />
+                    </div>
+                    <p className="mt-2 text-[13px] font-semibold text-white/96">{module.label}</p>
+                    <p className="mt-0.5 text-[11px] leading-snug text-white/74">{module.desc}</p>
+                  </article>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
+      {demoRequestOpen ? (
+        <div className="fixed inset-0 z-[180] flex items-center justify-center bg-black/70 backdrop-blur-sm px-4">
+          <button
+            type="button"
+            aria-label="Close demo request form"
+            onClick={() => setDemoRequestOpen(false)}
+            className="absolute inset-0"
+          />
+          <div className="relative w-full max-w-[560px] rounded-[20px] border border-white/[0.14] bg-[#0e172a]/95 p-4 sm:p-5 shadow-[0_28px_70px_-30px_rgba(0,0,0,0.95)]">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-[12px] font-semibold uppercase tracking-[0.14em] text-cyan-200/75">Demo Request</p>
+                <h3 className="mt-1 text-[22px] font-bold text-white/95 leading-tight">Request a live demo</h3>
+                <p className="mt-1 text-[11px] leading-relaxed text-white/58">
+                  Share a few details so our product team can plan the right walkthrough for your school.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setDemoRequestOpen(false)}
+                className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/[0.16] bg-white/[0.03] text-white/70 transition hover:bg-white/[0.09] hover:text-white"
+                aria-label="Close"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form ref={demoFormRef} action={demoAction} className="mt-4 space-y-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <label className="space-y-1">
+                  <span className="text-[12px] font-medium text-white/75">First Name</span>
+                  <input
+                    name="firstName"
+                    required
+                    minLength={2}
+                    maxLength={60}
+                    autoComplete="given-name"
+                    placeholder="First name"
+                    pattern="^[A-Za-z][A-Za-z '.-]{1,59}$"
+                    data-msg-required="Please enter your first name."
+                    data-msg-pattern="Use letters only. You may include space, apostrophe, dot, or hyphen."
+                    data-msg-min="First name should be at least 2 characters."
+                    data-msg-max="First name cannot exceed 60 characters."
+                    onInvalid={setDemoFieldValidationMessage}
+                    onInput={clearDemoFieldValidationMessage}
+                    aria-invalid={demoState.fieldErrors?.firstName ? true : undefined}
+                    disabled={demoPending}
+                    className="w-full rounded-[12px] border border-white/[0.14] bg-[#101a2d]/90 px-3 py-2.5 text-sm text-white outline-none transition focus:border-cyan-300/65 focus:ring-4 focus:ring-cyan-500/22"
+                  />
+                  {demoState.fieldErrors?.firstName ? (
+                    <p className="text-[11px] text-rose-300">{demoState.fieldErrors.firstName}</p>
+                  ) : null}
+                </label>
+                <label className="space-y-1">
+                  <span className="text-[12px] font-medium text-white/75">Last Name</span>
+                  <input
+                    name="lastName"
+                    required
+                    minLength={2}
+                    maxLength={60}
+                    autoComplete="family-name"
+                    placeholder="Last name"
+                    pattern="^[A-Za-z][A-Za-z '.-]{1,59}$"
+                    data-msg-required="Please enter your last name."
+                    data-msg-pattern="Use letters only. You may include space, apostrophe, dot, or hyphen."
+                    data-msg-min="Last name should be at least 2 characters."
+                    data-msg-max="Last name cannot exceed 60 characters."
+                    onInvalid={setDemoFieldValidationMessage}
+                    onInput={clearDemoFieldValidationMessage}
+                    aria-invalid={demoState.fieldErrors?.lastName ? true : undefined}
+                    disabled={demoPending}
+                    className="w-full rounded-[12px] border border-white/[0.14] bg-[#101a2d]/90 px-3 py-2.5 text-sm text-white outline-none transition focus:border-cyan-300/65 focus:ring-4 focus:ring-cyan-500/22"
+                  />
+                  {demoState.fieldErrors?.lastName ? (
+                    <p className="text-[11px] text-rose-300">{demoState.fieldErrors.lastName}</p>
+                  ) : null}
+                </label>
+              </div>
+
+              <label className="space-y-1 block">
+                <span className="text-[12px] font-medium text-white/75">School Name</span>
+                <input
+                  name="schoolName"
+                  required
+                  minLength={2}
+                  maxLength={120}
+                  pattern="^[A-Za-z0-9][A-Za-z0-9 '&().,-]{1,119}$"
+                  title="Use letters, numbers, spaces, and basic punctuation only."
+                  autoComplete="organization"
+                  placeholder="Enter school name"
+                  data-msg-required="Please enter your school name."
+                  data-msg-pattern="Use letters, numbers, spaces, and basic punctuation only."
+                  data-msg-min="School name should be at least 2 characters."
+                  data-msg-max="School name cannot exceed 120 characters."
+                  onInvalid={setDemoFieldValidationMessage}
+                  onInput={clearDemoFieldValidationMessage}
+                  aria-invalid={demoState.fieldErrors?.schoolName ? true : undefined}
+                  disabled={demoPending}
+                  className="w-full rounded-[12px] border border-white/[0.14] bg-[#101a2d]/90 px-3 py-2.5 text-sm text-white outline-none transition focus:border-cyan-300/65 focus:ring-4 focus:ring-cyan-500/22"
+                />
+                {demoState.fieldErrors?.schoolName ? (
+                  <p className="text-[11px] text-rose-300">{demoState.fieldErrors.schoolName}</p>
+                ) : null}
+              </label>
+
+              <label className="space-y-1 block">
+                <span className="text-[12px] font-medium text-white/75">Address</span>
+                <textarea
+                  name="address"
+                  required
+                  minLength={10}
+                  maxLength={280}
+                  rows={3}
+                  autoComplete="street-address"
+                  placeholder="Enter complete school address"
+                  data-msg-required="Please enter your school address."
+                  data-msg-min="Address should be at least 10 characters."
+                  data-msg-max="Address cannot exceed 280 characters."
+                  onInvalid={setDemoFieldValidationMessage}
+                  onInput={clearDemoFieldValidationMessage}
+                  aria-invalid={demoState.fieldErrors?.address ? true : undefined}
+                  disabled={demoPending}
+                  className="w-full rounded-[12px] border border-white/[0.14] bg-[#101a2d]/90 px-3 py-2.5 text-sm text-white outline-none transition resize-none focus:border-cyan-300/65 focus:ring-4 focus:ring-cyan-500/22"
+                />
+                {demoState.fieldErrors?.address ? (
+                  <p className="text-[11px] text-rose-300">{demoState.fieldErrors.address}</p>
+                ) : null}
+              </label>
+
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <label className="space-y-1 block">
+                  <span className="text-[12px] font-medium text-white/75">Email ID</span>
+                  <input
+                    type="email"
+                    name="email"
+                    required
+                    maxLength={120}
+                    autoComplete="email"
+                    placeholder="name@school.com"
+                    data-msg-required="Please enter your email ID."
+                    data-msg-type="Please enter a valid email address, like name@school.com."
+                    data-msg-max="Email address cannot exceed 120 characters."
+                    onInvalid={setDemoFieldValidationMessage}
+                    onInput={clearDemoFieldValidationMessage}
+                    aria-invalid={demoState.fieldErrors?.email ? true : undefined}
+                    disabled={demoPending}
+                    className="w-full rounded-[12px] border border-white/[0.14] bg-[#101a2d]/90 px-3 py-2.5 text-sm text-white outline-none transition focus:border-cyan-300/65 focus:ring-4 focus:ring-cyan-500/22"
+                  />
+                  {demoState.fieldErrors?.email ? (
+                    <p className="text-[11px] text-rose-300">{demoState.fieldErrors.email}</p>
+                  ) : null}
+                </label>
+
+                <div className="space-y-1 block">
+                  <span className="text-[12px] font-medium text-white/75">Mobile Number</span>
+                  <div className="grid grid-cols-[88px_1fr] gap-2">
+                    <select
+                      name="countryCode"
+                      required
+                      value={selectedCountryCode}
+                      data-msg-required="Please select your country code."
+                      onInvalid={setDemoFieldValidationMessage}
+                      onFocus={() => setShowCountryNameInDropdown(true)}
+                      onMouseDown={() => setShowCountryNameInDropdown(true)}
+                      onBlur={() => setShowCountryNameInDropdown(false)}
+                      onChange={(event) => {
+                        setSelectedCountryCode(event.currentTarget.value);
+                        event.currentTarget.setCustomValidity("");
+                      }}
+                      aria-invalid={demoState.fieldErrors?.countryCode ? true : undefined}
+                      disabled={demoPending}
+                      className="w-full rounded-[12px] border border-white/[0.14] bg-[#101a2d]/90 px-2.5 py-2.5 text-sm text-white outline-none transition focus:border-cyan-300/65 focus:ring-4 focus:ring-cyan-500/22"
+                    >
+                      {COUNTRY_CODE_OPTIONS.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {showCountryNameInDropdown ? `${option.value} (${option.country})` : option.value}
+                        </option>
+                      ))}
+                    </select>
+
+                    <input
+                      type="tel"
+                      name="mobileNumber"
+                      required
+                      minLength={6}
+                      maxLength={19}
+                      inputMode="tel"
+                      autoComplete="tel-national"
+                      placeholder="609 608 6379"
+                      pattern="^[0-9][0-9()\\-\\s]{5,18}$"
+                      data-msg-required="Please enter your mobile number."
+                      data-msg-pattern="Use numbers only. You can include spaces, hyphen, or parentheses."
+                      data-msg-min="Mobile number should have at least 6 digits."
+                      data-msg-max="Mobile number is too long."
+                      onInvalid={setDemoFieldValidationMessage}
+                      onInput={clearDemoFieldValidationMessage}
+                      aria-invalid={demoState.fieldErrors?.mobileNumber ? true : undefined}
+                      disabled={demoPending}
+                      className="w-full rounded-[12px] border border-white/[0.14] bg-[#101a2d]/90 px-3 py-2.5 text-sm text-white outline-none transition focus:border-cyan-300/65 focus:ring-4 focus:ring-cyan-500/22"
+                    />
+                  </div>
+                  {demoState.fieldErrors?.countryCode ? (
+                    <p className="text-[11px] text-rose-300">{demoState.fieldErrors.countryCode}</p>
+                  ) : null}
+                  {demoState.fieldErrors?.mobileNumber ? (
+                    <p className="text-[11px] text-rose-300">{demoState.fieldErrors.mobileNumber}</p>
+                  ) : null}
+                </div>
+              </div>
+
+              <label className="space-y-1 block">
+                <span className="text-[12px] font-medium text-white/75">Best time to reach you</span>
+                <select
+                  name="bestTime"
+                  required
+                  defaultValue=""
+                  data-msg-required="Please select the best time for our team to contact you."
+                  onInvalid={setDemoFieldValidationMessage}
+                  onChange={clearDemoFieldValidationMessage}
+                  aria-invalid={demoState.fieldErrors?.bestTime ? true : undefined}
+                  disabled={demoPending}
+                  className="w-full rounded-[12px] border border-white/[0.14] bg-[#101a2d]/90 px-3 py-2.5 text-sm text-white outline-none transition focus:border-cyan-300/65 focus:ring-4 focus:ring-cyan-500/22"
+                >
+                  <option value="" disabled>
+                    Select preferred time
+                  </option>
+                  <option value="Morning (9:00 AM - 12:00 PM EST)">Morning (9:00 AM - 12:00 PM EST)</option>
+                  <option value="Afternoon (12:00 PM - 4:00 PM EST)">Afternoon (12:00 PM - 4:00 PM EST)</option>
+                  <option value="Evening (4:00 PM - 7:00 PM EST)">Evening (4:00 PM - 7:00 PM EST)</option>
+                  <option value="Anytime during business hours (EST)">Anytime during business hours (EST)</option>
+                </select>
+                {demoState.fieldErrors?.bestTime ? (
+                  <p className="text-[11px] text-rose-300">{demoState.fieldErrors.bestTime}</p>
+                ) : null}
+              </label>
+
+              {demoState.message ? (
+                <div
+                  className={
+                    "rounded-[12px] border p-3 text-sm " +
+                    (demoState.ok
+                      ? "border-emerald-500/25 bg-emerald-500/10 text-emerald-200"
+                      : "border-rose-500/25 bg-rose-500/10 text-rose-200")
+                  }
+                >
+                  {demoState.message}
+                </div>
+              ) : null}
+
+              <div className="flex flex-wrap items-center justify-end gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={() => setDemoRequestOpen(false)}
+                  disabled={demoPending}
+                  className="inline-flex items-center justify-center rounded-[12px] border border-white/[0.14] bg-[#101a2d]/90 px-4 py-2 text-sm font-semibold text-white/90 transition hover:bg-[#17253d]"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={demoPending}
+                  className="inline-flex items-center justify-center rounded-[12px] bg-gradient-to-b from-[#67b4ff] to-[#4f8dfd] px-4 py-2 text-sm font-semibold text-white transition hover:from-[#7ac0ff] hover:to-[#5a95ff]"
+                >
+                  {demoPending ? "Submitting..." : "Submit Demo Request"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      ) : null}
     </>
   );
 }

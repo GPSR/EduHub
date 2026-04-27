@@ -1,10 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState, useEffect, useRef, useState } from "react";
+import { useActionState, useEffect, useRef, useState, type FormEvent, type InvalidEvent } from "react";
 import { BrandWordmark } from "@/components/brand";
 import { Badge, Card } from "@/components/ui";
-import { DesktopHelpWidget } from "@/components/desktop-help-widget";
 import { createDemoRequestAction, type DemoRequestState } from "@/app/demo-request/actions";
 
 const HERO_STATS = [
@@ -160,20 +159,25 @@ const AI_VALUE_CHIPS = [
   "Automation-ready workflows"
 ] as const;
 
+const COUNTRY_CODE_OPTIONS = [
+  { value: "+1", country: "US / Canada" },
+  { value: "+91", country: "India" },
+  { value: "+44", country: "United Kingdom" },
+  { value: "+61", country: "Australia" },
+  { value: "+971", country: "UAE" },
+  { value: "+65", country: "Singapore" },
+  { value: "+966", country: "Saudi Arabia" },
+  { value: "+974", country: "Qatar" },
+  { value: "+27", country: "South Africa" },
+  { value: "+880", country: "Bangladesh" }
+] as const;
+
 const ABOUT_POINTS = [
   "SoftLane Technology builds practical software for real school operations.",
   "EduHub is designed for transparency across academics, finance, and communication.",
   "The platform is built to scale from single-school operations to multi-school networks.",
   "Our focus is product reliability, usability, and secure access control."
 ] as const;
-
-const CONTACT_DETAILS: Array<{ label: string; value: string; href?: string }> = [
-  { label: "Schools", value: "schools@softlanetech.com", href: "mailto:schools@softlanetech.com" },
-  { label: "General Info", value: "info@softlanetech.com", href: "mailto:info@softlanetech.com" },
-  { label: "Contact Number", value: "+1 609 608 6379", href: "tel:+16096086379" },
-  { label: "Business Hours", value: "Monday to Saturday · 9:00 AM to 6:00 PM (EST)" },
-  { label: "Company Address", value: "1856 Coolidge Highway, Troy, Michigan, USA - 48084" }
-];
 
 const MENU_ITEMS = [
   { href: "#features", label: "Features" },
@@ -189,6 +193,31 @@ function marketingPrimaryLabel(isSignedIn: boolean) {
   return isSignedIn ? "Open dashboard" : "Request demo";
 }
 
+type DemoFieldElement = HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement;
+
+function setDemoFieldValidationMessage(event: InvalidEvent<DemoFieldElement>) {
+  const target = event.currentTarget;
+  let message = "";
+
+  if (target.validity.valueMissing) {
+    message = target.dataset.msgRequired ?? "This field is required.";
+  } else if (target.validity.typeMismatch) {
+    message = target.dataset.msgType ?? "Please enter a valid value.";
+  } else if (target.validity.patternMismatch) {
+    message = target.dataset.msgPattern ?? "Please enter a valid value.";
+  } else if (target.validity.tooShort) {
+    message = target.dataset.msgMin ?? "Input is too short.";
+  } else if (target.validity.tooLong) {
+    message = target.dataset.msgMax ?? "Input is too long.";
+  }
+
+  target.setCustomValidity(message);
+}
+
+function clearDemoFieldValidationMessage(event: FormEvent<DemoFieldElement>) {
+  event.currentTarget.setCustomValidity("");
+}
+
 type ProductHomePageProps = {
   isSignedIn: boolean;
   userName?: string | null;
@@ -200,6 +229,9 @@ export function ProductHomePage({ isSignedIn, userName }: ProductHomePageProps) 
   const [demoRequestOpen, setDemoRequestOpen] = useState(false);
   const [demoState, demoAction, demoPending] = useActionState(createDemoRequestAction, initialDemoRequestState);
   const [pauseModuleCatalogAutoscroll, setPauseModuleCatalogAutoscroll] = useState(false);
+  const [showAllModules, setShowAllModules] = useState(false);
+  const [selectedCountryCode, setSelectedCountryCode] = useState("+1");
+  const [showCountryNameInDropdown, setShowCountryNameInDropdown] = useState(false);
   const demoFormRef = useRef<HTMLFormElement | null>(null);
   const moduleCatalogScrollerRef = useRef<HTMLDivElement | null>(null);
   const name = userName?.trim();
@@ -210,6 +242,8 @@ export function ProductHomePage({ isSignedIn, userName }: ProductHomePageProps) 
   useEffect(() => {
     if (demoState.ok && demoState.message) {
       demoFormRef.current?.reset();
+      setSelectedCountryCode("+1");
+      setShowCountryNameInDropdown(false);
     }
   }, [demoState]);
 
@@ -459,6 +493,17 @@ export function ProductHomePage({ isSignedIn, userName }: ProductHomePageProps) 
               </span>
             ))}
           </div>
+
+          <div className="mt-4 flex justify-center">
+            <button
+              type="button"
+              onClick={() => setShowAllModules(true)}
+              aria-expanded={showAllModules}
+              className="inline-flex items-center justify-center rounded-[12px] border border-cyan-300/35 bg-cyan-500/15 px-4 py-2 text-[12px] font-semibold text-cyan-100/95 transition hover:bg-cyan-500/24"
+            >
+              View all modules
+            </button>
+          </div>
         </section>
 
         <section id="services" className="space-y-3">
@@ -543,25 +588,15 @@ export function ProductHomePage({ isSignedIn, userName }: ProductHomePageProps) 
         <section id="contact" className="rounded-[22px] border border-white/[0.1] bg-[#0b1222]/88 px-4 py-5 sm:px-5 sm:py-6">
           <div>
             <p className="text-[12px] font-semibold uppercase tracking-[0.16em] text-cyan-200/72">Contact Us</p>
-            <h3 className="mt-1 text-2xl font-bold tracking-tight text-white/95 sm:text-[30px]">Contact details</h3>
+            <h3 className="mt-1 text-2xl font-bold tracking-tight text-white/95 sm:text-[30px]">Single Contact Us widget</h3>
           </div>
 
-          <div className="mt-4 grid grid-cols-1 gap-3">
-            <Card title="Reach our team" accent="indigo">
-              <div className="space-y-2.5">
-                {CONTACT_DETAILS.map((item) => (
-                  <div key={item.label} className="rounded-[12px] border border-white/[0.08] bg-white/[0.02] px-3 py-2.5">
-                    <p className="text-[11px] font-semibold uppercase tracking-wider text-white/45">{item.label}</p>
-                    {item.href ? (
-                      <a href={item.href} className="mt-1 block text-sm font-medium text-cyan-200/90 hover:text-cyan-100">
-                        {item.value}
-                      </a>
-                    ) : (
-                      <p className="mt-1 text-sm font-medium text-white/82">{item.value}</p>
-                    )}
-                  </div>
-                ))}
-              </div>
+          <div className="mt-4">
+            <Card title="Reach our team quickly" accent="indigo">
+              <p className="text-sm leading-relaxed text-white/68">
+                Use the floating <span className="font-semibold text-cyan-100">Contact Us</span> widget to access
+                quick actions for <span className="font-semibold text-cyan-100">Email</span>, <span className="font-semibold text-cyan-100">Call</span>, and <span className="font-semibold text-cyan-100">WhatsApp</span>.
+              </p>
             </Card>
           </div>
         </section>
@@ -570,6 +605,50 @@ export function ProductHomePage({ isSignedIn, userName }: ProductHomePageProps) 
           Copyright © {new Date().getFullYear()} SoftLane Technology. All rights reserved.
         </footer>
       </div>
+      {showAllModules ? (
+        <div className="fixed inset-0 z-[175] flex items-center justify-center bg-black/75 backdrop-blur-sm p-3 sm:p-5">
+          <button
+            type="button"
+            aria-label="Close all modules view"
+            onClick={() => setShowAllModules(false)}
+            className="absolute inset-0"
+          />
+          <div className="relative w-full max-w-[1220px] h-[min(92vh,980px)] rounded-[20px] border border-white/[0.14] bg-[#0b1426]/96 shadow-[0_28px_70px_-28px_rgba(0,0,0,0.95)] overflow-hidden">
+            <div className="flex items-center justify-between gap-3 border-b border-white/[0.08] px-4 py-3 sm:px-5">
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-cyan-100/80">All Modules</p>
+                <p className="mt-0.5 text-[13px] text-white/65">Explore the complete EduHub module catalog.</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowAllModules(false)}
+                className="inline-flex h-8 w-8 items-center justify-center rounded-[10px] border border-white/[0.14] bg-white/[0.03] text-white/75 transition hover:bg-white/[0.09] hover:text-white"
+                aria-label="Close"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="h-[calc(92vh-74px)] overflow-y-auto px-4 py-4 sm:px-5 sm:py-5">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {MODULE_CATALOG.map((moduleItem, index) => (
+                  <article
+                    key={`all-${moduleItem.label}`}
+                    className={`rounded-[15px] border px-4 py-3.5 ${MODULE_TILE_SKINS[index % MODULE_TILE_SKINS.length]}`}
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-[20px]">{moduleItem.icon}</span>
+                      <span className="h-2 w-2 rounded-full bg-cyan-100/85" />
+                    </div>
+                    <p className="mt-2 text-[14px] font-semibold text-white/95">{moduleItem.label}</p>
+                    <p className="mt-1 text-[12px] leading-snug text-white/72">{moduleItem.description}</p>
+                  </article>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
       {demoRequestOpen ? (
         <div className="fixed inset-0 z-[180] flex items-center justify-center bg-black/70 backdrop-blur-sm px-4">
           <button
@@ -606,6 +685,12 @@ export function ProductHomePage({ isSignedIn, userName }: ProductHomePageProps) 
                     autoComplete="given-name"
                     placeholder="First name"
                     pattern="^[A-Za-z][A-Za-z '.-]{1,59}$"
+                    data-msg-required="Please enter your first name."
+                    data-msg-pattern="Use letters only. You may include space, apostrophe, dot, or hyphen."
+                    data-msg-min="First name should be at least 2 characters."
+                    data-msg-max="First name cannot exceed 60 characters."
+                    onInvalid={setDemoFieldValidationMessage}
+                    onInput={clearDemoFieldValidationMessage}
                     aria-invalid={demoState.fieldErrors?.firstName ? true : undefined}
                     disabled={demoPending}
                     className="w-full rounded-[12px] border border-white/[0.14] bg-[#101a2d]/90 px-3 py-2.5 text-sm text-white outline-none transition focus:border-cyan-300/65 focus:ring-4 focus:ring-cyan-500/22"
@@ -624,6 +709,12 @@ export function ProductHomePage({ isSignedIn, userName }: ProductHomePageProps) 
                     autoComplete="family-name"
                     placeholder="Last name"
                     pattern="^[A-Za-z][A-Za-z '.-]{1,59}$"
+                    data-msg-required="Please enter your last name."
+                    data-msg-pattern="Use letters only. You may include space, apostrophe, dot, or hyphen."
+                    data-msg-min="Last name should be at least 2 characters."
+                    data-msg-max="Last name cannot exceed 60 characters."
+                    onInvalid={setDemoFieldValidationMessage}
+                    onInput={clearDemoFieldValidationMessage}
                     aria-invalid={demoState.fieldErrors?.lastName ? true : undefined}
                     disabled={demoPending}
                     className="w-full rounded-[12px] border border-white/[0.14] bg-[#101a2d]/90 px-3 py-2.5 text-sm text-white outline-none transition focus:border-cyan-300/65 focus:ring-4 focus:ring-cyan-500/22"
@@ -645,6 +736,12 @@ export function ProductHomePage({ isSignedIn, userName }: ProductHomePageProps) 
                   title="Use letters, numbers, spaces, and basic punctuation only."
                   autoComplete="organization"
                   placeholder="Enter school name"
+                  data-msg-required="Please enter your school name."
+                  data-msg-pattern="Use letters, numbers, spaces, and basic punctuation only."
+                  data-msg-min="School name should be at least 2 characters."
+                  data-msg-max="School name cannot exceed 120 characters."
+                  onInvalid={setDemoFieldValidationMessage}
+                  onInput={clearDemoFieldValidationMessage}
                   aria-invalid={demoState.fieldErrors?.schoolName ? true : undefined}
                   disabled={demoPending}
                   className="w-full rounded-[12px] border border-white/[0.14] bg-[#101a2d]/90 px-3 py-2.5 text-sm text-white outline-none transition focus:border-cyan-300/65 focus:ring-4 focus:ring-cyan-500/22"
@@ -664,6 +761,11 @@ export function ProductHomePage({ isSignedIn, userName }: ProductHomePageProps) 
                   rows={3}
                   autoComplete="street-address"
                   placeholder="Enter complete school address"
+                  data-msg-required="Please enter your school address."
+                  data-msg-min="Address should be at least 10 characters."
+                  data-msg-max="Address cannot exceed 280 characters."
+                  onInvalid={setDemoFieldValidationMessage}
+                  onInput={clearDemoFieldValidationMessage}
                   aria-invalid={demoState.fieldErrors?.address ? true : undefined}
                   disabled={demoPending}
                   className="w-full rounded-[12px] border border-white/[0.14] bg-[#101a2d]/90 px-3 py-2.5 text-sm text-white outline-none transition resize-none focus:border-cyan-300/65 focus:ring-4 focus:ring-cyan-500/22"
@@ -683,6 +785,11 @@ export function ProductHomePage({ isSignedIn, userName }: ProductHomePageProps) 
                     maxLength={120}
                     autoComplete="email"
                     placeholder="name@school.com"
+                    data-msg-required="Please enter your email ID."
+                    data-msg-type="Please enter a valid email address, like name@school.com."
+                    data-msg-max="Email address cannot exceed 120 characters."
+                    onInvalid={setDemoFieldValidationMessage}
+                    onInput={clearDemoFieldValidationMessage}
                     aria-invalid={demoState.fieldErrors?.email ? true : undefined}
                     disabled={demoPending}
                     className="w-full rounded-[12px] border border-white/[0.14] bg-[#101a2d]/90 px-3 py-2.5 text-sm text-white outline-none transition focus:border-cyan-300/65 focus:ring-4 focus:ring-cyan-500/22"
@@ -692,26 +799,61 @@ export function ProductHomePage({ isSignedIn, userName }: ProductHomePageProps) 
                   ) : null}
                 </label>
 
-                <label className="space-y-1 block">
+                <div className="space-y-1 block">
                   <span className="text-[12px] font-medium text-white/75">Mobile Number</span>
-                  <input
-                    type="tel"
-                    name="mobileNumber"
-                    required
-                    minLength={7}
-                    maxLength={20}
-                    inputMode="tel"
-                    autoComplete="tel"
-                    placeholder="+1 609 608 6379"
-                    pattern="^[0-9+()\\-\\s]{7,20}$"
-                    aria-invalid={demoState.fieldErrors?.mobileNumber ? true : undefined}
-                    disabled={demoPending}
-                    className="w-full rounded-[12px] border border-white/[0.14] bg-[#101a2d]/90 px-3 py-2.5 text-sm text-white outline-none transition focus:border-cyan-300/65 focus:ring-4 focus:ring-cyan-500/22"
-                  />
+                  <div className="grid grid-cols-[88px_1fr] gap-2">
+                    <select
+                      name="countryCode"
+                      required
+                      value={selectedCountryCode}
+                      data-msg-required="Please select your country code."
+                      onInvalid={setDemoFieldValidationMessage}
+                      onFocus={() => setShowCountryNameInDropdown(true)}
+                      onMouseDown={() => setShowCountryNameInDropdown(true)}
+                      onBlur={() => setShowCountryNameInDropdown(false)}
+                      onChange={(event) => {
+                        setSelectedCountryCode(event.currentTarget.value);
+                        event.currentTarget.setCustomValidity("");
+                      }}
+                      aria-invalid={demoState.fieldErrors?.countryCode ? true : undefined}
+                      disabled={demoPending}
+                      className="w-full rounded-[12px] border border-white/[0.14] bg-[#101a2d]/90 px-2.5 py-2.5 text-sm text-white outline-none transition focus:border-cyan-300/65 focus:ring-4 focus:ring-cyan-500/22"
+                    >
+                      {COUNTRY_CODE_OPTIONS.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {showCountryNameInDropdown ? `${option.value} (${option.country})` : option.value}
+                        </option>
+                      ))}
+                    </select>
+
+                    <input
+                      type="tel"
+                      name="mobileNumber"
+                      required
+                      minLength={6}
+                      maxLength={19}
+                      inputMode="tel"
+                      autoComplete="tel-national"
+                      placeholder="609 608 6379"
+                      pattern="^[0-9][0-9()\\-\\s]{5,18}$"
+                      data-msg-required="Please enter your mobile number."
+                      data-msg-pattern="Use numbers only. You can include spaces, hyphen, or parentheses."
+                      data-msg-min="Mobile number should have at least 6 digits."
+                      data-msg-max="Mobile number is too long."
+                      onInvalid={setDemoFieldValidationMessage}
+                      onInput={clearDemoFieldValidationMessage}
+                      aria-invalid={demoState.fieldErrors?.mobileNumber ? true : undefined}
+                      disabled={demoPending}
+                      className="w-full rounded-[12px] border border-white/[0.14] bg-[#101a2d]/90 px-3 py-2.5 text-sm text-white outline-none transition focus:border-cyan-300/65 focus:ring-4 focus:ring-cyan-500/22"
+                    />
+                  </div>
+                  {demoState.fieldErrors?.countryCode ? (
+                    <p className="text-[11px] text-rose-300">{demoState.fieldErrors.countryCode}</p>
+                  ) : null}
                   {demoState.fieldErrors?.mobileNumber ? (
                     <p className="text-[11px] text-rose-300">{demoState.fieldErrors.mobileNumber}</p>
                   ) : null}
-                </label>
+                </div>
               </div>
 
               <label className="space-y-1 block">
@@ -720,6 +862,9 @@ export function ProductHomePage({ isSignedIn, userName }: ProductHomePageProps) 
                   name="bestTime"
                   required
                   defaultValue=""
+                  data-msg-required="Please select the best time for our team to contact you."
+                  onInvalid={setDemoFieldValidationMessage}
+                  onChange={clearDemoFieldValidationMessage}
                   aria-invalid={demoState.fieldErrors?.bestTime ? true : undefined}
                   disabled={demoPending}
                   className="w-full rounded-[12px] border border-white/[0.14] bg-[#101a2d]/90 px-3 py-2.5 text-sm text-white outline-none transition focus:border-cyan-300/65 focus:ring-4 focus:ring-cyan-500/22"
@@ -771,7 +916,6 @@ export function ProductHomePage({ isSignedIn, userName }: ProductHomePageProps) 
           </div>
         </div>
       ) : null}
-      <DesktopHelpWidget />
     </main>
   );
 }
