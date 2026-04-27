@@ -42,7 +42,7 @@ export default async function PlatformHomePage({
     ...(!isSuperAdmin ? { id: { in: assignedIds } } : {}),
   };
 
-  const [schools, totalSchools, totalStudents, totalTeachers, totalRev, monthlyRev, last30Rev, pendingOnboarding] =
+  const [schools, totalSchools, totalStudents, totalTeachers, totalRev, monthlyRev, last30Rev, pendingOnboarding, pendingDemoRequests] =
     await Promise.all([
       prisma.school.findMany({
         where: schoolFilter,
@@ -55,7 +55,8 @@ export default async function PlatformHomePage({
       prisma.feePayment.aggregate({ where: { ...(!isSuperAdmin ? { invoice: { schoolId: { in: assignedIds } } } : {}) }, _sum: { amountCents: true } }),
       prisma.feePayment.aggregate({ where: { ...(!isSuperAdmin ? { invoice: { schoolId: { in: assignedIds } } } : {}), paidAt: { gte: monthStart } }, _sum: { amountCents: true } }),
       prisma.feePayment.aggregate({ where: { ...(!isSuperAdmin ? { invoice: { schoolId: { in: assignedIds } } } : {}), paidAt: { gte: last30Days } }, _sum: { amountCents: true } }),
-      0,
+      isSuperAdmin ? prisma.schoolOnboardingRequest.count({ where: { status: "PENDING" } }) : 0,
+      prisma.demoRequest.count({ where: { status: "NEW" } }),
     ]);
 
   const quickSearchSchools = await prisma.school.findMany({
@@ -140,6 +141,7 @@ export default async function PlatformHomePage({
           { label: "Students",          value: totalStudents,      icon: "👥", color: "text-sky-300",     href: null },
           { label: "Teachers",          value: totalTeachers,      icon: "📚", color: "text-violet-300",  href: null },
           { label: "Pending Approvals", value: pendingOnboarding,  icon: "📋", color: pendingOnboarding > 0 ? "text-amber-300" : "text-white/60", href: null },
+          { label: "Demo Requests",     value: pendingDemoRequests, icon: "🗂️", color: pendingDemoRequests > 0 ? "text-cyan-300" : "text-white/60", href: "/platform/demo-requests" },
           { label: "Custom Plans",      value: customPlans.length, icon: "💎", color: "text-teal-300",    href: null },
         ].map(s => (
           <div key={s.label} className="rounded-[22px] border border-white/[0.08] bg-white/[0.04] p-4 sm:p-5 hover:bg-white/[0.06] transition-all">
@@ -161,6 +163,7 @@ export default async function PlatformHomePage({
             {[
               { href: "/platform/schools/new", icon: "➕", label: "Add School" },
               { href: "/platform/gallery", icon: "🖼️", label: "School Gallery" },
+              { href: "/platform/demo-requests", icon: "🗂️", label: "Demo Requests" },
               { href: "/platform/support", icon: "💬", label: "Support Chat" },
               { href: "/platform/subscriptions", icon: "💎", label: "Subscriptions" },
               { href: "/platform/audit", icon: "🧾", label: "Audit Logs" },

@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { Card } from "@/components/ui";
 import { BrandWordmark } from "@/components/brand";
-import { HelpFloatWidget } from "@/components/help-float-widget";
+import { DesktopHelpWidget } from "@/components/desktop-help-widget";
 
 const STORAGE_KEY = "eduhub_onboarded_v1";
 const STORAGE_SLUG_KEY = "eduhub_school_slug_v1";
@@ -214,18 +214,21 @@ export function HomeShell({ isSignedIn, userName }: { isSignedIn: boolean; userN
   /* Skeleton while checking localStorage */
   if (onboarded === null && !isSignedIn) {
     return (
-      <div className="space-y-3">
-        <div className="rounded-[22px] border border-white/[0.10] bg-[#070e1c] p-4 space-y-3">
-          <div className="h-14 w-14 rounded-2xl bg-white/[0.05] animate-pulse mx-auto" />
-          <div className="h-3 w-48 rounded-full bg-white/[0.06] animate-pulse mx-auto" />
-          <div className="h-5 w-64 rounded-full bg-white/[0.06] animate-pulse mx-auto" />
-          <div className="h-5 w-52 rounded-full bg-white/[0.06] animate-pulse mx-auto" />
+      <>
+        <div className="space-y-3">
+          <div className="rounded-[22px] border border-white/[0.10] bg-[#070e1c] p-4 space-y-3">
+            <div className="h-14 w-14 rounded-2xl bg-white/[0.05] animate-pulse mx-auto" />
+            <div className="h-3 w-48 rounded-full bg-white/[0.06] animate-pulse mx-auto" />
+            <div className="h-5 w-64 rounded-full bg-white/[0.06] animate-pulse mx-auto" />
+            <div className="h-5 w-52 rounded-full bg-white/[0.06] animate-pulse mx-auto" />
+          </div>
+          <div className="rounded-[20px] border border-white/[0.10] bg-white/[0.03] p-4 space-y-2.5">
+            <div className="h-10 w-full rounded-[13px] bg-white/[0.05] animate-pulse" />
+            <div className="h-9 w-full rounded-[13px] bg-white/[0.04] animate-pulse" />
+          </div>
         </div>
-        <div className="rounded-[20px] border border-white/[0.10] bg-white/[0.03] p-4 space-y-2.5">
-          <div className="h-10 w-full rounded-[13px] bg-white/[0.05] animate-pulse" />
-          <div className="h-9 w-full rounded-[13px] bg-white/[0.04] animate-pulse" />
-        </div>
-      </div>
+        <DesktopHelpWidget />
+      </>
     );
   }
 
@@ -349,46 +352,6 @@ export function HomeShell({ isSignedIn, userName }: { isSignedIn: boolean; userN
         )}
       </section>
 
-      <section className="rounded-[18px] border border-cyan-300/25 bg-[linear-gradient(140deg,rgba(14,165,233,0.2),rgba(6,182,212,0.08),#0b1224)] p-3 md:p-4">
-        <div className="flex items-start justify-between gap-2">
-          <div>
-            <p className="text-[12px] font-bold text-white/90">Live Chat Widget</p>
-            <p className="mt-0.5 text-[10px] text-white/58">Support is now available as a home widget, not a module tile.</p>
-          </div>
-          <span className="inline-flex items-center gap-1 rounded-full border border-emerald-300/40 bg-emerald-500/15 px-2 py-0.5 text-[9px] font-semibold text-emerald-100">
-            <span className="h-1.5 w-1.5 rounded-full bg-emerald-300" />
-            Live
-          </span>
-        </div>
-        <div className="mt-3">
-          <Link
-            href={liveChatHref}
-            className="flex h-9 items-center justify-center rounded-[12px] border border-cyan-300/35 bg-cyan-500/20 text-[11px] font-semibold text-cyan-100 transition hover:bg-cyan-500/28"
-          >
-            Open Live Chat
-          </Link>
-        </div>
-      </section>
-
-      <section className="rounded-[16px] border border-white/[0.08] bg-[#060912]/95 px-2 py-2 md:hidden">
-        <div className="flex items-end justify-around">
-          {[
-            { icon: "◈", label: "Home", active: true },
-            { icon: "👥", label: "Students" },
-            { icon: "💳", label: "Fees" },
-            { icon: "📢", label: "Feed" },
-            { icon: "⋯", label: "More" },
-          ].map((tab) => (
-            <div key={tab.label} className="flex min-w-0 flex-1 flex-col items-center gap-0.5">
-              <span className={`h-0.5 w-5 rounded-full ${tab.active ? "bg-indigo-400" : "bg-transparent"}`} />
-              <span className="text-[18px] leading-none">{tab.icon}</span>
-              <span className={`text-[9px] font-semibold ${tab.active ? "text-white/92" : "text-white/38"}`}>
-                {tab.label}
-              </span>
-            </div>
-          ))}
-        </div>
-      </section>
     </div>
   );
 
@@ -572,7 +535,7 @@ export function HomeShell({ isSignedIn, userName }: { isSignedIn: boolean; userN
             </Link>
             <Link
               href="/support"
-              className="inline-flex w-full justify-center items-center gap-2 px-4 py-2.5 rounded-[13px] sm:w-auto
+              className="hidden md:inline-flex justify-center items-center gap-2 px-4 py-2.5 rounded-[13px]
                          border border-cyan-300/35 bg-cyan-500/18 text-cyan-100 text-sm font-semibold
                          hover:bg-cyan-500/26 transition-colors"
             >
@@ -609,7 +572,7 @@ export function HomeShell({ isSignedIn, userName }: { isSignedIn: boolean; userN
     <>
       <div className="md:hidden">{mobileLanding}</div>
       <div className="hidden md:block">{showDesktopAllModulesPage ? desktopAllModulesCenterPage : desktopLanding}</div>
-      <HelpFloatWidget isSignedIn={false} loginHref={loginHref} onboardHref="/onboard" />
+      <DesktopHelpWidget />
     </>
   );
 }

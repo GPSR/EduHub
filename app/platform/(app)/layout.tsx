@@ -17,6 +17,7 @@ export default async function PlatformAppLayout({ children }: { children: React.
           { href: "/platform", label: "Dashboard", icon: "◈" },
           { href: "/platform/schools", label: "Schools", icon: "🏫" },
           { href: "/platform/gallery", label: "Gallery", icon: "🖼️" },
+          { href: "/platform/demo-requests", label: "Demo Requests", icon: "🗂️" },
           { href: "/platform/support", label: "Support", icon: "💬" },
           { href: "/platform/onboarding-requests", label: "Approvals", icon: "📋" },
           { href: "/platform/users", label: "Users", icon: "🛡" },
@@ -27,6 +28,7 @@ export default async function PlatformAppLayout({ children }: { children: React.
       : [
           { href: "/platform", label: "Dashboard", icon: "◈" },
           { href: "/platform/gallery", label: "Gallery", icon: "🖼️" },
+          { href: "/platform/demo-requests", label: "Demo Requests", icon: "🗂️" },
           { href: "/platform/support", label: "Support", icon: "💬" }
         ];
 
@@ -36,6 +38,7 @@ export default async function PlatformAppLayout({ children }: { children: React.
           { href: "/platform", label: "Home", icon: "◈" },
           { href: "/platform/schools", label: "Schools", icon: "🏫" },
           { href: "/platform/gallery", label: "Gallery", icon: "🖼️" },
+          { href: "/platform/demo-requests", label: "Demo", icon: "🗂️" },
           { href: "/platform/support", label: "Support", icon: "💬" },
           { href: "/platform/onboarding-requests", label: "Approvals", icon: "📋" },
           { href: "/platform/users", label: "Users", icon: "🛡" },
@@ -46,6 +49,7 @@ export default async function PlatformAppLayout({ children }: { children: React.
       : [
           { href: "/platform", label: "Home", icon: "◈" },
           { href: "/platform/gallery", label: "Gallery", icon: "🖼️" },
+          { href: "/platform/demo-requests", label: "Demo", icon: "🗂️" },
           { href: "/platform/support", label: "Support", icon: "💬" }
         ];
   const mobileItems = mobileNavCandidates;

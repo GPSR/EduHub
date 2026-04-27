@@ -40,6 +40,12 @@ enum OnboardingRequestStatus {
   REJECTED
 }
 
+enum DemoRequestStatus {
+  NEW
+  CONTACTED
+  CLOSED
+}
+
 enum PasswordResetSubjectType {
   PLATFORM_USER
   SCHOOL_USER
@@ -137,6 +143,7 @@ model PlatformUser {
   createdSupportConversations     SupportConversation[]                    @relation("SupportConversationCreatedByPlatformUser")
   supportConversationParticipants SupportConversationPlatformParticipant[]
   supportMessagesSent             SupportMessage[]                         @relation("SupportMessageSenderPlatformUser")
+  reviewedDemoRequests            DemoRequest[]                            @relation("DemoRequestReviewedBy")
 }
 
 model PlatformUserSchoolAssignment {
@@ -229,6 +236,30 @@ model SchoolOnboardingRequest {
   @@index([schoolSlug])
   @@index([adminEmail, createdAt])
   @@index([adminPhone, createdAt])
+}
+
+model DemoRequest {
+  id                       String            @id @default(cuid())
+  firstName                String
+  lastName                 String
+  schoolName               String
+  address                  String
+  email                    String
+  mobileNumber             String
+  bestTimeToReach          String
+  status                   DemoRequestStatus @default(NEW)
+  note                     String?
+  reviewedByPlatformUserId String?
+  reviewedAt               DateTime?
+  createdAt                DateTime          @default(now())
+  updatedAt                DateTime          @updatedAt
+
+  reviewedBy PlatformUser? @relation("DemoRequestReviewedBy", fields: [reviewedByPlatformUserId], references: [id], onDelete: SetNull)
+
+  @@index([status, createdAt])
+  @@index([email, createdAt])
+  @@index([schoolName, createdAt])
+  @@index([reviewedByPlatformUserId, createdAt])
 }
 
 model ModuleField {
