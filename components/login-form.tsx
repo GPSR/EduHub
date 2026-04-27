@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useActionState } from "react";
 import { Button, Input, Label } from "@/components/ui";
 import { loginAction, type LoginState } from "@/app/login/actions";
+import { BiometricLoginButton } from "@/components/biometric-login-button";
 
 const initialState: LoginState = { ok: true };
 
@@ -64,6 +65,8 @@ export function LoginForm({ defaultSchoolSlug }: { defaultSchoolSlug?: string })
           </span>
         ) : "Sign in →"}
       </Button>
+
+      <BiometricLoginButton scope="school" />
     </form>
   );
 }

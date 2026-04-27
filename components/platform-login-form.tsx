@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useActionState } from "react";
 import { Button, Input, Label } from "@/components/ui";
 import { platformLoginAction, type PlatformLoginState } from "@/app/platform/login/actions";
+import { BiometricLoginButton } from "@/components/biometric-login-button";
 
 const initialState: PlatformLoginState = { ok: true };
 
@@ -44,6 +45,8 @@ export function PlatformLoginForm() {
       <Button type="submit" className="w-full" disabled={pending}>
         {pending ? "Signing in..." : "Sign in"}
       </Button>
+
+      <BiometricLoginButton scope="platform" />
     </form>
   );
 }

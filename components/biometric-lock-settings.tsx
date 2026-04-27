@@ -6,7 +6,9 @@ import { Card } from "@/components/ui";
 import { haptic, isNative } from "@/lib/native";
 import {
   BIOMETRIC_PREFERENCE_CHANGED_EVENT,
+  getBiometricCredentialServer,
   getBiometricPreferenceKey,
+  isPlatformPathname,
   readBiometricPreference,
   writeBiometricPreference,
 } from "@/lib/biometric-preference";
@@ -27,6 +29,11 @@ export function BiometricLockSettings() {
   const pathname = usePathname() || "/";
   const native = useMemo(() => isNative(), []);
   const preferenceKey = useMemo(() => getBiometricPreferenceKey(pathname), [pathname]);
+  const credentialServer = useMemo(() => getBiometricCredentialServer(pathname), [pathname]);
+  const credentialEndpoint = useMemo(
+    () => (isPlatformPathname(pathname) ? "/api/biometric/platform/credential" : "/api/biometric/school/credential"),
+    [pathname]
+  );
 
   const [enabled, setEnabled] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -81,6 +88,12 @@ export function BiometricLockSettings() {
     setMessage(null);
 
     if (!nextEnabled) {
+      try {
+        const { NativeBiometric } = await import("@capgo/capacitor-native-biometric");
+        await NativeBiometric.deleteCredentials({ server: credentialServer });
+      } catch {
+        // Ignore native storage deletion errors during disable.
+      }
       writeBiometricPreference(pathname, false);
       setEnabled(false);
       setMessage("Biometric lock disabled.");
@@ -90,7 +103,7 @@ export function BiometricLockSettings() {
 
     setBusy(true);
     try {
-      const { NativeBiometric } = await import("@capgo/capacitor-native-biometric");
+      const { AccessControl, NativeBiometric } = await import("@capgo/capacitor-native-biometric");
       const check = await NativeBiometric.isAvailable({ useFallback: true });
       setUnlockLabel(biometryLabel(check.biometryType));
       setAvailability(check.isAvailable ? "available" : "unavailable");
@@ -100,15 +113,46 @@ export function BiometricLockSettings() {
         return;
       }
 
+      const response = await fetch(credentialEndpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: "{}",
+      });
+      const payload = (await response.json().catch(() => null)) as
+        | { ok?: boolean; token?: string; message?: string }
+        | null;
+
+      if (!response.ok || !payload?.ok || !payload.token) {
+        const fallback = "Unable to set up biometric sign-in right now.";
+        setMessage(payload?.message ?? fallback);
+        writeBiometricPreference(pathname, false);
+        setEnabled(false);
+        void haptic("warning");
+        return;
+      }
+
+      await NativeBiometric.setCredentials({
+        username: "eduhub-biometric",
+        password: payload.token,
+        server: credentialServer,
+        accessControl: AccessControl.BIOMETRY_ANY,
+      });
+
       writeBiometricPreference(pathname, true);
       setEnabled(true);
-      setMessage("Biometric lock enabled.");
+      setMessage("Biometric lock enabled. You can sign in using Face ID/Fingerprint after logout.");
       void haptic("success");
     } catch {
       setMessage("Unable to enable biometric lock right now.");
       void haptic("warning");
       setEnabled(false);
       writeBiometricPreference(pathname, false);
+      try {
+        const { NativeBiometric } = await import("@capgo/capacitor-native-biometric");
+        await NativeBiometric.deleteCredentials({ server: credentialServer });
+      } catch {
+        // Ignore cleanup errors.
+      }
     } finally {
       setBusy(false);
     }
@@ -120,42 +164,46 @@ export function BiometricLockSettings() {
       : availability === "checking"
         ? "Checking biometric availability..."
         : availability === "available"
-          ? `${unlockLabel} is available on this device.`
-          : "Biometric unlock is not available on this device.";
+          ? `${unlockLabel} is available.`
+          : "Not available on this device.";
 
   return (
     <Card
-      title="Biometric Lock"
-      description="Control Face ID / fingerprint lock for this app on this device."
+      title="Face ID / Fingerprint"
+      description="Simple app unlock toggle."
       accent="teal"
     >
-      <div className="rounded-[14px] border border-white/[0.12] bg-[#0f1728]/70 px-4 py-3">
+      <div className="rounded-[14px] border border-white/[0.12] bg-[#0f1728]/72 px-4 py-3.5">
         <div className="flex items-center justify-between gap-3">
           <div>
-            <p className="text-sm font-semibold text-white/92">{enabled ? "Enabled" : "Disabled"}</p>
-            <p className="mt-0.5 text-xs text-white/55">{availabilityText}</p>
+            <p className="text-sm font-semibold text-white/92">{unlockLabel}</p>
+            <p className="mt-0.5 text-xs text-white/55">Toggle on / off</p>
           </div>
-          <button
-            type="button"
-            role="switch"
-            aria-checked={enabled}
-            aria-label={enabled ? "Disable biometric lock" : "Enable biometric lock"}
-            onClick={() => void toggleBiometricLock()}
-            disabled={!native || busy}
-            className={[
-              "relative inline-flex h-7 w-12 items-center rounded-full transition",
-              enabled ? "bg-emerald-500/90" : "bg-white/20",
-              (!native || busy) ? "cursor-not-allowed opacity-60" : "hover:opacity-90",
-            ].join(" ")}
-          >
-            <span
+          <div className="flex items-center gap-2.5">
+            <span className="text-[12px] font-medium text-white/75">{enabled ? "On" : "Off"}</span>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={enabled}
+              aria-label={enabled ? "Turn biometric lock off" : "Turn biometric lock on"}
+              onClick={() => void toggleBiometricLock()}
+              disabled={!native || busy}
               className={[
-                "inline-block h-5 w-5 rounded-full bg-white shadow transition-transform",
-                enabled ? "translate-x-6" : "translate-x-1",
+                "relative inline-flex h-7 w-12 items-center rounded-full transition",
+                enabled ? "bg-emerald-500/90" : "bg-white/20",
+                (!native || busy) ? "cursor-not-allowed opacity-60" : "hover:opacity-90",
               ].join(" ")}
-            />
-          </button>
+            >
+              <span
+                className={[
+                  "inline-block h-5 w-5 rounded-full bg-white shadow transition-transform",
+                  enabled ? "translate-x-6" : "translate-x-1",
+                ].join(" ")}
+              />
+            </button>
+          </div>
         </div>
+        <p className="mt-2 text-[11px] text-white/50">{availabilityText}</p>
       </div>
 
       {message ? (

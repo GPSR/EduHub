@@ -52,7 +52,6 @@ export function FolderSlideshow({
   items: SlideItem[];
 }) {
   const [index, setIndex] = useState(0);
-  const [autoPlay, setAutoPlay] = useState(items.length > 1);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [fullViewOpen, setFullViewOpen] = useState(false);
   const swipeStartMainRef = useRef<number | null>(null);
@@ -66,18 +65,9 @@ export function FolderSlideshow({
 
   useEffect(() => {
     setIndex(0);
-    setAutoPlay(items.length > 1);
     setFeedback(null);
     setFullViewOpen(false);
   }, [folderId, items.length]);
-
-  useEffect(() => {
-    if (!autoPlay || items.length <= 1 || fullViewOpen) return;
-    const timer = window.setInterval(() => {
-      setIndex((current) => (current + 1) % items.length);
-    }, 3400);
-    return () => window.clearInterval(timer);
-  }, [autoPlay, fullViewOpen, items.length]);
 
   useEffect(() => {
     if (!feedback) return;
@@ -190,35 +180,7 @@ export function FolderSlideshow({
 
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="text-[11px] text-white/45">Swipe left or right to move photos</div>
-          <div className="flex items-center gap-1.5">
-            {items.length > 1 ? (
-              <button
-                type="button"
-                onClick={() => setAutoPlay((value) => !value)}
-                className="rounded-full border border-white/20 bg-black/35 px-2.5 py-1 text-[11px] font-semibold text-white/90 hover:bg-black/55"
-              >
-                {autoPlay ? "Pause" : "Play"}
-              </button>
-            ) : null}
-            <a
-              href={active.imageUrl}
-              download={`${sanitizeDownloadName(active.title)}.jpg`}
-              title="Download image"
-              aria-label="Download image"
-              className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-emerald-300/35 bg-emerald-500/20 text-emerald-100 hover:bg-emerald-500/30"
-            >
-              <DownloadIcon />
-            </a>
-            <button
-              type="button"
-              onClick={onShare}
-              title="Share image"
-              aria-label="Share image"
-              className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-blue-300/35 bg-blue-500/20 text-blue-100 hover:bg-blue-500/30"
-            >
-              <ShareIcon />
-            </button>
-          </div>
+          <div className="text-[11px] text-white/45">Tap image for full view</div>
         </div>
 
         <div className="flex gap-2 overflow-x-auto pb-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
@@ -256,60 +218,53 @@ export function FolderSlideshow({
             onClick={() => setFullViewOpen(false)}
             className="absolute inset-0"
           />
-          <div className="relative flex h-full w-full flex-col">
-            <div className="flex items-center justify-between border-b border-white/[0.12] px-3 py-[max(0.65rem,env(safe-area-inset-top))]">
-              <p className="truncate text-sm font-semibold text-white/92">{active.title}</p>
+          <div
+            className="relative h-full w-full"
+            onTouchStart={(event) => startSwipe(event, swipeStartFullViewRef)}
+            onTouchEnd={(event) => endSwipe(event, swipeStartFullViewRef)}
+          >
+            <Image
+              src={active.imageUrl}
+              alt={active.title}
+              fill
+              sizes="100vw"
+              className="object-contain object-center"
+              priority
+            />
+
+            <div className="pointer-events-none absolute inset-x-0 top-0 h-20 bg-gradient-to-b from-black/60 to-transparent" />
+
+            <div className="absolute right-3 top-[max(0.55rem,env(safe-area-inset-top))] flex items-center gap-2">
+              <a
+                href={active.imageUrl}
+                download={`${sanitizeDownloadName(active.title)}.jpg`}
+                title="Download image"
+                aria-label="Download image"
+                className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-emerald-300/35 bg-emerald-500/20 text-emerald-100 backdrop-blur transition hover:bg-emerald-500/30"
+              >
+                <DownloadIcon className="h-[18px] w-[18px]" />
+              </a>
+              <button
+                type="button"
+                onClick={onShare}
+                title="Share image"
+                aria-label="Share image"
+                className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-blue-300/35 bg-blue-500/20 text-blue-100 backdrop-blur transition hover:bg-blue-500/30"
+              >
+                <ShareIcon className="h-[18px] w-[18px]" />
+              </button>
               <button
                 type="button"
                 onClick={() => setFullViewOpen(false)}
-                className="inline-flex h-8 w-8 items-center justify-center rounded-[10px] border border-white/[0.16] bg-white/[0.04] text-white/80 transition hover:bg-white/[0.1]"
+                className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/[0.2] bg-black/45 text-white/90 backdrop-blur transition hover:bg-black/60"
                 aria-label="Close"
               >
                 ✕
               </button>
             </div>
 
-            <div
-              className="relative flex-1"
-              onTouchStart={(event) => startSwipe(event, swipeStartFullViewRef)}
-              onTouchEnd={(event) => endSwipe(event, swipeStartFullViewRef)}
-            >
-              <Image
-                src={active.imageUrl}
-                alt={active.title}
-                fill
-                sizes="100vw"
-                className="object-contain"
-                priority
-              />
-            </div>
-
-            <div className="border-t border-white/[0.12] px-3 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
-              <p className="text-[12px] text-white/72">{active.caption ?? "No caption"}</p>
-              <p className="mt-1 text-[11px] text-white/52">By {active.by}</p>
-              <div className="mt-2.5 flex items-center justify-between gap-2">
-                <span className="text-[11px] text-white/45">Swipe to browse</span>
-                <div className="flex items-center gap-1.5">
-                  <a
-                    href={active.imageUrl}
-                    download={`${sanitizeDownloadName(active.title)}.jpg`}
-                    title="Download image"
-                    aria-label="Download image"
-                    className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-emerald-300/35 bg-emerald-500/20 text-emerald-100 hover:bg-emerald-500/30"
-                  >
-                    <DownloadIcon className="h-[18px] w-[18px]" />
-                  </a>
-                  <button
-                    type="button"
-                    onClick={onShare}
-                    title="Share image"
-                    aria-label="Share image"
-                    className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-blue-300/35 bg-blue-500/20 text-blue-100 hover:bg-blue-500/30"
-                  >
-                    <ShareIcon className="h-[18px] w-[18px]" />
-                  </button>
-                </div>
-              </div>
+            <div className="pointer-events-none absolute bottom-[max(0.6rem,env(safe-area-inset-bottom))] left-1/2 -translate-x-1/2 rounded-full border border-white/20 bg-black/45 px-3 py-1 text-[11px] font-medium text-white/82 backdrop-blur">
+              Swipe left or right
             </div>
           </div>
         </div>

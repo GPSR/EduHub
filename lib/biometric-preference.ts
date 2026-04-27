@@ -2,9 +2,19 @@ export const BIOMETRIC_PREFERENCE_CHANGED_EVENT = "eduhub:biometric-preference-c
 
 const SCHOOL_BIOMETRIC_KEY = "eduhub_biometric_lock_school_v1";
 const PLATFORM_BIOMETRIC_KEY = "eduhub_biometric_lock_platform_v1";
+const SCHOOL_BIOMETRIC_CREDENTIAL_SERVER = "eduhub.school.biometric.v1";
+const PLATFORM_BIOMETRIC_CREDENTIAL_SERVER = "eduhub.platform.biometric.v1";
+
+export function isPlatformPathname(pathname: string): boolean {
+  return pathname.startsWith("/platform");
+}
 
 export function getBiometricPreferenceKey(pathname: string): string {
-  return pathname.startsWith("/platform") ? PLATFORM_BIOMETRIC_KEY : SCHOOL_BIOMETRIC_KEY;
+  return isPlatformPathname(pathname) ? PLATFORM_BIOMETRIC_KEY : SCHOOL_BIOMETRIC_KEY;
+}
+
+export function getBiometricCredentialServer(pathname: string): string {
+  return isPlatformPathname(pathname) ? PLATFORM_BIOMETRIC_CREDENTIAL_SERVER : SCHOOL_BIOMETRIC_CREDENTIAL_SERVER;
 }
 
 export function readBiometricPreference(pathname: string): boolean {

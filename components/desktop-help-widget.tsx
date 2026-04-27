@@ -10,6 +10,7 @@ type DesktopHelpWidgetProps = {
   whatsappHref?: string;
   emailLabel?: string;
   emailHref?: string;
+  isSignedIn?: boolean;
 };
 
 export function DesktopHelpWidget({
@@ -17,7 +18,8 @@ export function DesktopHelpWidget({
   callHref = "tel:+16096086379",
   whatsappHref = "https://wa.me/16096086379?text=Hi%20EduHub",
   emailLabel = "info@softlanetech.com",
-  emailHref = "mailto:info@softlanetech.com"
+  emailHref = "mailto:info@softlanetech.com",
+  isSignedIn = false
 }: DesktopHelpWidgetProps) {
   const [open, setOpen] = useState(false);
   const [native, setNative] = useState<boolean>(() => {
@@ -32,13 +34,11 @@ export function DesktopHelpWidget({
   const rootRef = useRef<HTMLDivElement | null>(null);
   const pathname = usePathname();
 
-  const hideOnRoutes = new Set([
-    "/login",
-    "/onboard",
-    "/platform/login",
-    "/platform/onboard",
-  ]);
-  const shouldHideWidget = pathname ? hideOnRoutes.has(pathname) : false;
+  const hideOnRoutePrefixes = ["/login", "/onboard", "/platform/login", "/platform/onboard"];
+  const routeHidden = pathname
+    ? hideOnRoutePrefixes.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`))
+    : false;
+  const shouldHideWidget = isSignedIn || routeHidden;
 
   useEffect(() => {
     const syncNative = () => {
