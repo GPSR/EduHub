@@ -146,6 +146,11 @@ a { color: inherit; }
   padding-top: env(safe-area-inset-top, 0px);
 }
 
+/* Capacitor iOS/Android shell already applies safe insets; avoid double top gap */
+.native-shell .header-safe {
+  padding-top: 0 !important;
+}
+
 /* ── Scrollable containers ───────────────────────── */
 .scroll-x {
   overflow-x: auto;

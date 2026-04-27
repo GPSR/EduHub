@@ -8,10 +8,16 @@ import { useEffect } from "react";
  */
 export function CapacitorInit() {
   useEffect(() => {
+    let nativeClassApplied = false;
+
     async function init() {
       const { isNative, hideSplash, setStatusBar } = await import("@/lib/native");
       if (!isNative()) return;
       const root = document.documentElement;
+      const body = document.body;
+      root.classList.add("native-shell");
+      body.classList.add("native-shell");
+      nativeClassApplied = true;
 
       const setKeyboardOffset = (height: number) => {
         root.style.setProperty("--keyboard-offset", `${Math.max(0, Math.round(height))}px`);
@@ -96,6 +102,14 @@ export function CapacitorInit() {
     }
 
     init();
+
+    return () => {
+      if (!nativeClassApplied) return;
+      const root = document.documentElement;
+      const body = document.body;
+      root.classList.remove("native-shell");
+      body.classList.remove("native-shell");
+    };
   }, []);
 
   return null;

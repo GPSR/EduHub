@@ -64,19 +64,19 @@ export default async function PlatformAppLayout({ children }: { children: React.
 
   return (
     <div className="min-h-dvh md:min-h-screen overflow-x-clip">
-      <header className="sticky top-0 z-20 border-b border-white/[0.10] bg-[#0f1728]/80 backdrop-blur-2xl pt-[max(0px,env(safe-area-inset-top))]">
+      <header className="header-safe sticky top-0 z-20 border-b border-white/[0.10] bg-[#0f1728]/80 backdrop-blur-2xl">
         <div className="mx-auto max-w-[1320px] px-3 sm:px-4 md:px-6">
-          <div className="relative flex min-h-[60px] items-center justify-between py-2 md:hidden">
+          <div className="relative flex min-h-[66px] items-center justify-between py-2 md:hidden">
             <PlatformMobileProfileTrigger userName={user.name} photoUrl={profilePhotoUrl} />
             <div className="absolute left-1/2 -translate-x-1/2">
-              <BrandIcon size={28} href="/platform" />
+              <BrandIcon size={42} href="/platform" />
             </div>
             <div className="w-9" />
           </div>
 
           <div className="hidden min-h-[60px] items-center justify-between gap-3 py-2 md:flex">
             <div className="flex min-w-0 items-center gap-2">
-              <BrandIcon size={28} href="/platform" />
+              <BrandIcon size={34} href="/platform" />
               <div className="h-6 w-px bg-white/[0.10]" />
               <span
                 className="inline-flex rounded-full border border-blue-400/35 bg-blue-500/18 px-2.5 py-1
