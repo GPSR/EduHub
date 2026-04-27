@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { isNative } from "@/lib/native";
 
 interface BeforeInstallPromptEvent extends Event {
   prompt(): Promise<void>;
@@ -14,6 +15,16 @@ export function PWAInstallPrompt() {
   const [isStandalone, setIsStandalone] = useState(false);
 
   useEffect(() => {
+    // Never show PWA install banner inside Capacitor native apps.
+    if (isNative() || window.location.protocol === "capacitor:") {
+      return;
+    }
+
+    // Show only on mobile web viewport.
+    if (!window.matchMedia("(max-width: 767px)").matches) {
+      return;
+    }
+
     // Already installed?
     const standalone =
       window.matchMedia("(display-mode: standalone)").matches ||
