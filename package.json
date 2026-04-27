@@ -37,6 +37,7 @@
     "@capacitor/network": "^7.0.0",
     "@capacitor/splash-screen": "^7.0.0",
     "@capacitor/status-bar": "^7.0.0",
+    "@capgo/capacitor-native-biometric": "^7.6.0",
     "@prisma/adapter-better-sqlite3": "^7.7.0",
     "@prisma/client": "^6.7.0",
     "@prisma/engines": "^7.7.0",

@@ -7,6 +7,7 @@ import {
   updatePlatformProfileAction,
   type PlatformProfileState
 } from "@/app/platform/(app)/profile/actions";
+import { BiometricLockSettings } from "@/components/biometric-lock-settings";
 
 const initialState: PlatformProfileState = { ok: true };
 
@@ -122,6 +123,8 @@ export function PlatformProfileSettings({
           </form>
         )}
       </Card>
+
+      <BiometricLockSettings />
 
       <Card
         title="Change password"

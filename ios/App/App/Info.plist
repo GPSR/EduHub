@@ -26,6 +26,8 @@
 	<true/>
 	<key>NSCameraUsageDescription</key>
 	<string>Allow camera access to capture profile and student photos.</string>
+	<key>NSFaceIDUsageDescription</key>
+	<string>Allow Face ID to quickly and securely unlock your school app.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Allow location access for live transport tracking when trips are active.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { Card } from "@/components/ui";
 import { BrandWordmark } from "@/components/brand";
+import { HelpFloatWidget } from "@/components/help-float-widget";
 
 const STORAGE_KEY = "eduhub_onboarded_v1";
 const STORAGE_SLUG_KEY = "eduhub_school_slug_v1";
@@ -102,12 +103,6 @@ const MOBILE_FEATURES = [
     className: "bg-[linear-gradient(135deg,rgba(251,146,60,0.2),rgba(249,115,22,0.08))] border-orange-300/25",
   },
   {
-    icon: "💬",
-    label: "Support",
-    desc: "Role-based chat",
-    className: "bg-[linear-gradient(135deg,rgba(59,130,246,0.2),rgba(14,165,233,0.08))] border-cyan-300/25",
-  },
-  {
     icon: "🚌",
     label: "Transport",
     desc: "Live tracking bus",
@@ -133,7 +128,6 @@ const ALL_MODULES = [
   { icon: "🎓", label: "Progress Card", desc: "Exam results and reports" },
   { icon: "📊", label: "Reports", desc: "Analytics and exports" },
   { icon: "🔔", label: "Notifications", desc: "Alerts for users" },
-  { icon: "💬", label: "Support Chat", desc: "Parent-school-platform support" },
   { icon: "🚌", label: "Transport", desc: "Live tracking bus" },
   { icon: "⚙️", label: "School Settings", desc: "School configuration" },
   { icon: "🧑‍💼", label: "Users", desc: "Roles and permissions" },
@@ -153,7 +147,7 @@ const DESKTOP_WIDGET_SKINS = [
 
 const DESKTOP_MODULES_AUTOSCROLL_PX_PER_SEC = 72;
 
-export function HomeShell({ isSignedIn }: { isSignedIn: boolean }) {
+export function HomeShell({ isSignedIn, userName }: { isSignedIn: boolean; userName?: string | null }) {
   const [onboarded, setOnboarded] = useState<boolean | null>(null);
   const [slug, setSlug] = useState<string | undefined>(undefined);
   const [showAllModules, setShowAllModules] = useState(false);
@@ -213,6 +207,9 @@ export function HomeShell({ isSignedIn }: { isSignedIn: boolean }) {
   const primaryLabel = onboarded ? "Login →" : "Onboard School →";
   const secondaryHref = onboarded ? "/onboard" : loginHref;
   const secondaryLabel = onboarded ? "Onboard School" : "Login";
+  const liveChatHref = isSignedIn ? "/support" : loginHref;
+  const preferredName = (userName ?? "").trim();
+  const welcomeTitle = preferredName ? `Welcome back, ${preferredName}` : "Welcome back";
 
   /* Skeleton while checking localStorage */
   if (onboarded === null && !isSignedIn) {
@@ -352,6 +349,27 @@ export function HomeShell({ isSignedIn }: { isSignedIn: boolean }) {
         )}
       </section>
 
+      <section className="rounded-[18px] border border-cyan-300/25 bg-[linear-gradient(140deg,rgba(14,165,233,0.2),rgba(6,182,212,0.08),#0b1224)] p-3 md:p-4">
+        <div className="flex items-start justify-between gap-2">
+          <div>
+            <p className="text-[12px] font-bold text-white/90">Live Chat Widget</p>
+            <p className="mt-0.5 text-[10px] text-white/58">Support is now available as a home widget, not a module tile.</p>
+          </div>
+          <span className="inline-flex items-center gap-1 rounded-full border border-emerald-300/40 bg-emerald-500/15 px-2 py-0.5 text-[9px] font-semibold text-emerald-100">
+            <span className="h-1.5 w-1.5 rounded-full bg-emerald-300" />
+            Live
+          </span>
+        </div>
+        <div className="mt-3">
+          <Link
+            href={liveChatHref}
+            className="flex h-9 items-center justify-center rounded-[12px] border border-cyan-300/35 bg-cyan-500/20 text-[11px] font-semibold text-cyan-100 transition hover:bg-cyan-500/28"
+          >
+            Open Live Chat
+          </Link>
+        </div>
+      </section>
+
       <section className="rounded-[16px] border border-white/[0.08] bg-[#060912]/95 px-2 py-2 md:hidden">
         <div className="flex items-end justify-around">
           {[
@@ -467,6 +485,29 @@ export function HomeShell({ isSignedIn }: { isSignedIn: boolean }) {
               </div>
             </div>
           </div>
+
+          <div className="rounded-[20px] border border-cyan-300/25 bg-[linear-gradient(140deg,rgba(14,165,233,0.2),rgba(6,182,212,0.08),#0b1224)] p-4">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="text-[13px] font-semibold text-white/92">Live Chat Widget</p>
+                <p className="mt-0.5 text-[12px] text-white/58">
+                  Support moved out of module tiles. Open live chat directly from home.
+                </p>
+              </div>
+              <span className="inline-flex items-center gap-1 rounded-full border border-emerald-300/40 bg-emerald-500/15 px-2.5 py-1 text-[10px] font-semibold text-emerald-100">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-300" />
+                Live
+              </span>
+            </div>
+            <div className="mt-3">
+              <Link
+                href={liveChatHref}
+                className="inline-flex h-10 items-center justify-center rounded-[12px] border border-cyan-300/35 bg-cyan-500/20 px-4 text-[12px] font-semibold text-cyan-100 transition hover:bg-cyan-500/28"
+              >
+                Open Live Chat
+              </Link>
+            </div>
+          </div>
         </div>
       </section>
     </div>
@@ -514,24 +555,36 @@ export function HomeShell({ isSignedIn }: { isSignedIn: boolean }) {
   if (isSignedIn) {
     return (
       <div className="space-y-3 md:grid md:grid-cols-2 md:gap-4 md:space-y-0">
-        <Card title="Welcome back" accent="indigo">
-          <p className="text-sm text-white/60 mb-4">Continue where you left off.</p>
-          <Link
-            href="/dashboard"
-            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-[13px]
-                       bg-gradient-to-b from-[#67b4ff] to-[#4f8dfd] text-white text-sm font-medium
-                       shadow-[0_10px_28px_-12px_rgba(79,141,253,0.72)]
-                       hover:from-[#7ac0ff] hover:to-[#5a95ff] transition-colors"
-          >
-            Open dashboard →
-          </Link>
+        <Card title={welcomeTitle} accent="indigo">
+          <div className="mb-4 flex flex-col items-center text-center">
+            <BrandWordmark size="sm" className="pointer-events-none w-[118px] opacity-95" />
+            <p className="mt-3 text-sm text-white/65">Continue where you left off.</p>
+          </div>
+          <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-center">
+            <Link
+              href="/dashboard"
+              className="inline-flex w-full justify-center items-center gap-2 px-5 py-2.5 rounded-[13px] sm:w-auto
+                         bg-gradient-to-b from-[#67b4ff] to-[#4f8dfd] text-white text-sm font-medium
+                         shadow-[0_10px_28px_-12px_rgba(79,141,253,0.72)]
+                         hover:from-[#7ac0ff] hover:to-[#5a95ff] transition-colors"
+            >
+              Open dashboard →
+            </Link>
+            <Link
+              href="/support"
+              className="inline-flex w-full justify-center items-center gap-2 px-4 py-2.5 rounded-[13px] sm:w-auto
+                         border border-cyan-300/35 bg-cyan-500/18 text-cyan-100 text-sm font-semibold
+                         hover:bg-cyan-500/26 transition-colors"
+            >
+              Live Chat Widget
+            </Link>
+          </div>
         </Card>
         <Card title="Quick links" accent="teal">
           <div className="grid grid-cols-2 gap-2">
             {[
               { href: "/gallery",    icon: "🖼️", label: "Gallery"    },
               { href: "/students",   icon: "👥", label: "Students"   },
-              { href: "/support",    icon: "💬", label: "Support"    },
               { href: "/fees",       icon: "💳", label: "Fees"       },
               { href: "/attendance", icon: "✅", label: "Attendance" },
               { href: "/feed",       icon: "📢", label: "Feed"       },
@@ -556,6 +609,7 @@ export function HomeShell({ isSignedIn }: { isSignedIn: boolean }) {
     <>
       <div className="md:hidden">{mobileLanding}</div>
       <div className="hidden md:block">{showDesktopAllModulesPage ? desktopAllModulesCenterPage : desktopLanding}</div>
+      <HelpFloatWidget isSignedIn={false} loginHref={loginHref} onboardHref="/onboard" />
     </>
   );
 }

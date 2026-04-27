@@ -3,6 +3,7 @@
 import { useActionState, useEffect, useState } from "react";
 import { Button, Card, Input, Label, Select, Textarea } from "@/components/ui";
 import { changePasswordAction, updateProfileAction, type ProfileState } from "@/app/(app)/profile/actions";
+import { BiometricLockSettings } from "@/components/biometric-lock-settings";
 
 const initialState: ProfileState = { ok: true };
 
@@ -220,6 +221,8 @@ export function ProfileSettings({
           </form>
         )}
       </Card>
+
+      <BiometricLockSettings />
 
       <Card
         title="Change Password"

@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { CapacitorInit } from "@/components/capacitor-init";
+import { MobileBiometricGate } from "@/components/mobile-biometric-gate";
 import { NetworkBanner } from "@/components/network-banner";
 import { ScrollPreserver } from "@/components/scroll-preserver";
 import { ScrollUnlocker } from "@/components/scroll-unlocker";
@@ -48,6 +49,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body>
         <CapacitorInit />
+        <MobileBiometricGate />
         <NetworkBanner />
         <ScrollPreserver />
         <ScrollUnlocker />
