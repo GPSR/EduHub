@@ -42,6 +42,32 @@ function sanitizeDownloadName(title: string) {
   return normalized.length ? normalized : "gallery-image";
 }
 
+function resolveFileExtension(imageUrl: string, mimeType?: string) {
+  if (mimeType) {
+    if (mimeType.includes("png")) return "png";
+    if (mimeType.includes("webp")) return "webp";
+    if (mimeType.includes("gif")) return "gif";
+    if (mimeType.includes("avif")) return "avif";
+    if (mimeType.includes("jpeg") || mimeType.includes("jpg")) return "jpg";
+  }
+  const urlPath = imageUrl.split("?")[0] ?? "";
+  const fromUrl = urlPath.split(".").pop()?.toLowerCase();
+  if (fromUrl && fromUrl.length <= 5) return fromUrl;
+  return "jpg";
+}
+
+function triggerFileDownload(blob: Blob, fileName: string) {
+  const objectUrl = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = objectUrl;
+  anchor.download = fileName;
+  anchor.rel = "noopener";
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1200);
+}
+
 export function FolderSlideshow({
   folderId,
   folderName,
@@ -119,13 +145,40 @@ export function FolderSlideshow({
   const onShare = async () => {
     try {
       const nav = typeof window !== "undefined" ? window.navigator : null;
+      let fileToShare: File | null = null;
+
+      if (active.imageUrl) {
+        try {
+          const imageResponse = await fetch(active.imageUrl);
+          if (imageResponse.ok) {
+            const imageBlob = await imageResponse.blob();
+            const extension = resolveFileExtension(active.imageUrl, imageBlob.type);
+            fileToShare = new File([imageBlob], `${sanitizeDownloadName(active.title)}.${extension}`, {
+              type: imageBlob.type || `image/${extension}`
+            });
+          }
+        } catch {
+          fileToShare = null;
+        }
+      }
+
       if (nav && typeof nav.share === "function") {
+        if (fileToShare && typeof nav.canShare === "function" && nav.canShare({ files: [fileToShare] })) {
+          await nav.share({
+            title: `${folderName} · ${active.title}`,
+            text: active.caption ?? `Gallery photo from ${folderName}`,
+            files: [fileToShare]
+          });
+          setFeedback("Share opened");
+          return;
+        }
+
         await nav.share({
           title: `${folderName} · ${active.title}`,
           text: active.caption ?? `Gallery photo from ${folderName}`,
           url: active.imageUrl || pageUrl || undefined
         });
-        setFeedback("Shared");
+        setFeedback("Share opened");
         return;
       }
       if (nav?.clipboard?.writeText) {
@@ -136,6 +189,39 @@ export function FolderSlideshow({
       setFeedback("Share not available");
     } catch {
       setFeedback("Share cancelled");
+    }
+  };
+
+  const onDownload = async () => {
+    try {
+      const imageResponse = await fetch(active.imageUrl);
+      if (!imageResponse.ok) {
+        setFeedback("Unable to download image");
+        return;
+      }
+
+      const imageBlob = await imageResponse.blob();
+      const extension = resolveFileExtension(active.imageUrl, imageBlob.type);
+      const fileName = `${sanitizeDownloadName(active.title)}.${extension}`;
+      const nav = typeof window !== "undefined" ? window.navigator : null;
+
+      if (nav && typeof nav.share === "function") {
+        const shareFile = new File([imageBlob], fileName, { type: imageBlob.type || `image/${extension}` });
+        if (typeof nav.canShare === "function" && nav.canShare({ files: [shareFile] })) {
+          await nav.share({
+            title: active.title,
+            text: "Save this image",
+            files: [shareFile]
+          });
+          setFeedback("Save options opened");
+          return;
+        }
+      }
+
+      triggerFileDownload(imageBlob, fileName);
+      setFeedback("Download started");
+    } catch {
+      setFeedback("Unable to download image");
     }
   };
 
@@ -151,12 +237,12 @@ export function FolderSlideshow({
             className="group relative block w-full text-left"
             aria-label={`Open full view for ${active.title}`}
           >
-            <div className="relative aspect-[16/9] md:aspect-[20/9]">
+            <div className="relative h-[165px] sm:h-[210px] md:h-[230px] lg:h-[255px] xl:h-[280px]">
               <Image
                 src={active.imageUrl}
                 alt={active.title}
                 fill
-                sizes="(min-width: 1024px) 80vw, (min-width: 640px) 94vw, 96vw"
+                sizes="(min-width: 1280px) 70vw, (min-width: 1024px) 78vw, (min-width: 640px) 92vw, 96vw"
                 className="object-cover"
                 priority
               />
@@ -181,28 +267,6 @@ export function FolderSlideshow({
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="text-[11px] text-white/45">Swipe left or right to move photos</div>
           <div className="text-[11px] text-white/45">Tap image for full view</div>
-        </div>
-
-        <div className="flex gap-2 overflow-x-auto pb-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-          {items.map((item, itemIndex) => (
-            <button
-              key={item.id}
-              type="button"
-              onClick={() => {
-                setIndex(itemIndex);
-                setFullViewOpen(true);
-              }}
-              className={[
-                "relative h-12 w-[72px] shrink-0 overflow-hidden rounded-[10px] border transition",
-                itemIndex === index
-                  ? "border-blue-300/70 ring-2 ring-blue-400/35"
-                  : "border-white/[0.18] opacity-75 hover:opacity-100"
-              ].join(" ")}
-              aria-label={`Open ${item.title}`}
-            >
-              <Image src={item.imageUrl} alt={item.title} fill sizes="72px" className="object-cover" />
-            </button>
-          ))}
         </div>
 
         <div className="flex items-center justify-end text-[11px] text-white/45">
@@ -235,15 +299,15 @@ export function FolderSlideshow({
             <div className="pointer-events-none absolute inset-x-0 top-0 h-20 bg-gradient-to-b from-black/60 to-transparent" />
 
             <div className="absolute right-3 top-[max(0.55rem,env(safe-area-inset-top))] flex items-center gap-2">
-              <a
-                href={active.imageUrl}
-                download={`${sanitizeDownloadName(active.title)}.jpg`}
+              <button
+                type="button"
+                onClick={onDownload}
                 title="Download image"
                 aria-label="Download image"
                 className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-emerald-300/35 bg-emerald-500/20 text-emerald-100 backdrop-blur transition hover:bg-emerald-500/30"
               >
                 <DownloadIcon className="h-[18px] w-[18px]" />
-              </a>
+              </button>
               <button
                 type="button"
                 onClick={onShare}
