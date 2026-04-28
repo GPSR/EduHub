@@ -581,7 +581,15 @@ export function HomeShell({
           <div className="text-center">
             <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-cyan-100/75">All Modules</p>
             <p className="mt-1 text-[13px] text-white/60">All Modules in EduHub</p>
-            <p className="mt-1 text-[11px] text-white/40">Refresh the page to return to the default home view.</p>
+            <div className="mt-3 flex justify-center">
+              <button
+                type="button"
+                onClick={() => setShowDesktopAllModulesPage(false)}
+                className="inline-flex items-center justify-center rounded-[12px] border border-white/[0.18] bg-white/[0.06] px-4 py-2 text-[12px] font-semibold text-white/88 transition hover:bg-white/[0.12]"
+              >
+                Close
+              </button>
+            </div>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -688,6 +696,15 @@ export function HomeShell({
                     <p className="mt-0.5 text-[11px] leading-snug text-white/74">{module.desc}</p>
                   </article>
                 ))}
+              </div>
+              <div className="sticky bottom-0 mt-3 pt-3">
+                <button
+                  type="button"
+                  onClick={() => setShowMobileAllModules(false)}
+                  className="inline-flex h-11 w-full items-center justify-center rounded-[13px] border border-white/[0.18] bg-[#0f1728]/95 text-[13px] font-semibold text-white/90 shadow-[0_16px_26px_-20px_rgba(0,0,0,0.9)]"
+                >
+                  Close
+                </button>
               </div>
             </div>
           </div>
