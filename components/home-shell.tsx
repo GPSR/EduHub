@@ -661,6 +661,14 @@ export function HomeShell({
             ref={mobileAllModulesPanelRef}
             className="relative w-full h-dvh rounded-none border border-white/[0.14] bg-[#0b1426]/98 shadow-[0_28px_70px_-28px_rgba(0,0,0,0.95)] overflow-hidden"
           >
+            <button
+              type="button"
+              onClick={() => setShowMobileAllModules(false)}
+              className="absolute right-3 top-[max(0.65rem,env(safe-area-inset-top))] z-30 inline-flex h-9 items-center justify-center rounded-[11px] border border-blue-300/40 bg-blue-500/24 px-3 text-[12px] font-semibold text-blue-100 shadow-[0_14px_28px_-18px_rgba(79,141,253,0.9)]"
+              aria-label="Close all modules"
+            >
+              Close
+            </button>
             <div className="flex items-center justify-between gap-3 border-b border-white/[0.08] px-4 py-[max(0.75rem,env(safe-area-inset-top))]">
               <div>
                 <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-cyan-100/80">All Modules</p>
@@ -679,7 +687,7 @@ export function HomeShell({
             <div
               key={`mobile-all-modules-${mobileAllModulesOpenToken}`}
               ref={mobileAllModulesScrollRef}
-              className="h-[calc(100dvh-72px)] overflow-y-auto px-3 py-3.5 pb-[max(1rem,env(safe-area-inset-bottom))] [overflow-anchor:none]"
+              className="h-[calc(100dvh-72px)] overflow-y-auto px-3 py-3.5 pb-[max(5.5rem,calc(env(safe-area-inset-bottom)+5.5rem))] [overflow-anchor:none]"
             >
               <div className="grid grid-cols-1 gap-2.5">
                 {ALL_MODULES.map((module, idx) => (
@@ -697,15 +705,15 @@ export function HomeShell({
                   </article>
                 ))}
               </div>
-              <div className="sticky bottom-0 mt-3 pt-3">
-                <button
-                  type="button"
-                  onClick={() => setShowMobileAllModules(false)}
-                  className="inline-flex h-11 w-full items-center justify-center rounded-[13px] border border-white/[0.18] bg-[#0f1728]/95 text-[13px] font-semibold text-white/90 shadow-[0_16px_26px_-20px_rgba(0,0,0,0.9)]"
-                >
-                  Close
-                </button>
-              </div>
+            </div>
+            <div className="pointer-events-none absolute inset-x-0 bottom-0 z-20 px-3 pb-[max(0.85rem,env(safe-area-inset-bottom))]">
+              <button
+                type="button"
+                onClick={() => setShowMobileAllModules(false)}
+                className="pointer-events-auto inline-flex h-11 w-full items-center justify-center rounded-[13px] border border-white/[0.18] bg-[#0f1728]/95 text-[13px] font-semibold text-white/90 shadow-[0_16px_26px_-20px_rgba(0,0,0,0.9)]"
+              >
+                Close
+              </button>
             </div>
           </div>
         </div>
