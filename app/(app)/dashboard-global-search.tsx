@@ -33,12 +33,20 @@ export function DashboardGlobalSearch({
   initialQuery,
   searchPath = "/dashboard",
   students,
-  teachers
+  teachers,
+  variant = "default",
+  showLabel = true,
+  placeholderOverride,
+  showMicIcon = false
 }: {
   initialQuery: string;
   searchPath?: string;
   students: StudentSuggestion[];
   teachers: TeacherSuggestion[];
+  variant?: "default" | "hero" | "heroCompact";
+  showLabel?: boolean;
+  placeholderOverride?: string;
+  showMicIcon?: boolean;
 }) {
   const router = useRouter();
   const boxRef = useRef<HTMLDivElement | null>(null);
@@ -108,15 +116,24 @@ export function DashboardGlobalSearch({
   const label =
     teachers.length > 0 ? "Global Search (teachers + students)" : "Global Search (students)";
   const placeholder =
-    teachers.length > 0
+    placeholderOverride ??
+    (teachers.length > 0
       ? "Search teacher name/email or student name/ID"
-      : "Search student name, ID, admission no, or roll no";
+      : "Search student name, ID, admission no, or roll no");
+  const hero = variant === "hero";
+  const heroCompact = variant === "heroCompact";
 
   return (
     <div className={clsx("relative space-y-2", open && "z-[120]")} ref={boxRef}>
-      <label className="text-[12px] font-medium text-white/70">{label}</label>
+      {showLabel ? <label className="text-[12px] font-medium text-white/70">{label}</label> : null}
       <div className="relative">
-        <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-white/45" aria-hidden="true">
+        <span
+          className={clsx(
+            "pointer-events-none absolute left-3 top-1/2 -translate-y-1/2",
+            hero ? "text-[#1f4ea7]/75" : heroCompact ? "text-white/45" : "text-white/45"
+          )}
+          aria-hidden="true"
+        >
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
             <path d="M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14Zm9 16-3.5-3.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
           </svg>
@@ -138,11 +155,41 @@ export function DashboardGlobalSearch({
             }
             if (e.key === "Escape") setOpen(false);
           }}
-          className="w-full rounded-full bg-[#0f1728]/90 border border-white/[0.14] pl-10 pr-4 py-2.5 outline-none focus:border-blue-300 focus:ring-4 focus:ring-blue-500/24 transition text-sm"
+          className={clsx(
+            "w-full outline-none transition",
+            hero
+              ? "h-[54px] rounded-[18px] bg-white border border-white/35 pl-10 pr-12 text-[15px] text-[#1f2a3a] placeholder:text-[#6c7687] focus:border-blue-300/80 focus:ring-4 focus:ring-blue-500/24"
+              : heroCompact
+                ? "h-[42px] rounded-[12px] border border-white/[0.14] bg-[#0f1728]/90 pl-10 pr-10 text-[13px] text-white/92 placeholder:text-white/40 focus:border-blue-300/70 focus:ring-4 focus:ring-blue-500/22"
+              : "rounded-full bg-[#0f1728]/90 border border-white/[0.14] pl-10 pr-4 py-2.5 text-sm focus:border-blue-300 focus:ring-4 focus:ring-blue-500/24"
+          )}
         />
+        {showMicIcon ? (
+          <span
+            className={clsx(
+              "pointer-events-none absolute right-4 top-1/2 -translate-y-1/2",
+              hero ? "text-[#5f6978]" : heroCompact ? "text-white/40" : "text-white/40"
+            )}
+            aria-hidden="true"
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+              <path d="M12 3a3 3 0 0 0-3 3v5a3 3 0 1 0 6 0V6a3 3 0 0 0-3-3Z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+              <path d="M6.5 10.5a5.5 5.5 0 1 0 11 0M12 19v2.5M9 21.5h6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+            </svg>
+          </span>
+        ) : null}
 
         {open && normalized && (
-          <div className="absolute z-[130] mt-2 w-full max-h-[55vh] overflow-y-auto rounded-[16px] border border-white/[0.14] bg-[#111a2d]/95 backdrop-blur-2xl shadow-[0_16px_50px_-20px_rgba(0,0,0,0.8)]">
+          <div
+            className={clsx(
+              "absolute z-[130] mt-2 w-full max-h-[55vh] overflow-y-auto rounded-[16px] border backdrop-blur-2xl shadow-[0_16px_50px_-20px_rgba(0,0,0,0.8)]",
+              hero
+                ? "border-[#dfe6f2] bg-white/95"
+                : heroCompact
+                  ? "border-white/[0.14] bg-[#111a2d]/95"
+                : "border-white/[0.14] bg-[#111a2d]/95"
+            )}
+          >
             {suggestions.length > 0 ? (
               suggestions.map((item) => (
                 <button
@@ -154,19 +201,26 @@ export function DashboardGlobalSearch({
                       router.push(item.href);
                       setOpen(false);
                     }}
-                  className="w-full flex items-center justify-between gap-3 px-3.5 py-2.5 text-left text-sm hover:bg-white/[0.06] transition border-b last:border-b-0 border-white/[0.06]"
+                  className={clsx(
+                    "w-full flex items-center justify-between gap-3 px-3.5 py-2.5 text-left text-sm transition border-b last:border-b-0",
+                    hero
+                      ? "hover:bg-[#f4f7fc] border-[#edf2f8]"
+                      : heroCompact
+                        ? "hover:bg-white/[0.06] border-white/[0.06]"
+                      : "hover:bg-white/[0.06] border-white/[0.06]"
+                  )}
                 >
                   <div className="min-w-0">
-                    <div className="text-white/90 truncate">{item.title}</div>
-                    <div className="text-xs text-white/45 truncate">{item.subtitle}</div>
+                    <div className={clsx("truncate", hero ? "text-[#1f2a3a]" : heroCompact ? "text-white/90" : "text-white/90")}>{item.title}</div>
+                    <div className={clsx("text-xs truncate", hero ? "text-[#6d7787]" : heroCompact ? "text-white/45" : "text-white/45")}>{item.subtitle}</div>
                   </div>
-                  <span className="text-[10px] font-semibold uppercase tracking-wider text-white/45">
+                  <span className={clsx("text-[10px] font-semibold uppercase tracking-wider", hero ? "text-[#687487]" : heroCompact ? "text-white/45" : "text-white/45")}>
                     {item.kind}
                   </span>
                 </button>
               ))
             ) : (
-              <div className="px-3.5 py-3 text-xs text-white/50">
+              <div className={clsx("px-3.5 py-3 text-xs", hero ? "text-[#6d7787]" : heroCompact ? "text-white/50" : "text-white/50")}>
                 No matching suggestions. Press Enter to search.
               </div>
             )}

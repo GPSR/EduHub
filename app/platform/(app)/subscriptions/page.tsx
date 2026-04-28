@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Badge, Card, SectionHeader } from "@/components/ui";
-import { prisma } from "@/lib/db";
+import { db } from "@/lib/db";
 import { requireSuperAdmin } from "@/lib/platform-require";
 import { ensureSubscriptionPlanSettings } from "@/lib/subscription";
 
@@ -19,9 +19,9 @@ export default async function PlatformSubscriptionsPage() {
   await ensureSubscriptionPlanSettings();
 
   const [planSettings, customPlans, schools] = await Promise.all([
-    prisma.subscriptionPlanSetting.findMany({ orderBy: { plan: "asc" } }),
-    prisma.customSubscriptionPlan.findMany({ orderBy: { createdAt: "desc" }, take: 100 }),
-    prisma.school.findMany({
+    db.subscriptionPlanSetting.findMany({ orderBy: { plan: "asc" } }),
+    db.customSubscriptionPlan.findMany({ orderBy: { createdAt: "desc" }, take: 100 }),
+    db.school.findMany({
       include: { subscription: { include: { customPlan: true } } },
       orderBy: { name: "asc" }, take: 300,
     }),

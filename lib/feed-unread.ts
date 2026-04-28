@@ -1,11 +1,11 @@
-import { prisma } from "@/lib/db";
+import { db } from "@/lib/db";
 
 function startOfNow() {
   return new Date();
 }
 
 export async function markFeedSeen(schoolId: string, userId: string) {
-  await prisma.auditLog.create({
+  await db.auditLog.create({
     data: {
       schoolId,
       actorType: "SCHOOL_USER",
@@ -19,7 +19,7 @@ export async function markFeedSeen(schoolId: string, userId: string) {
 }
 
 async function getFeedLastSeenAt(schoolId: string, userId: string): Promise<Date | null> {
-  const log = await prisma.auditLog.findFirst({
+  const log = await db.auditLog.findFirst({
     where: {
       schoolId,
       actorType: "SCHOOL_USER",
@@ -55,7 +55,7 @@ export async function getUnreadFeedCount(args: {
 
   if (args.roleKey === "PARENT") {
     const childClassIds = (
-      await prisma.student.findMany({
+      await db.student.findMany({
         where: { schoolId: args.schoolId, parents: { some: { userId: args.userId } } },
         select: { classId: true }
       })
@@ -64,7 +64,7 @@ export async function getUnreadFeedCount(args: {
       .filter(Boolean) as string[];
 
     if (!childClassIds.length) {
-      return prisma.feedPost.count({
+      return db.feedPost.count({
         where: {
           schoolId: args.schoolId,
           scope: "SCHOOL",
@@ -74,7 +74,7 @@ export async function getUnreadFeedCount(args: {
       });
     }
 
-    return prisma.feedPost.count({
+    return db.feedPost.count({
       where: {
         schoolId: args.schoolId,
         authorId: { not: args.userId },
@@ -84,7 +84,7 @@ export async function getUnreadFeedCount(args: {
     });
   }
 
-  return prisma.feedPost.count({
+  return db.feedPost.count({
     where: {
       schoolId: args.schoolId,
       authorId: { not: args.userId },

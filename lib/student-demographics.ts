@@ -1,4 +1,4 @@
-import { prisma } from "@/lib/db";
+import { db } from "@/lib/db";
 
 export type StudentDemographicsConfig = {
   genders: string[];
@@ -50,7 +50,7 @@ export function normalizeStudentDemographicsConfig(
 }
 
 export async function getSchoolStudentDemographicsConfig(schoolId: string): Promise<StudentDemographicsConfig> {
-  const log = await prisma.auditLog.findFirst({
+  const log = await db.auditLog.findFirst({
     where: {
       schoolId,
       action: "STUDENT_DEMOGRAPHICS_CONFIG_UPDATE",

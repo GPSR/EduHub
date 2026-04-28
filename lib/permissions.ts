@@ -1,5 +1,5 @@
-import type { PermissionLevel } from "@prisma/client";
-import { prisma } from "@/lib/db";
+import { db } from "@/lib/db";
+import type { PermissionLevel } from "@/lib/db-types";
 
 export type ModuleKey =
   | "DASHBOARD"
@@ -69,9 +69,9 @@ export function atLeastLevel(current: PermissionLevel, required: PermissionLevel
 }
 
 export async function ensureBaseModules() {
-  await prisma.$transaction(
+  await db.$transaction(
     DEFAULT_MODULES.map((m) =>
-      prisma.module.upsert({
+      db.module.upsert({
         where: { key: m.key },
         update: { name: m.name },
         create: { key: m.key, name: m.name }
@@ -82,7 +82,7 @@ export async function ensureBaseModules() {
 
 export async function ensureSchoolModuleRow(schoolId: string, moduleKey: ModuleKey) {
   await ensureBaseModules();
-  const module = await prisma.module.findUnique({
+  const module = await db.module.findUnique({
     where: { key: moduleKey },
     select: { id: true }
   });
@@ -90,7 +90,7 @@ export async function ensureSchoolModuleRow(schoolId: string, moduleKey: ModuleK
 
   const defaultEnabled = DEFAULT_MODULES.find((entry) => entry.key === moduleKey)?.mvp ?? false;
 
-  await prisma.schoolModule.upsert({
+  await db.schoolModule.upsert({
     where: { schoolId_moduleId: { schoolId, moduleId: module.id } },
     update: {},
     create: {
@@ -105,9 +105,9 @@ export async function seedSchoolModulesAndRolePerms(schoolId: string) {
   await ensureBaseModules();
 
   // Ensure system roles exist per school (enables custom roles later).
-  await prisma.$transaction(
+  await db.$transaction(
     SYSTEM_ROLES.map((r) =>
-      prisma.schoolRole.upsert({
+      db.schoolRole.upsert({
         where: { schoolId_key: { schoolId, key: r.key } },
         update: { name: r.name, isSystem: true },
         create: { schoolId, key: r.key, name: r.name, isSystem: true }
@@ -115,14 +115,14 @@ export async function seedSchoolModulesAndRolePerms(schoolId: string) {
     )
   );
 
-  const modules = await prisma.module.findMany({ select: { id: true, key: true } });
+  const modules = await db.module.findMany({ select: { id: true, key: true } });
   const moduleIdByKey = new Map(modules.map((m) => [m.key as ModuleKey, m.id]));
 
   const enableKeys = new Set(DEFAULT_MODULES.filter((m) => m.mvp).map((m) => m.key));
 
-  await prisma.$transaction(
+  await db.$transaction(
     modules.map((m) =>
-      prisma.schoolModule.upsert({
+      db.schoolModule.upsert({
         where: { schoolId_moduleId: { schoolId, moduleId: m.id } },
         update: { enabled: enableKeys.has(m.key as ModuleKey) },
         create: { schoolId, moduleId: m.id, enabled: enableKeys.has(m.key as ModuleKey) }
@@ -131,7 +131,7 @@ export async function seedSchoolModulesAndRolePerms(schoolId: string) {
   );
 
   const roleIdByKey = new Map(
-    (await prisma.schoolRole.findMany({ where: { schoolId }, select: { id: true, key: true } })).map((r) => [
+    (await db.schoolRole.findMany({ where: { schoolId }, select: { id: true, key: true } })).map((r) => [
       r.key,
       r.id
     ])
@@ -141,7 +141,7 @@ export async function seedSchoolModulesAndRolePerms(schoolId: string) {
     const schoolRoleId = roleIdByKey.get(roleKey);
     const moduleId = moduleIdByKey.get(moduleKey);
     if (!moduleId || !schoolRoleId) return;
-    await prisma.roleModulePermission.upsert({
+    await db.roleModulePermission.upsert({
       where: { schoolId_schoolRoleId_moduleId: { schoolId, schoolRoleId, moduleId } },
       update: { level },
       create: { schoolId, schoolRoleId, moduleId, level }
@@ -219,19 +219,19 @@ export async function getEffectivePermissions({
   roleId: string;
 }): Promise<Record<string, PermissionLevel>> {
   const [schoolModules, rolePerms, userPerms, role] = await Promise.all([
-    prisma.schoolModule.findMany({
+    db.schoolModule.findMany({
       where: { schoolId },
       select: { enabled: true, module: { select: { key: true } } }
     }),
-    prisma.roleModulePermission.findMany({
+    db.roleModulePermission.findMany({
       where: { schoolId, schoolRoleId: roleId },
       select: { module: { select: { key: true } }, level: true }
     }),
-    prisma.userModulePermission.findMany({
+    db.userModulePermission.findMany({
       where: { schoolId, userId },
       select: { module: { select: { key: true } }, level: true }
     }),
-    prisma.schoolRole.findUnique({
+    db.schoolRole.findUnique({
       where: { id: roleId },
       select: { key: true }
     })

@@ -1,6 +1,6 @@
 "use server";
 
-import { prisma } from "@/lib/db";
+import { db } from "@/lib/db";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 
@@ -21,7 +21,7 @@ export async function validateSchoolSlugAction(
   if (!parsed.success) return { ok: false, message: parsed.error.issues[0]?.message ?? "Invalid school slug." };
 
   const slug = parsed.data.toLowerCase();
-  const school = await prisma.school.findUnique({ where: { slug } });
+  const school = await db.school.findUnique({ where: { slug } });
   if (!school) return { ok: false, message: "No school found for that slug." };
   if (!school.isActive) return { ok: false, message: "This school is currently inactive." };
 

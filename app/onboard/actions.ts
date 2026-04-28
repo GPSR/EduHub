@@ -1,6 +1,6 @@
 "use server";
 
-import { prisma } from "@/lib/db";
+import { db } from "@/lib/db";
 import { z } from "zod";
 
 export type OnboardState = { ok: boolean; message?: string };
@@ -34,17 +34,17 @@ export async function onboardAction(_prev: OnboardState, formData: FormData): Pr
 
     const slug = parsed.data.schoolSlug.toLowerCase();
     const email = parsed.data.adminEmail.toLowerCase();
-    const existing = await prisma.school.findUnique({ where: { slug } });
+    const existing = await db.school.findUnique({ where: { slug } });
     if (existing) return { ok: false, message: "School slug already exists. Try another one." };
 
-    const pending = await prisma.schoolOnboardingRequest.findFirst({
+    const pending = await db.schoolOnboardingRequest.findFirst({
       where: { schoolSlug: slug, status: "PENDING" },
       select: { id: true }
     });
     if (pending) return { ok: false, message: "A pending request already exists for this school slug." };
 
     try {
-      await prisma.schoolOnboardingRequest.create({
+      await db.schoolOnboardingRequest.create({
         data: {
           schoolName: parsed.data.schoolName,
           schoolSlug: slug,
@@ -57,7 +57,7 @@ export async function onboardAction(_prev: OnboardState, formData: FormData): Pr
     } catch {
       // Backward compatibility for environments where new phone columns
       // are not migrated yet.
-      await prisma.schoolOnboardingRequest.create({
+      await db.schoolOnboardingRequest.create({
         data: {
           schoolName: parsed.data.schoolName,
           schoolSlug: slug,

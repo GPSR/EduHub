@@ -1,10 +1,10 @@
-import { prisma } from "@/lib/db";
+import { db } from "@/lib/db";
 
 export async function getUnreadSupportConversationCount(args: {
   schoolId: string;
   userId: string;
 }) {
-  const rows = await prisma.supportConversationSchoolParticipant.findMany({
+  const rows = await db.supportConversationSchoolParticipant.findMany({
     where: {
       schoolId: args.schoolId,
       userId: args.userId,

@@ -1,4 +1,4 @@
-import { prisma } from "@/lib/db";
+import { db } from "@/lib/db";
 
 export type IndustryFieldType = "TEXT" | "NUMBER" | "DATE" | "DROPDOWN" | "CHECKBOX" | "TEXTAREA";
 
@@ -453,7 +453,7 @@ export async function applyIndustryModuleTemplates(args?: { moduleKeys?: string[
     };
   }
 
-  const modules = await prisma.module.findMany({
+  const modules = await db.module.findMany({
     where: { key: { in: targetTemplates.map((template) => template.moduleKey) } },
     select: { id: true, key: true, name: true }
   });
@@ -465,7 +465,7 @@ export async function applyIndustryModuleTemplates(args?: { moduleKeys?: string[
     const module = moduleByKey.get(template.moduleKey);
     if (!module) continue;
 
-    const result = await prisma.$transaction(async (tx) => {
+    const result = await db.$transaction(async (tx) => {
       const existingFields = await tx.moduleField.findMany({
         where: { moduleId: module.id },
         select: { id: true, key: true, isActive: true, sortOrder: true }

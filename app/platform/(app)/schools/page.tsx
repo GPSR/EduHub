@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Badge, SectionHeader, Card } from "@/components/ui";
-import { prisma } from "@/lib/db";
+import { db } from "@/lib/db";
 import { requireSuperAdmin } from "@/lib/platform-require";
 
 const STATUS_VALUES = ["ALL", "ACTIVE", "INACTIVE"] as const;
@@ -42,7 +42,7 @@ export default async function PlatformSchoolsPage({
   if (admin === "WITH_ADMIN") where.users = { some: { schoolRole: { key: "ADMIN" } } };
   if (admin === "NO_ADMIN") where.users = { none: { schoolRole: { key: "ADMIN" } } };
 
-  const schools = await prisma.school.findMany({
+  const schools = await db.school.findMany({
     where,
     include: { subscription: { include: { customPlan: true } }, users: { select: { id: true } }, students: { select: { id: true } } },
     orderBy: { name: "asc" },
@@ -62,7 +62,7 @@ export default async function PlatformSchoolsPage({
   }
 
   const adminUsers = sortedSchools.length
-    ? await prisma.user.findMany({
+    ? await db.user.findMany({
       where: { schoolId: { in: sortedSchools.map((s) => s.id) }, schoolRole: { key: "ADMIN" } },
         select: { id: true, schoolId: true, name: true, email: true },
         orderBy: { name: "asc" }

@@ -1,6 +1,6 @@
-import type { PermissionLevel } from "@prisma/client";
 import { redirect } from "next/navigation";
 import { requireSession } from "@/lib/require";
+import type { PermissionLevel } from "@/lib/db-types";
 import { atLeastLevel, ensureSchoolModuleRow, getEffectivePermissions, type ModuleKey } from "@/lib/permissions";
 
 export async function requirePermission(moduleKey: string, required: PermissionLevel = "VIEW") {

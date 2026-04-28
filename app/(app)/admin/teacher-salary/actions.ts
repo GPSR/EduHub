@@ -2,9 +2,13 @@
 
 import { z } from "zod";
 import { redirect } from "next/navigation";
-import { prisma } from "@/lib/db";
+import { db } from "@/lib/db";
 import { requirePermission } from "@/lib/require-permission";
 import { parseDateOnlyInput } from "@/lib/leave-utils";
+
+type TeacherSalaryPayoutDelegate = {
+  create: (args: unknown) => Promise<unknown>;
+};
 
 const UpsertTeacherSalarySchema = z.object({
   teacherUserId: z.string().min(1),
@@ -45,7 +49,7 @@ export async function upsertTeacherSalaryProfileAction(formData: FormData) {
     throw new Error(parsed.error.issues[0]?.message ?? "Unable to process request.");
   }
 
-  const teacherUser = await prisma.user.findFirst({
+  const teacherUser = await db.user.findFirst({
     where: {
       id: parsed.data.teacherUserId,
       schoolId: session.schoolId,
@@ -59,7 +63,7 @@ export async function upsertTeacherSalaryProfileAction(formData: FormData) {
   const effectiveFrom = parsed.data.effectiveFrom ? parseDateOnlyInput(parsed.data.effectiveFrom) : null;
   if (parsed.data.effectiveFrom && !effectiveFrom) throw new Error("Invalid effective-from date.");
 
-  await prisma.teacherSalaryProfile.upsert({
+  await db.teacherSalaryProfile.upsert({
     where: {
       schoolId_teacherUserId: {
         schoolId: session.schoolId,
@@ -110,7 +114,7 @@ export async function recordTeacherSalaryPayoutAction(formData: FormData) {
     throw new Error(parsed.error.issues[0]?.message ?? "Unable to process request.");
   }
 
-  const teacherUser = await prisma.user.findFirst({
+  const teacherUser = await db.user.findFirst({
     where: {
       id: parsed.data.teacherUserId,
       schoolId: session.schoolId,
@@ -123,7 +127,14 @@ export async function recordTeacherSalaryPayoutAction(formData: FormData) {
   const paidOn = parseDateOnlyInput(parsed.data.paidOn);
   if (!paidOn) throw new Error("Invalid payout date.");
 
-  await prisma.teacherSalaryPayout.create({
+  const teacherSalaryPayoutDelegate = (
+    db as unknown as { teacherSalaryPayout?: TeacherSalaryPayoutDelegate }
+  ).teacherSalaryPayout;
+  if (!teacherSalaryPayoutDelegate) {
+    throw new Error("Teacher salary payout service is unavailable. Please redeploy with the latest database schema.");
+  }
+
+  await teacherSalaryPayoutDelegate.create({
     data: {
       schoolId: session.schoolId,
       teacherUserId: teacherUser.id,

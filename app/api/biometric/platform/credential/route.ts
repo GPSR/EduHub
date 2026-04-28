@@ -5,7 +5,7 @@ import { issuePlatformBiometricToken } from "@/lib/biometric-auth";
 import { isJsonRequest, isTrustedMutationRequest } from "@/lib/request-security";
 
 export async function POST(req: Request) {
-  if (!isTrustedMutationRequest(req)) {
+  if (!isTrustedMutationRequest(req, { allowNativeAppOrigin: true })) {
     return NextResponse.json({ ok: false, message: "Blocked by request origin policy." }, { status: 403 });
   }
   if (!isJsonRequest(req)) {
@@ -24,4 +24,3 @@ export async function POST(req: Request) {
 
   return NextResponse.json({ ok: true, token });
 }
-

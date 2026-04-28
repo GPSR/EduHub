@@ -1,5 +1,5 @@
 import { Card, SectionHeader } from "@/components/ui";
-import { prisma } from "@/lib/db";
+import { db } from "@/lib/db";
 import { requireSession } from "@/lib/require";
 import { requirePermission } from "@/lib/require-permission";
 import { redirect } from "next/navigation";
@@ -7,6 +7,37 @@ import Link from "next/link";
 import { DashboardGlobalSearch } from "../dashboard-global-search";
 import { FolderSlideshow } from "../gallery/folder-slideshow";
 import { getLatestGallerySlideshow } from "@/lib/latest-gallery-slideshow";
+
+const DASHBOARD_MODULE_LINKS = [
+  { href: "/students", icon: "👥", label: "Students" },
+  { href: "/fees", icon: "💳", label: "Fees" },
+  { href: "/attendance", icon: "✅", label: "Attendance" },
+  { href: "/feed", icon: "📢", label: "Feed" },
+  { href: "/academics", icon: "📚", label: "Academics" },
+  { href: "/academics/homework", icon: "📝", label: "Homework" },
+  { href: "/learning-center", icon: "🧠", label: "Learning Center" },
+  { href: "/youtube-learning", icon: "▶️", label: "YouTube Learning" },
+  { href: "/calendar", icon: "🗓️", label: "Calendar" },
+  { href: "/timetable", icon: "🧾", label: "Timetable" },
+  { href: "/leave-requests", icon: "🗒️", label: "Leave Requests" },
+  { href: "/admin/teacher-salary", icon: "💼", label: "Teacher Salary" },
+  { href: "/transport", icon: "🚌", label: "Transport" },
+  { href: "/notifications", icon: "🔔", label: "Notifications" },
+  { href: "/reports", icon: "📊", label: "Reports" },
+  { href: "/support", icon: "💬", label: "Support" },
+  { href: "/gallery", icon: "🖼️", label: "Gallery" },
+  { href: "/admin/users", icon: "🛡", label: "Users" },
+  { href: "/admin/settings", icon: "⚙️", label: "Settings" },
+] as const;
+
+const MOBILE_MODULE_WIDGET_SKINS = [
+  "bg-[linear-gradient(135deg,rgba(59,130,246,0.2),rgba(99,102,241,0.08))] border-blue-300/25",
+  "bg-[linear-gradient(135deg,rgba(139,92,246,0.2),rgba(167,139,250,0.08))] border-violet-300/25",
+  "bg-[linear-gradient(135deg,rgba(16,185,129,0.2),rgba(20,184,166,0.08))] border-emerald-300/25",
+  "bg-[linear-gradient(135deg,rgba(20,184,166,0.2),rgba(6,182,212,0.08))] border-teal-300/25",
+  "bg-[linear-gradient(135deg,rgba(245,158,11,0.2),rgba(249,115,22,0.08))] border-amber-300/25",
+  "bg-[linear-gradient(135deg,rgba(14,165,233,0.2),rgba(59,130,246,0.08))] border-sky-300/25",
+] as const;
 
 function centsToUsd(cents: number) {
   return new Intl.NumberFormat("en-US", {
@@ -36,17 +67,18 @@ export default async function DashboardPage({
     quickSearchTeachers,
     feeInvoicedTotals,
     feeCollectedTotals,
-    latestSlideshow
+    latestSlideshow,
+    currentUser
   ] = await Promise.all([
-    prisma.user.count({
+    db.user.count({
       where: { schoolId: session.schoolId, schoolRole: { key: { in: ["TEACHER", "CLASS_TEACHER"] } } }
     }),
-    prisma.feedPost.count({ where: { schoolId: session.schoolId } }),
-    prisma.school.findUnique({
+    db.feedPost.count({ where: { schoolId: session.schoolId } }),
+    db.school.findUnique({
       where: { id: session.schoolId },
       include: { subscription: true }
     }),
-    prisma.student.findMany({
+    db.student.findMany({
       where: { schoolId: session.schoolId },
       select: {
         id: true,
@@ -59,7 +91,7 @@ export default async function DashboardPage({
       orderBy: { createdAt: "desc" },
       take: 220
     }),
-    prisma.user.findMany({
+    db.user.findMany({
       where: {
         schoolId: session.schoolId,
         schoolRole: { key: { in: ["TEACHER", "CLASS_TEACHER"] } }
@@ -73,11 +105,11 @@ export default async function DashboardPage({
       orderBy: { createdAt: "desc" },
       take: 180
     }),
-    prisma.feeInvoice.aggregate({
+    db.feeInvoice.aggregate({
       where: { schoolId: session.schoolId },
       _sum: { amountCents: true }
     }),
-    prisma.feePayment.aggregate({
+    db.feePayment.aggregate({
       where: { invoice: { schoolId: session.schoolId } },
       _sum: { amountCents: true }
     }),
@@ -86,6 +118,10 @@ export default async function DashboardPage({
       roleKey: session.roleKey,
       roleId: session.roleId,
       take: 20
+    }),
+    db.user.findUnique({
+      where: { id: session.userId },
+      select: { name: true }
     })
   ]);
 
@@ -95,7 +131,7 @@ export default async function DashboardPage({
 
   const paidEntries =
     feeView === "paid"
-      ? await prisma.feePayment.findMany({
+      ? await db.feePayment.findMany({
           where: { invoice: { schoolId: session.schoolId } },
           select: {
             amountCents: true,
@@ -120,7 +156,7 @@ export default async function DashboardPage({
 
   const pendingEntries =
     feeView === "pending"
-      ? await prisma.feeInvoice.findMany({
+      ? await db.feeInvoice.findMany({
           where: { schoolId: session.schoolId, status: { not: "PAID" } },
           select: {
             id: true,
@@ -246,9 +282,66 @@ export default async function DashboardPage({
 
   return (
     <div className="space-y-6 animate-fade-up">
-      <SectionHeader title="Dashboard" subtitle={`Welcome back — ${school?.name ?? "your school"}`} />
+      <div className="hidden md:block">
+        <SectionHeader title="Dashboard" subtitle={`Welcome back — ${school?.name ?? "your school"}`} />
+      </div>
 
-      <Card className="relative z-[110] overflow-visible">
+      <section className="md:hidden rounded-[24px] border border-white/[0.10] bg-[linear-gradient(180deg,rgba(255,255,255,0.07),rgba(255,255,255,0.025))] p-3.5 backdrop-blur-xl shadow-[0_12px_28px_-24px_rgba(0,0,0,0.95)]">
+        <div className="mb-3">
+          <p className="text-[24px] font-semibold leading-tight tracking-[-0.01em] text-white/95">
+            Hello! {currentUser?.name?.split(" ")[0] ?? "Admin"}
+          </p>
+          <p className="mt-1 text-[12px] text-white/68">Welcome to {school?.name ?? "your school"}.</p>
+        </div>
+
+        <div className="space-y-2.5">
+          <div className="rounded-[18px] border border-white/[0.12] bg-[#0f1728]/72 p-2 shadow-[0_12px_28px_-22px_rgba(0,0,0,0.88)]">
+            <DashboardGlobalSearch
+              initialQuery={query}
+              showLabel={false}
+              variant="heroCompact"
+              showMicIcon
+              placeholderOverride="Search for students, teachers, or modules"
+              students={quickSearchStudents.map((s) => ({
+                id: s.id,
+                fullName: s.fullName,
+                studentId: s.studentId,
+                admissionNo: s.admissionNo ?? null,
+                rollNumber: s.rollNumber ?? null,
+                classLabel: s.class ? `${s.class.name}${s.class.section ? `-${s.class.section}` : ""}` : null
+              }))}
+              teachers={quickSearchTeachers.map((t) => ({
+                id: t.id,
+                name: t.name,
+                email: t.email,
+                roleName: t.schoolRole.name
+              }))}
+            />
+          </div>
+
+          <div className="rounded-[18px] border border-white/[0.12] bg-[#0f1728]/60 p-2 shadow-[0_14px_32px_-24px_rgba(0,0,0,0.9)]">
+            <div className="overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+              <div className="flex min-w-max gap-2 pb-1 snap-x snap-mandatory">
+                {DASHBOARD_MODULE_LINKS.map((item, idx) => (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    className={`snap-start w-[118px] shrink-0 rounded-[13px] border px-2.5 py-2.5 transition hover:brightness-110 ${MOBILE_MODULE_WIDGET_SKINS[idx % MOBILE_MODULE_WIDGET_SKINS.length]}`}
+                  >
+                    <div className="flex items-center justify-between gap-1.5">
+                      <span className="text-[15px]">{item.icon}</span>
+                      <span className="h-1.5 w-1.5 rounded-full bg-cyan-100/90" />
+                    </div>
+                    <p className="mt-1 text-[11px] font-semibold text-white/92">{item.label}</p>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <Card className="relative z-[110] overflow-visible hidden md:block">
         <DashboardGlobalSearch
           initialQuery={query}
           students={quickSearchStudents.map((s) => ({
@@ -427,26 +520,6 @@ export default async function DashboardPage({
         </Card>
       )}
 
-      <Card title="Quick Access" accent="teal">
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-          {[
-            { href: "/admin/users", icon: "🏫", label: "Teachers"   },
-            { href: "/attendance", icon: "✅", label: "Attendance" },
-            { href: "/academics",  icon: "📚", label: "Academics"  },
-            { href: "/transport",  icon: "🚌", label: "Transport"  },
-          ].map(item => (
-            <a
-              key={item.href}
-              href={item.href}
-              className="flex items-center gap-2.5 rounded-[13px] border border-white/[0.07] bg-white/[0.03]
-                         px-3.5 py-3 hover:bg-white/[0.07] hover:border-white/[0.12] transition-all duration-150"
-            >
-              <span className="text-lg leading-none">{item.icon}</span>
-              <span className="text-[13px] font-medium text-white/80">{item.label}</span>
-            </a>
-          ))}
-        </div>
-      </Card>
     </div>
   );
 }

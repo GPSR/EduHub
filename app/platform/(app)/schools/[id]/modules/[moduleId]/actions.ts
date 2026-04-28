@@ -1,7 +1,7 @@
 "use server";
 
 import { z } from "zod";
-import { prisma } from "@/lib/db";
+import { db } from "@/lib/db";
 import { requireSuperAdmin } from "@/lib/platform-require";
 import { revalidatePath } from "next/cache";
 import { auditLog } from "@/lib/audit";
@@ -25,12 +25,12 @@ export async function saveSchoolModuleFieldSettingsAction(
   });
   if (!parsed.success) return { ok: false, message: "Invalid request." };
 
-  const fields = await prisma.moduleField.findMany({
+  const fields = await db.moduleField.findMany({
     where: { moduleId: parsed.data.moduleId, isActive: true },
     select: { id: true }
   });
 
-  await prisma.$transaction(async (tx) => {
+  await db.$transaction(async (tx) => {
     for (const field of fields) {
       const enabled = formData.get(`enabled_${field.id}`) ? true : false;
       const required = formData.get(`required_${field.id}`) ? true : false;

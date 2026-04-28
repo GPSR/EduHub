@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Card, Button, Badge, SectionHeader } from "@/components/ui";
-import { prisma } from "@/lib/db";
+import { db } from "@/lib/db";
 import { requireSuperAdmin } from "@/lib/platform-require";
 import { ensureBaseModules } from "@/lib/permissions";
 import { impersonateSchoolAction, impersonateUserAction } from "./actions";
@@ -23,7 +23,7 @@ export default async function PlatformSchoolPage({ params }: { params: Promise<{
   const { id } = await params;
   await ensureBaseModules();
 
-  const school = await prisma.school.findUnique({
+  const school = await db.school.findUnique({
     where: { id },
     include: {
       subscription: true,
@@ -34,7 +34,7 @@ export default async function PlatformSchoolPage({ params }: { params: Promise<{
   });
   if (!school) return notFound();
 
-  const modules = await prisma.module.findMany({ orderBy: { name: "asc" } });
+  const modules = await db.module.findMany({ orderBy: { name: "asc" } });
   const enabledByModuleId = new Map(school.modules.map(m => [m.moduleId, m.enabled]));
   const schoolModules = modules.map(m => ({ id: m.id, key: m.key, name: m.name, enabled: enabledByModuleId.get(m.id) ?? false }));
   const schoolAdminUsers = school.users.filter((u) => u.schoolRole.key === "ADMIN");

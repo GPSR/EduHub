@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Badge, Card, EmptyState, SectionHeader } from "@/components/ui";
-import { prisma } from "@/lib/db";
+import { db } from "@/lib/db";
 import { requirePlatformUser } from "@/lib/platform-require";
 
 function maskEmail(email: string) {
@@ -17,7 +17,7 @@ export default async function PlatformGalleryPage() {
     user.role === "SUPER_ADMIN"
       ? null
       : (
-          await prisma.platformUserSchoolAssignment.findMany({
+          await db.platformUserSchoolAssignment.findMany({
             where: { platformUserId: user.id },
             select: { schoolId: true }
           })
@@ -25,7 +25,7 @@ export default async function PlatformGalleryPage() {
 
   const where = assignedSchoolIds ? { id: { in: assignedSchoolIds } } : undefined;
 
-  const schools = await prisma.school.findMany({
+  const schools = await db.school.findMany({
     where,
     select: {
       id: true,

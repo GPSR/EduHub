@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Card, Button, Badge } from "@/components/ui";
-import { prisma } from "@/lib/db";
+import { db } from "@/lib/db";
 import { requireSuperAdmin } from "@/lib/platform-require";
 import { getIndustryTemplateByModuleKey } from "@/lib/module-industry-templates";
 import { AddModuleFieldForm, ApplyModuleTemplateForm } from "./ui";
@@ -15,7 +15,7 @@ export default async function PlatformModuleSettingsPage({
   await requireSuperAdmin();
   const { moduleId } = await params;
 
-  const module = await prisma.module.findUnique({
+  const module = await db.module.findUnique({
     where: { id: moduleId },
     include: { fields: { orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }] } }
   });

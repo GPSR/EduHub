@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { prisma } from "@/lib/db";
+import { db } from "@/lib/db";
 import { clearPlatformSessionCookie, getPlatformSession } from "@/lib/platform-session";
 import { resolveActivePlatformSessionWithUser } from "@/lib/auth-session";
 
@@ -31,7 +31,7 @@ export async function requirePlatformSchoolAccess(schoolId: string) {
   const { session, user } = await requirePlatformUser();
   if (user.role === "SUPER_ADMIN") return { session, user };
 
-  const assignment = await prisma.platformUserSchoolAssignment.findFirst({
+  const assignment = await db.platformUserSchoolAssignment.findFirst({
     where: { platformUserId: user.id, schoolId },
     select: { id: true }
   });

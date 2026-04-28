@@ -1,5 +1,5 @@
 import { headers } from "next/headers";
-import { prisma } from "@/lib/db";
+import { db } from "@/lib/db";
 import { hashToken } from "@/lib/token";
 
 function normalizeRateLimitPart(value: string) {
@@ -34,7 +34,7 @@ export async function consumeRateLimitAttempt(args: {
   const entityId = hashToken(`${args.scope}:${args.key}`);
   const windowStart = new Date(Date.now() - args.windowMs);
 
-  const attemptCount = await prisma.auditLog.count({
+  const attemptCount = await db.auditLog.count({
     where: {
       action,
       entityId,
@@ -48,7 +48,7 @@ export async function consumeRateLimitAttempt(args: {
     } as const;
   }
 
-  await prisma.auditLog.create({
+  await db.auditLog.create({
     data: {
       actorType: "SYSTEM",
       action,

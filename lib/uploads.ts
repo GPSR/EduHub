@@ -1,4 +1,4 @@
-import { prisma } from "@/lib/db";
+import { db } from "@/lib/db";
 import { randomUUID } from "node:crypto";
 import { mkdir, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -102,7 +102,7 @@ export async function saveUserProfileImage(
   if (!checked.ok) return checked;
   const dataUrl = toDataUrl(file, checked.bytes, checked.ext);
 
-  await prisma.auditLog.create({
+  await db.auditLog.create({
     data: {
       schoolId,
       actorType: "SCHOOL_USER",
@@ -118,7 +118,7 @@ export async function saveUserProfileImage(
 }
 
 export async function getUserProfileImageUrl(schoolId: string, userId: string): Promise<string | null> {
-  const log = await prisma.auditLog.findFirst({
+  const log = await db.auditLog.findFirst({
     where: {
       schoolId,
       action: "USER_PROFILE_PHOTO_UPDATE",
@@ -149,7 +149,7 @@ export async function savePlatformUserProfileImage(
   if (!checked.ok) return checked;
   const dataUrl = toDataUrl(file, checked.bytes, checked.ext);
 
-  await prisma.auditLog.create({
+  await db.auditLog.create({
     data: {
       schoolId: null,
       actorType: "PLATFORM_USER",
@@ -165,7 +165,7 @@ export async function savePlatformUserProfileImage(
 }
 
 export async function getPlatformUserProfileImageUrl(platformUserId: string): Promise<string | null> {
-  const log = await prisma.auditLog.findFirst({
+  const log = await db.auditLog.findFirst({
     where: {
       action: "PLATFORM_USER_PROFILE_PHOTO_UPDATE",
       entityType: "PlatformUser",

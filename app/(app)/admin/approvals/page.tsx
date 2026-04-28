@@ -1,12 +1,12 @@
 import { Card, Button, Badge, SectionHeader, EmptyState } from "@/components/ui";
-import { prisma } from "@/lib/db";
+import { db } from "@/lib/db";
 import { requirePermission } from "@/lib/require-permission";
 import { decideStudentUpdateRequestAction } from "./actions";
 
 export default async function ApprovalsPage() {
   const { session } = await requirePermission("REPORTS", "VIEW");
 
-  const requests = await prisma.studentUpdateRequest.findMany({
+  const requests = await db.studentUpdateRequest.findMany({
     where: { schoolId: session.schoolId, status: "PENDING" },
     include: { student: true, requestedBy: true },
     orderBy: { createdAt: "desc" },

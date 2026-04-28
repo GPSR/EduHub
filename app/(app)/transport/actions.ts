@@ -3,7 +3,7 @@
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { requirePermission } from "@/lib/require-permission";
-import { prisma } from "@/lib/db";
+import { db } from "@/lib/db";
 import { encodeStudentTransportAssignment } from "@/lib/transport";
 
 export type TransportState = { ok: boolean; message?: string };
@@ -50,10 +50,10 @@ const TripSchema = z.object({
 });
 
 async function ensureBusAllowed(schoolId: string, busId: string, userId: string, roleKey: string) {
-  const bus = await prisma.bus.findFirst({ where: { id: busId, schoolId }, select: { id: true, name: true } });
+  const bus = await db.bus.findFirst({ where: { id: busId, schoolId }, select: { id: true, name: true } });
   if (!bus) return null;
   if (roleKey !== "BUS_ASSISTANT") return bus;
-  const assignment = await prisma.busDriverAssignment.findFirst({
+  const assignment = await db.busDriverAssignment.findFirst({
     where: { schoolId, userId, busId },
     select: { id: true }
   });
@@ -71,7 +71,7 @@ function parseStops(stopsText?: string) {
 }
 
 async function notifyParentsOnTripStart(schoolId: string, busId: string, busName: string) {
-  const students = await prisma.student.findMany({
+  const students = await db.student.findMany({
     where: { schoolId, transportDetails: { startsWith: "BUS_ASSIGN:" } },
     select: { id: true, fullName: true, transportDetails: true, parents: { select: { userId: true } } }
   });
@@ -84,7 +84,7 @@ async function notifyParentsOnTripStart(schoolId: string, busId: string, busName
 
   if (parentIds.size === 0) return;
 
-  await prisma.notification.createMany({
+  await db.notification.createMany({
     data: Array.from(parentIds).map((userId) => ({
       schoolId,
       userId,
@@ -103,7 +103,7 @@ async function notifyParentsOnStudentDrop(args: {
   lat?: number;
   lng?: number;
 }) {
-  const student = await prisma.student.findFirst({
+  const student = await db.student.findFirst({
     where: { id: args.studentId, schoolId: args.schoolId },
     select: { parents: { select: { userId: true } } }
   });
@@ -112,7 +112,7 @@ async function notifyParentsOnStudentDrop(args: {
     typeof args.lat === "number" && typeof args.lng === "number"
       ? `https://maps.google.com/?q=${args.lat},${args.lng}`
       : null;
-  await prisma.notification.createMany({
+  await db.notification.createMany({
     data: student.parents.map((p) => ({
       schoolId: args.schoolId,
       userId: p.userId,
@@ -135,7 +135,7 @@ export async function createBusAction(_prev: TransportState, formData: FormData)
   });
   if (!parsed.success) return { ok: false, message: "Please enter valid bus details." };
 
-  await prisma.bus.create({
+  await db.bus.create({
     data: {
       schoolId: session.schoolId,
       name: parsed.data.name,
@@ -159,8 +159,8 @@ export async function assignDriverAction(_prev: TransportState, formData: FormDa
   if (!parsed.success) return { ok: false, message: "Invalid driver assignment." };
 
   const [bus, driver] = await Promise.all([
-    prisma.bus.findFirst({ where: { id: parsed.data.busId, schoolId: session.schoolId }, select: { id: true } }),
-    prisma.user.findFirst({
+    db.bus.findFirst({ where: { id: parsed.data.busId, schoolId: session.schoolId }, select: { id: true } }),
+    db.user.findFirst({
       where: { id: parsed.data.userId, schoolId: session.schoolId, schoolRole: { key: "BUS_ASSISTANT" } },
       select: { id: true }
     })
@@ -168,10 +168,10 @@ export async function assignDriverAction(_prev: TransportState, formData: FormDa
 
   if (!bus || !driver) return { ok: false, message: "Bus or driver not found." };
 
-  await prisma.$transaction([
-    prisma.busDriverAssignment.deleteMany({ where: { schoolId: session.schoolId, busId: bus.id } }),
-    prisma.busDriverAssignment.deleteMany({ where: { schoolId: session.schoolId, userId: driver.id } }),
-    prisma.busDriverAssignment.create({ data: { schoolId: session.schoolId, busId: bus.id, userId: driver.id } })
+  await db.$transaction([
+    db.busDriverAssignment.deleteMany({ where: { schoolId: session.schoolId, busId: bus.id } }),
+    db.busDriverAssignment.deleteMany({ where: { schoolId: session.schoolId, userId: driver.id } }),
+    db.busDriverAssignment.create({ data: { schoolId: session.schoolId, busId: bus.id, userId: driver.id } })
   ]);
 
   revalidatePath("/transport");
@@ -189,10 +189,10 @@ export async function createRouteAction(_prev: TransportState, formData: FormDat
   });
   if (!parsed.success) return { ok: false, message: "Invalid route details." };
 
-  const bus = await prisma.bus.findFirst({ where: { id: parsed.data.busId, schoolId: session.schoolId }, select: { id: true } });
+  const bus = await db.bus.findFirst({ where: { id: parsed.data.busId, schoolId: session.schoolId }, select: { id: true } });
   if (!bus) return { ok: false, message: "Bus not found." };
 
-  await prisma.busRoute.create({
+  await db.busRoute.create({
     data: {
       schoolId: session.schoolId,
       busId: parsed.data.busId,
@@ -217,25 +217,25 @@ export async function assignStudentBusAction(_prev: TransportState, formData: Fo
   });
   if (!parsed.success) return { ok: false, message: "Invalid student transport assignment." };
 
-  const student = await prisma.student.findFirst({
+  const student = await db.student.findFirst({
     where: { id: parsed.data.studentId, schoolId: session.schoolId },
     select: { id: true }
   });
-  const bus = await prisma.bus.findFirst({
+  const bus = await db.bus.findFirst({
     where: { id: parsed.data.busId, schoolId: session.schoolId },
     select: { id: true }
   });
   if (!student || !bus) return { ok: false, message: "Student or bus not found." };
 
   if (parsed.data.routeId) {
-    const route = await prisma.busRoute.findFirst({
+    const route = await db.busRoute.findFirst({
       where: { id: parsed.data.routeId, schoolId: session.schoolId, busId: parsed.data.busId },
       select: { id: true }
     });
     if (!route) return { ok: false, message: "Route not valid for selected bus." };
   }
 
-  await prisma.student.update({
+  await db.student.update({
     where: { id: student.id },
     data: {
       transportDetails: encodeStudentTransportAssignment({
@@ -267,7 +267,7 @@ export async function startTripAction(_prev: TransportState, formData: FormData)
   if (!bus) return { ok: false, message: "Bus not found or not assigned to you." };
 
   const tripToken = `${Date.now()}-${session.userId.slice(0, 8)}`;
-  await prisma.auditLog.create({
+  await db.auditLog.create({
     data: {
       schoolId: session.schoolId,
       actorType: "SCHOOL_USER",
@@ -280,7 +280,7 @@ export async function startTripAction(_prev: TransportState, formData: FormData)
   });
 
   if (typeof parsed.data.lat === "number" && typeof parsed.data.lng === "number") {
-    await prisma.auditLog.create({
+    await db.auditLog.create({
       data: {
         schoolId: session.schoolId,
         actorType: "SCHOOL_USER",
@@ -328,7 +328,7 @@ export async function markStudentDropAction(_prev: TransportState, formData: For
   const bus = await ensureBusAllowed(session.schoolId, parsed.data.busId, session.userId, session.roleKey);
   if (!bus) return { ok: false, message: "Bus not found or not assigned to you." };
 
-  const student = await prisma.student.findFirst({
+  const student = await db.student.findFirst({
     where: { id: parsed.data.studentId, schoolId: session.schoolId },
     select: { id: true, fullName: true, transportDetails: true }
   });
@@ -337,7 +337,7 @@ export async function markStudentDropAction(_prev: TransportState, formData: For
     return { ok: false, message: "Student is not assigned to selected bus." };
   }
 
-  const latestTrip = await prisma.auditLog.findFirst({
+  const latestTrip = await db.auditLog.findFirst({
     where: { schoolId: session.schoolId, action: "BUS_TRIP_STATUS", entityType: "Bus", entityId: parsed.data.busId },
     orderBy: { createdAt: "desc" },
     select: { metadataJson: true }
@@ -353,7 +353,7 @@ export async function markStudentDropAction(_prev: TransportState, formData: For
   }
   if (!tripToken) return { ok: false, message: "No active trip found for selected bus." };
 
-  await prisma.auditLog.create({
+  await db.auditLog.create({
     data: {
       schoolId: session.schoolId,
       actorType: "SCHOOL_USER",
@@ -382,7 +382,7 @@ export async function markStudentDropAction(_prev: TransportState, formData: For
     lng: parsed.data.lng
   });
 
-  const assignedStudents = await prisma.student.findMany({
+  const assignedStudents = await db.student.findMany({
     where: {
       schoolId: session.schoolId,
       transportDetails: { startsWith: "BUS_ASSIGN:" }
@@ -394,7 +394,7 @@ export async function markStudentDropAction(_prev: TransportState, formData: For
     .map((s) => s.id);
 
   if (assignedIds.length > 0) {
-    const dropLogs = await prisma.auditLog.findMany({
+    const dropLogs = await db.auditLog.findMany({
       where: {
         schoolId: session.schoolId,
         action: "BUS_STUDENT_DROP",
@@ -417,7 +417,7 @@ export async function markStudentDropAction(_prev: TransportState, formData: For
     }
     const remaining = assignedIds.filter((id) => !dropped.has(id));
     if (remaining.length === 0) {
-      await prisma.auditLog.create({
+      await db.auditLog.create({
         data: {
           schoolId: session.schoolId,
           actorType: "SCHOOL_USER",
@@ -446,7 +446,7 @@ export async function stopTripAction(_prev: TransportState, formData: FormData):
   const bus = await ensureBusAllowed(session.schoolId, busId, session.userId, session.roleKey);
   if (!bus) return { ok: false, message: "Bus not found or not assigned to you." };
 
-  await prisma.auditLog.create({
+  await db.auditLog.create({
     data: {
       schoolId: session.schoolId,
       actorType: "SCHOOL_USER",
@@ -479,7 +479,7 @@ export async function updateBusLocationAction(_prev: TransportState, formData: F
   const bus = await ensureBusAllowed(session.schoolId, parsed.data.busId, session.userId, session.roleKey);
   if (!bus) return { ok: false, message: "Bus not found or not assigned to you." };
 
-  await prisma.auditLog.create({
+  await db.auditLog.create({
     data: {
       schoolId: session.schoolId,
       actorType: "SCHOOL_USER",

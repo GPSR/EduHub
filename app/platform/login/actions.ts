@@ -1,6 +1,6 @@
 "use server";
 
-import { prisma } from "@/lib/db";
+import { db } from "@/lib/db";
 import { verifyPassword } from "@/lib/password";
 import { createPlatformSessionCookie } from "@/lib/platform-session";
 import { auditLog } from "@/lib/audit";
@@ -43,7 +43,7 @@ export async function platformLoginAction(
     return { ok: false, message: "Too many sign-in attempts. Please wait a few minutes and try again." };
   }
 
-  const user = await prisma.platformUser.findUnique({ where: { email } });
+  const user = await db.platformUser.findUnique({ where: { email } });
   const ok = await verifyPassword(parsed.data.password, user?.passwordHash ?? DUMMY_PASSWORD_HASH);
   if (!ok || !user) return { ok: false, message: INVALID_LOGIN_MESSAGE };
   if (!user.isActive) return { ok: false, message: "Your platform user is deactivated. Contact super admin." };

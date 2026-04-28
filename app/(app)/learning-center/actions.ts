@@ -2,7 +2,7 @@
 
 import { z } from "zod";
 import { redirect } from "next/navigation";
-import { prisma } from "@/lib/db";
+import { db } from "@/lib/db";
 import { requirePermission } from "@/lib/require-permission";
 import { saveUploadedImage } from "@/lib/uploads";
 
@@ -16,7 +16,7 @@ const CreateLearningResourceSchema = z.object({
 });
 
 async function getTeacherClassIds(schoolId: string, userId: string) {
-  const rows = await prisma.teacherClassAssignment.findMany({
+  const rows = await db.teacherClassAssignment.findMany({
     where: {
       schoolId,
       userId
@@ -44,7 +44,7 @@ export async function createLearningResourceAction(formData: FormData) {
 
   const classId = parsed.data.classId ?? null;
   if (classId) {
-    const classExists = await prisma.class.findFirst({
+    const classExists = await db.class.findFirst({
       where: { id: classId, schoolId: session.schoolId },
       select: { id: true }
     });
@@ -75,7 +75,7 @@ export async function createLearningResourceAction(formData: FormData) {
     attachmentUrl = saved.url;
   }
 
-  await prisma.learningCenterResource.create({
+  await db.learningCenterResource.create({
     data: {
       schoolId: session.schoolId,
       classId,

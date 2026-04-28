@@ -1,6 +1,6 @@
 "use server";
 
-import { prisma } from "@/lib/db";
+import { db } from "@/lib/db";
 import { hashPassword } from "@/lib/password";
 import { createPlatformSessionCookie } from "@/lib/platform-session";
 import { auditLog } from "@/lib/audit";
@@ -64,7 +64,7 @@ export async function platformOnboardAction(
       }
     | null = null;
   try {
-    user = await prisma.$transaction(async (tx) => {
+    user = await db.$transaction(async (tx) => {
       const existing = await tx.platformUser.findFirst({ select: { id: true } });
       if (existing) return null;
       return tx.platformUser.create({

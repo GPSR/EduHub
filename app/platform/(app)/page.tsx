@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Badge, Card, Button } from "@/components/ui";
-import { prisma } from "@/lib/db";
+import { db } from "@/lib/db";
 import { requirePlatformUser } from "@/lib/platform-require";
 import { ImpersonateLauncher } from "./ui";
 import { PlatformGlobalSearch } from "./platform-global-search";
@@ -25,7 +25,7 @@ export default async function PlatformHomePage({
   const { q } = await searchParams;
   const query         = (q ?? "").trim();
 
-  const customPlans = await prisma.customSubscriptionPlan.findMany({
+  const customPlans = await db.customSubscriptionPlan.findMany({
     where: { isActive: true }, orderBy: { createdAt: "desc" }, select: { id: true, name: true, code: true },
   });
 
@@ -33,7 +33,7 @@ export default async function PlatformHomePage({
   const last30Days  = new Date(Date.now() - 30 * 86400000);
   const isSuperAdmin = user.role === "SUPER_ADMIN";
 
-  const assignedIds = (await prisma.platformUserSchoolAssignment.findMany({
+  const assignedIds = (await db.platformUserSchoolAssignment.findMany({
     where: { platformUserId: user.id }, select: { schoolId: true },
   })).map(a => a.schoolId);
 
@@ -44,22 +44,22 @@ export default async function PlatformHomePage({
 
   const [schools, totalSchools, totalStudents, totalTeachers, totalRev, monthlyRev, last30Rev, pendingOnboarding, pendingDemoRequests] =
     await Promise.all([
-      prisma.school.findMany({
+      db.school.findMany({
         where: schoolFilter,
         include: { subscription: { include: { customPlan: true } }, users: { select: { id: true } }, students: { select: { id: true } } },
         orderBy: { createdAt: "desc" }, take: 200,
       }),
-      prisma.school.count({ where: !isSuperAdmin ? { id: { in: assignedIds } } : undefined }),
-      prisma.student.count({ where: !isSuperAdmin ? { schoolId: { in: assignedIds } } : undefined }),
-      prisma.user.count({ where: { ...(!isSuperAdmin ? { schoolId: { in: assignedIds } } : {}), schoolRole: { key: { in: ["TEACHER","CLASS_TEACHER"] } } } }),
-      prisma.feePayment.aggregate({ where: { ...(!isSuperAdmin ? { invoice: { schoolId: { in: assignedIds } } } : {}) }, _sum: { amountCents: true } }),
-      prisma.feePayment.aggregate({ where: { ...(!isSuperAdmin ? { invoice: { schoolId: { in: assignedIds } } } : {}), paidAt: { gte: monthStart } }, _sum: { amountCents: true } }),
-      prisma.feePayment.aggregate({ where: { ...(!isSuperAdmin ? { invoice: { schoolId: { in: assignedIds } } } : {}), paidAt: { gte: last30Days } }, _sum: { amountCents: true } }),
-      isSuperAdmin ? prisma.schoolOnboardingRequest.count({ where: { status: "PENDING" } }) : 0,
-      prisma.demoRequest.count({ where: { status: "NEW" } }),
+      db.school.count({ where: !isSuperAdmin ? { id: { in: assignedIds } } : undefined }),
+      db.student.count({ where: !isSuperAdmin ? { schoolId: { in: assignedIds } } : undefined }),
+      db.user.count({ where: { ...(!isSuperAdmin ? { schoolId: { in: assignedIds } } : {}), schoolRole: { key: { in: ["TEACHER","CLASS_TEACHER"] } } } }),
+      db.feePayment.aggregate({ where: { ...(!isSuperAdmin ? { invoice: { schoolId: { in: assignedIds } } } : {}) }, _sum: { amountCents: true } }),
+      db.feePayment.aggregate({ where: { ...(!isSuperAdmin ? { invoice: { schoolId: { in: assignedIds } } } : {}), paidAt: { gte: monthStart } }, _sum: { amountCents: true } }),
+      db.feePayment.aggregate({ where: { ...(!isSuperAdmin ? { invoice: { schoolId: { in: assignedIds } } } : {}), paidAt: { gte: last30Days } }, _sum: { amountCents: true } }),
+      isSuperAdmin ? db.schoolOnboardingRequest.count({ where: { status: "PENDING" } }) : 0,
+      db.demoRequest.count({ where: { status: "NEW" } }),
     ]);
 
-  const quickSearchSchools = await prisma.school.findMany({
+  const quickSearchSchools = await db.school.findMany({
     where: !isSuperAdmin ? { id: { in: assignedIds } } : undefined,
     select: { id: true, name: true, slug: true },
     orderBy: { createdAt: "desc" },
@@ -69,7 +69,7 @@ export default async function PlatformHomePage({
     ...(!isSuperAdmin ? { schoolId: { in: assignedIds } } : {}),
     schoolRole: { key: "ADMIN" as const }
   };
-  const quickSearchSchoolUsers = await prisma.user.findMany({
+  const quickSearchSchoolUsers = await db.user.findMany({
     where: quickSearchUserWhere,
     select: { id: true, name: true, email: true, schoolId: true },
     orderBy: { createdAt: "desc" },
@@ -156,31 +156,6 @@ export default async function PlatformHomePage({
           </div>
         ))}
       </div>
-
-      {isSuperAdmin && (
-        <Card title="Quick Access" accent="teal">
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-            {[
-              { href: "/platform/schools/new", icon: "➕", label: "Add School" },
-              { href: "/platform/gallery", icon: "🖼️", label: "School Gallery" },
-              { href: "/platform/demo-requests", icon: "🗂️", label: "Demo Requests" },
-              { href: "/platform/support", icon: "💬", label: "Support Chat" },
-              { href: "/platform/subscriptions", icon: "💎", label: "Subscriptions" },
-              { href: "/platform/audit", icon: "🧾", label: "Audit Logs" },
-            ].map((item) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                className="flex items-center gap-2.5 rounded-[13px] border border-white/[0.07] bg-white/[0.03]
-                           px-3.5 py-3 hover:bg-white/[0.07] hover:border-white/[0.12] transition-all duration-150"
-              >
-                <span className="text-lg leading-none">{item.icon}</span>
-                <span className="text-[13px] font-medium text-white/80">{item.label}</span>
-              </Link>
-            ))}
-          </div>
-        </Card>
-      )}
 
       {!isSuperAdmin && (
         <Card title={`Schools${schools.length > 0 ? ` · ${schools.length} shown` : ""}`}>

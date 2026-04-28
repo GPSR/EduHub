@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Badge, Button, Card, EmptyState, Label, SectionHeader, Textarea } from "@/components/ui";
-import { prisma } from "@/lib/db";
+import { db } from "@/lib/db";
 import { requirePlatformUser } from "@/lib/platform-require";
 import { LiveChatRefresh } from "@/components/live-chat-refresh";
 
@@ -25,7 +25,7 @@ export default async function PlatformSupportPage({
   let loadError: string | null = null;
   let conversations: any[] = [];
   try {
-    conversations = await prisma.supportConversation.findMany({
+    conversations = await db.supportConversation.findMany({
       where: {
         platformParticipants: { some: { platformUserId: session.platformUserId } }
       },
@@ -71,7 +71,7 @@ export default async function PlatformSupportPage({
     const isUnread = !myParticipant?.lastReadAt || myParticipant.lastReadAt < selectedConversation.lastMessageAt;
     if (isUnread) {
       try {
-        await prisma.supportConversationPlatformParticipant.updateMany({
+        await db.supportConversationPlatformParticipant.updateMany({
           where: {
             conversationId: selectedConversation.id,
             platformUserId: session.platformUserId,
@@ -88,7 +88,7 @@ export default async function PlatformSupportPage({
   let messages: any[] = [];
   if (selectedConversation) {
     try {
-      messages = await prisma.supportMessage.findMany({
+      messages = await db.supportMessage.findMany({
         where: { conversationId: selectedConversation.id },
         include: {
           senderSchoolUser: { select: { id: true, name: true, schoolRole: { select: { name: true } } } },

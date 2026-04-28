@@ -1,4 +1,4 @@
-import { prisma } from "@/lib/db";
+import { db } from "@/lib/db";
 import { hashToken, randomToken } from "@/lib/token";
 import { sendTransactionalEmail } from "@/lib/mailer";
 import { resolvePlatformAppBaseUrl, resolveSchoolAppBaseUrl } from "@/lib/app-env";
@@ -31,7 +31,7 @@ export async function createPasswordResetToken(args: {
   const expiresAt = new Date(Date.now() + 30 * 60 * 1000);
   const now = new Date();
 
-  await prisma.passwordResetToken.updateMany({
+  await db.passwordResetToken.updateMany({
     where:
       args.subjectType === "PLATFORM_USER"
         ? {
@@ -47,7 +47,7 @@ export async function createPasswordResetToken(args: {
     data: { usedAt: now }
   });
 
-  await prisma.passwordResetToken.create({
+  await db.passwordResetToken.create({
     data: {
       token: tokenHash,
       subjectType: args.subjectType,

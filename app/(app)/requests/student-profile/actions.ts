@@ -1,6 +1,6 @@
 "use server";
 
-import { prisma } from "@/lib/db";
+import { db } from "@/lib/db";
 import { requireSession } from "@/lib/require";
 import { auditLog } from "@/lib/audit";
 import { notifyUser } from "@/lib/notify";
@@ -39,7 +39,7 @@ export async function createStudentUpdateRequestAction(
   });
   if (!parsed.success) return { ok: false, message: "Please check your inputs." };
 
-  const student = await prisma.student.findFirst({
+  const student = await db.student.findFirst({
     where: { id: parsed.data.studentId, schoolId: session.schoolId, parents: { some: { userId: session.userId } } }
   });
   if (!student) return { ok: false, message: "Student not found." };
@@ -59,7 +59,7 @@ export async function createStudentUpdateRequestAction(
   });
   if (!payload.success) return { ok: false, message: "Please check the entered details." };
 
-  const req = await prisma.studentUpdateRequest.create({
+  const req = await db.studentUpdateRequest.create({
     data: {
       schoolId: session.schoolId,
       studentId: student.id,
@@ -78,7 +78,7 @@ export async function createStudentUpdateRequestAction(
   });
 
   // Notify admins/principals.
-  const reviewers = await prisma.user.findMany({
+  const reviewers = await db.user.findMany({
     where: { schoolId: session.schoolId, schoolRole: { key: { in: ["ADMIN", "PRINCIPAL"] } } },
     select: { id: true }
   });

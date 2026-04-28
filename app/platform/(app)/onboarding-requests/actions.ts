@@ -1,7 +1,7 @@
 "use server";
 
 import { z } from "zod";
-import { prisma } from "@/lib/db";
+import { db } from "@/lib/db";
 import { requireSuperAdmin } from "@/lib/platform-require";
 import { randomToken } from "@/lib/token";
 import { ensureSubscriptionPlanSettings, getPlanAmountCents, getPlanEndsAt } from "@/lib/subscription";
@@ -38,7 +38,7 @@ export async function approveOnboardingRequestAction(
   });
   if (!parsed.success) return { ok: false, message: "Invalid request." };
 
-  const request = await prisma.schoolOnboardingRequest.findUnique({
+  const request = await db.schoolOnboardingRequest.findUnique({
     where: { id: parsed.data.requestId },
     select: {
       id: true,
@@ -53,7 +53,7 @@ export async function approveOnboardingRequestAction(
   if (!request || request.status !== "PENDING") return { ok: false, message: "Request not found or already processed." };
   await ensureBaseModules();
 
-  const existingSchool = await prisma.school.findUnique({ where: { slug: request.schoolSlug } });
+  const existingSchool = await db.school.findUnique({ where: { slug: request.schoolSlug } });
   if (existingSchool) return { ok: false, message: "School slug already exists." };
 
   const selectedModuleIds = formData
@@ -66,7 +66,7 @@ export async function approveOnboardingRequestAction(
   const endsAt = await getPlanEndsAt(parsed.data.plan);
   const amountCents = await getPlanAmountCents(parsed.data.plan);
 
-  const school = await prisma.$transaction(async (tx) => {
+  const school = await db.$transaction(async (tx) => {
     const createdSchool = await tx.school.create({
       data: {
         name: request.schoolName,
@@ -91,8 +91,8 @@ export async function approveOnboardingRequestAction(
 
   await seedSchoolModulesAndRolePerms(school.id);
 
-  const modules = await prisma.module.findMany({ select: { id: true } });
-  await prisma.$transaction(async (tx) => {
+  const modules = await db.module.findMany({ select: { id: true } });
+  await db.$transaction(async (tx) => {
     for (const m of modules) {
       await tx.schoolModule.upsert({
         where: { schoolId_moduleId: { schoolId: school.id, moduleId: m.id } },
@@ -102,12 +102,12 @@ export async function approveOnboardingRequestAction(
     }
   });
 
-  const adminRole = await prisma.schoolRole.findFirst({ where: { schoolId: school.id, key: "ADMIN" } });
+  const adminRole = await db.schoolRole.findFirst({ where: { schoolId: school.id, key: "ADMIN" } });
   if (!adminRole) return { ok: false, message: "Admin role was not created." };
 
   const token = randomToken(24);
   const expiresAt = new Date(Date.now() + 30 * 60 * 1000);
-  await prisma.schoolInvite.create({
+  await db.schoolInvite.create({
     data: {
       schoolId: school.id,
       email: request.adminEmail.toLowerCase(),
@@ -117,7 +117,7 @@ export async function approveOnboardingRequestAction(
     }
   });
 
-  await prisma.schoolOnboardingRequest.update({
+  await db.schoolOnboardingRequest.update({
     where: { id: request.id },
     data: {
       status: "APPROVED",
@@ -196,13 +196,13 @@ export async function rejectOnboardingRequestAction(
   });
   if (!parsed.success) return { ok: false, message: "Invalid request." };
 
-  const request = await prisma.schoolOnboardingRequest.findUnique({
+  const request = await db.schoolOnboardingRequest.findUnique({
     where: { id: parsed.data.requestId },
     select: { id: true, status: true, schoolName: true, adminEmail: true }
   });
   if (!request || request.status !== "PENDING") return { ok: false, message: "Request not found or already processed." };
 
-  await prisma.schoolOnboardingRequest.update({
+  await db.schoolOnboardingRequest.update({
     where: { id: request.id },
     data: { status: "REJECTED", note: parsed.data.note || null, rejectedAt: new Date(), approvedByPlatformUserId: session.platformUserId }
   });
@@ -256,13 +256,13 @@ export async function holdOnboardingRequestAction(
   });
   if (!parsed.success) return { ok: false, message: "Invalid request." };
 
-  const request = await prisma.schoolOnboardingRequest.findUnique({
+  const request = await db.schoolOnboardingRequest.findUnique({
     where: { id: parsed.data.requestId },
     select: { id: true, status: true, schoolName: true, adminEmail: true }
   });
   if (!request || request.status !== "PENDING") return { ok: false, message: "Request not found or already processed." };
 
-  await prisma.schoolOnboardingRequest.update({
+  await db.schoolOnboardingRequest.update({
     where: { id: request.id },
     data: {
       status: "HOLD",

@@ -1,7 +1,7 @@
 import { Card, SectionHeader } from "@/components/ui";
 import { requirePermission } from "@/lib/require-permission";
 import { getLiveTransportForSchool, getParentAssignedBusIds } from "@/lib/transport";
-import { prisma } from "@/lib/db";
+import { db } from "@/lib/db";
 import { TransportLiveBoard, TransportOpsForms } from "./ui";
 
 export default async function TransportPage({
@@ -15,7 +15,7 @@ export default async function TransportPage({
   const [allLiveBuses, scopedBuses, drivers, students, routes] = await Promise.all([
     getLiveTransportForSchool(session.schoolId),
     session.roleKey === "BUS_ASSISTANT"
-      ? prisma.bus.findMany({
+      ? db.bus.findMany({
           where: {
             schoolId: session.schoolId,
             driverAssignments: { some: { userId: session.userId } }
@@ -23,19 +23,19 @@ export default async function TransportPage({
           orderBy: { name: "asc" },
           select: { id: true, name: true }
         })
-      : prisma.bus.findMany({ where: { schoolId: session.schoolId }, orderBy: { name: "asc" }, select: { id: true, name: true } }),
+      : db.bus.findMany({ where: { schoolId: session.schoolId }, orderBy: { name: "asc" }, select: { id: true, name: true } }),
     session.roleKey === "ADMIN"
-      ? prisma.user.findMany({
+      ? db.user.findMany({
           where: { schoolId: session.schoolId, schoolRole: { key: "BUS_ASSISTANT" }, isActive: true },
           orderBy: { name: "asc" },
           select: { id: true, name: true }
         })
       : Promise.resolve([]),
     session.roleKey === "ADMIN"
-      ? prisma.student.findMany({ where: { schoolId: session.schoolId }, orderBy: { fullName: "asc" }, select: { id: true, fullName: true } })
+      ? db.student.findMany({ where: { schoolId: session.schoolId }, orderBy: { fullName: "asc" }, select: { id: true, fullName: true } })
       : Promise.resolve([]),
     session.roleKey === "ADMIN"
-      ? prisma.busRoute.findMany({ where: { schoolId: session.schoolId }, orderBy: { name: "asc" }, select: { id: true, name: true, busId: true } })
+      ? db.busRoute.findMany({ where: { schoolId: session.schoolId }, orderBy: { name: "asc" }, select: { id: true, name: true, busId: true } })
       : Promise.resolve([])
   ]);
 

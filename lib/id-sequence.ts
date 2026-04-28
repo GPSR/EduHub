@@ -1,4 +1,6 @@
-import type { School } from "@prisma/client";
+type SchoolIdFormatConfig = {
+  idSequencePad: number;
+};
 
 function pad(num: number, width: number) {
   const s = String(num);
@@ -10,7 +12,7 @@ export function formatSchoolId({
   format,
   seq
 }: {
-  school: Pick<School, "idSequencePad">;
+  school: SchoolIdFormatConfig;
   format: string;
   seq: number;
 }) {
@@ -18,4 +20,3 @@ export function formatSchoolId({
   const seqStr = pad(seq, school.idSequencePad || 0);
   return format.replaceAll("{YYYY}", yyyy).replaceAll("{SEQ}", seqStr);
 }
-

@@ -1,10 +1,10 @@
-import Link from "next/link";
-import { Badge, Button, Card, EmptyState, Input, Label, SectionHeader, Textarea } from "@/components/ui";
-import { prisma } from "@/lib/db";
+import { Badge, Button, Card, EmptyState, SectionHeader } from "@/components/ui";
+import { db } from "@/lib/db";
 import { atLeastLevel } from "@/lib/permissions";
 import { requirePermission } from "@/lib/require-permission";
-import { formatMonthKey, monthWindow, parseMonthKey } from "@/lib/leave-utils";
-import { CalendarAudiencePicker } from "./calendar-audience-picker";
+import { eachDayInclusive, formatMonthKey, monthWindow, parseDateOnlyInput, parseMonthKey } from "@/lib/leave-utils";
+import { CalendarMonthGrid } from "./calendar-month-grid";
+import { CalendarMonthNav } from "./calendar-month-nav";
 
 const EVENT_TYPE_META = {
   HOLIDAY: { label: "Holiday", tone: "success" as const, icon: "🌴" },
@@ -21,6 +21,27 @@ function addMonths(date: Date, delta: number) {
   return new Date(date.getFullYear(), date.getMonth() + delta, 1);
 }
 
+function formatDateKey(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function getMonthGrid(monthStart: Date) {
+  const firstDay = new Date(monthStart.getFullYear(), monthStart.getMonth(), 1);
+  const lastDay = new Date(monthStart.getFullYear(), monthStart.getMonth() + 1, 0);
+  const gridStart = new Date(firstDay);
+  gridStart.setDate(gridStart.getDate() - gridStart.getDay());
+  const gridEnd = new Date(lastDay);
+  gridEnd.setDate(gridEnd.getDate() + (6 - gridEnd.getDay()));
+  return eachDayInclusive(gridStart, gridEnd);
+}
+
+function isSameMonth(date: Date, monthStart: Date) {
+  return date.getFullYear() === monthStart.getFullYear() && date.getMonth() === monthStart.getMonth();
+}
+
 function formatRange(start: Date, end: Date) {
   const startLabel = start.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
   const endLabel = end.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
@@ -31,28 +52,29 @@ function formatRange(start: Date, end: Date) {
 export default async function CalendarPage({
   searchParams
 }: {
-  searchParams: Promise<{ month?: string }>;
+  searchParams: Promise<{ month?: string; add?: string }>;
 }) {
   const { session, level } = await requirePermission("SCHOOL_CALENDAR", "VIEW");
-  const { month } = await searchParams;
+  const { month, add } = await searchParams;
 
   const monthStart = parseMonthKey(month) ?? startOfMonth(new Date());
   const activeMonthKey = formatMonthKey(monthStart);
   const previousMonth = formatMonthKey(addMonths(monthStart, -1));
   const nextMonth = formatMonthKey(addMonths(monthStart, 1));
+  const createPrefillDate = parseDateOnlyInput(String(add ?? "").trim());
+  const createPrefillDateKey = createPrefillDate ? formatDateKey(createPrefillDate) : undefined;
 
   const { start: monthRangeStart, end: monthRangeEnd } = monthWindow(monthStart);
+  const monthGridDays = getMonthGrid(monthStart);
 
-  const roleCanManage = new Set(["ADMIN", "HEAD_MASTER", "PRINCIPAL", "CLASS_TEACHER", "TEACHER"]).has(
-    session.roleKey
-  );
-  const canManage = atLeastLevel(level, "EDIT") || roleCanManage;
+  const canManage = atLeastLevel(level, "EDIT");
+  const canAdminManage = session.roleKey === "ADMIN";
   const canViewAllClassEvents = new Set(["ADMIN", "HEAD_MASTER", "PRINCIPAL", "CORRESPONDENT"]).has(session.roleKey);
   const isTeacherRole = session.roleKey === "TEACHER" || session.roleKey === "CLASS_TEACHER";
 
   const [teacherAssignments, parentStudents] = await Promise.all([
     isTeacherRole
-      ? prisma.teacherClassAssignment.findMany({
+      ? db.teacherClassAssignment.findMany({
           where: {
             schoolId: session.schoolId,
             userId: session.userId
@@ -61,7 +83,7 @@ export default async function CalendarPage({
         })
       : Promise.resolve([]),
     session.roleKey === "PARENT"
-      ? prisma.student.findMany({
+      ? db.student.findMany({
           where: {
             schoolId: session.schoolId,
             parents: { some: { userId: session.userId } }
@@ -98,7 +120,7 @@ export default async function CalendarPage({
     canManage
       ? isTeacherRole
         ? teacherClassIds.length > 0
-          ? prisma.class.findMany({
+          ? db.class.findMany({
               where: {
                 schoolId: session.schoolId,
                 id: { in: teacherClassIds }
@@ -107,13 +129,13 @@ export default async function CalendarPage({
               select: { id: true, name: true, section: true }
             })
           : Promise.resolve([])
-        : prisma.class.findMany({
+        : db.class.findMany({
             where: { schoolId: session.schoolId },
             orderBy: [{ name: "asc" }, { section: "asc" }],
             select: { id: true, name: true, section: true }
           })
       : Promise.resolve([]),
-    prisma.schoolCalendarEvent.findMany({
+    db.schoolCalendarEvent.findMany({
       where: {
         schoolId: session.schoolId,
         startsOn: { lte: monthRangeEnd },
@@ -134,7 +156,7 @@ export default async function CalendarPage({
       orderBy: [{ startsOn: "asc" }, { createdAt: "asc" }],
       take: 300
     }),
-    prisma.schoolCalendarEvent.findMany({
+    db.schoolCalendarEvent.findMany({
       where: {
         schoolId: session.schoolId,
         startsOn: { gte: new Date() },
@@ -155,6 +177,42 @@ export default async function CalendarPage({
     })
   ]);
 
+  const eventsByDay = new Map<string, typeof monthEvents>();
+  for (const event of monthEvents) {
+    const overlapStart = event.startsOn > monthRangeStart ? event.startsOn : monthRangeStart;
+    const overlapEnd = event.endsOn < monthRangeEnd ? event.endsOn : monthRangeEnd;
+    for (const day of eachDayInclusive(overlapStart, overlapEnd)) {
+      const key = formatDateKey(day);
+      const existing = eventsByDay.get(key);
+      if (existing) {
+        existing.push(event);
+      } else {
+        eventsByDay.set(key, [event]);
+      }
+    }
+  }
+  const monthGridDayData = monthGridDays.map((day) => {
+    const key = formatDateKey(day);
+    return {
+      key,
+      dayNumber: day.getDate(),
+      inMonth: isSameMonth(day, monthStart),
+      events: (eventsByDay.get(key) ?? []).map((event) => ({
+        id: event.id,
+        title: event.title,
+        description: event.description ?? "",
+        eventType: event.eventType,
+        audienceScope: event.audienceScope,
+        startsOn: formatDateKey(event.startsOn),
+        endsOn: formatDateKey(event.endsOn),
+        classIds: event.classTargets.map((target) => target.class.id),
+        classLabels: event.classTargets.map((target) =>
+          `${target.class.name}${target.class.section ? `-${target.class.section}` : ""}`
+        )
+      }))
+    };
+  });
+
   return (
     <div className="space-y-5 animate-fade-up">
       <SectionHeader
@@ -171,21 +229,19 @@ export default async function CalendarPage({
             <p className="text-[12px] text-white/50">{monthEvents.length} event(s) this month</p>
           </div>
 
-          <div className="flex items-center gap-2">
-            <Link href={`/calendar?month=${encodeURIComponent(previousMonth)}`}>
-              <Button type="button" variant="secondary" size="sm">← Prev</Button>
-            </Link>
-            <Link href="/calendar">
-              <Button type="button" variant="secondary" size="sm">Today</Button>
-            </Link>
-            <Link href={`/calendar?month=${encodeURIComponent(nextMonth)}`}>
-              <Button type="button" variant="secondary" size="sm">Next →</Button>
-            </Link>
-          </div>
+          <CalendarMonthNav previousMonth={previousMonth} nextMonth={nextMonth} />
         </div>
       </Card>
 
-      {canManage ? <CreateCalendarEventCard monthKey={activeMonthKey} classes={createClasses} /> : null}
+      <CalendarMonthGrid
+        canManage={canManage}
+        canAdminManage={canAdminManage}
+        activeMonthKey={activeMonthKey}
+        monthLabel={monthStart.toLocaleDateString("en-US", { month: "long", year: "numeric" })}
+        initialAddDate={createPrefillDateKey}
+        days={monthGridDayData}
+        classes={createClasses}
+      />
 
       <Card
         title="Monthly Timeline"
@@ -285,66 +341,5 @@ export default async function CalendarPage({
         )}
       </Card>
     </div>
-  );
-}
-
-async function CreateCalendarEventCard({
-  monthKey,
-  classes
-}: {
-  monthKey: string;
-  classes: { id: string; name: string; section: string }[];
-}) {
-  const { createSchoolCalendarEventAction } = await import("./actions");
-
-  return (
-    <Card
-      title="Add Calendar Event"
-      description="School admin and leadership can publish holidays, functions, exams, and notices"
-      accent="indigo"
-    >
-      <form action={createSchoolCalendarEventAction} className="grid grid-cols-1 gap-3 sm:gap-4">
-        <div>
-          <Label required>Title</Label>
-          <Input name="title" placeholder="Quarterly Exams" required />
-        </div>
-
-        <div>
-          <Label>Event type</Label>
-          <select
-            name="eventType"
-            defaultValue="HOLIDAY"
-            className="w-full rounded-[12px] border border-white/[0.12] bg-[#0f1728]/75 px-3.5 py-2.5 text-sm text-white outline-none transition-all focus:border-blue-300/70 focus:ring-4 focus:ring-blue-500/22"
-          >
-            <option value="HOLIDAY">Holiday</option>
-            <option value="FUNCTION">Function</option>
-            <option value="EXAM">Exam</option>
-            <option value="OTHER">Other</option>
-          </select>
-        </div>
-
-        <CalendarAudiencePicker classes={classes} />
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div>
-            <Label required>Start date</Label>
-            <Input name="startsOn" type="date" defaultValue={`${monthKey}-01`} required />
-          </div>
-          <div>
-            <Label>End date</Label>
-            <Input name="endsOn" type="date" />
-          </div>
-        </div>
-
-        <div>
-          <Label>Description</Label>
-          <Textarea name="description" rows={3} placeholder="Additional event details for school community" />
-        </div>
-
-        <div className="flex justify-end">
-          <Button type="submit">Add event</Button>
-        </div>
-      </form>
-    </Card>
   );
 }

@@ -1,6 +1,6 @@
 "use server";
 
-import { prisma } from "@/lib/db";
+import { db } from "@/lib/db";
 import { requirePermission } from "@/lib/require-permission";
 import { redirect } from "next/navigation";
 import { z } from "zod";
@@ -23,7 +23,7 @@ export async function createHomeworkAction(formData: FormData) {
   });
   if (!parsed.success) throw new Error("Unable to process request.");
 
-  await prisma.homework.create({
+  await db.homework.create({
     data: {
       schoolId: session.schoolId,
       studentId: parsed.data.studentId,

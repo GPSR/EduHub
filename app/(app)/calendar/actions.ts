@@ -2,7 +2,7 @@
 
 import { z } from "zod";
 import { redirect } from "next/navigation";
-import { prisma } from "@/lib/db";
+import { db } from "@/lib/db";
 import { requirePermission } from "@/lib/require-permission";
 import { atLeastLevel } from "@/lib/permissions";
 import { formatMonthKey, parseDateOnlyInput } from "@/lib/leave-utils";
@@ -17,17 +17,7 @@ const CreateCalendarEventSchema = z.object({
   endsOn: z.string().optional()
 });
 
-export async function createSchoolCalendarEventAction(formData: FormData) {
-  const { session, level } = await requirePermission("SCHOOL_CALENDAR", "VIEW");
-  const isTeacherRole = session.roleKey === "TEACHER" || session.roleKey === "CLASS_TEACHER";
-  const roleCanManage = new Set(["ADMIN", "HEAD_MASTER", "PRINCIPAL", "CLASS_TEACHER", "TEACHER"]).has(
-    session.roleKey
-  );
-  const canManage = atLeastLevel(level, "EDIT") || roleCanManage;
-  if (!canManage) {
-    throw new Error("Only teachers and leadership roles can add calendar events.");
-  }
-
+function parseCalendarEventInput(formData: FormData) {
   const classIds = formData
     .getAll("classIds")
     .map((value) => String(value))
@@ -43,7 +33,6 @@ export async function createSchoolCalendarEventAction(formData: FormData) {
     startsOn: formData.get("startsOn"),
     endsOn: String(formData.get("endsOn") ?? "").trim() || undefined
   });
-
   if (!parsed.success) {
     throw new Error(parsed.error.issues[0]?.message ?? "Unable to process request.");
   }
@@ -53,61 +42,80 @@ export async function createSchoolCalendarEventAction(formData: FormData) {
   if (!startsOn || !endsOn) throw new Error("Please select valid event dates.");
   if (endsOn < startsOn) throw new Error("Event end date cannot be earlier than start date.");
 
-  const targetClassIds = [...new Set(parsed.data.classIds)];
-  let validTargetClassIds: string[] = [];
-  let teacherAssignedClassIds: string[] = [];
+  return {
+    title: parsed.data.title,
+    description: parsed.data.description,
+    eventType: parsed.data.eventType,
+    audienceScope: parsed.data.audienceScope,
+    startsOn,
+    endsOn,
+    classIds: [...new Set(parsed.data.classIds)]
+  };
+}
 
-  if (isTeacherRole) {
-    const assignments = await prisma.teacherClassAssignment.findMany({
-      where: {
-        schoolId: session.schoolId,
-        userId: session.userId
-      },
+async function resolveValidClassIds(args: {
+  schoolId: string;
+  userId: string;
+  isTeacherRole: boolean;
+  audienceScope: "SCHOOL_WIDE" | "CLASS_WISE";
+  classIds: string[];
+}) {
+  if (args.audienceScope !== "CLASS_WISE") return [];
+  if (args.classIds.length === 0) throw new Error("Select at least one class for class-wise events.");
+
+  if (args.isTeacherRole) {
+    const assignments = await db.teacherClassAssignment.findMany({
+      where: { schoolId: args.schoolId, userId: args.userId },
       select: { classId: true }
     });
-    teacherAssignedClassIds = assignments.map((entry) => entry.classId);
+    const teacherAssignedClassIds = assignments.map((entry) => entry.classId);
+    const unauthorizedClassId = args.classIds.find((classId) => !teacherAssignedClassIds.includes(classId));
+    if (unauthorizedClassId) throw new Error("You can only target classes assigned to you.");
   }
 
-  if (parsed.data.audienceScope === "CLASS_WISE") {
-    if (targetClassIds.length === 0) throw new Error("Select at least one class for class-wise events.");
-
-    if (isTeacherRole) {
-      const unauthorizedClassId = targetClassIds.find((classId) => !teacherAssignedClassIds.includes(classId));
-      if (unauthorizedClassId) {
-        throw new Error("You can only target classes assigned to you.");
-      }
-    }
-
-    const validClasses = await prisma.class.findMany({
-      where: {
-        schoolId: session.schoolId,
-        id: { in: targetClassIds }
-      },
-      select: { id: true }
-    });
-    validTargetClassIds = validClasses.map((entry) => entry.id);
-
-    if (validTargetClassIds.length !== targetClassIds.length) {
-      throw new Error("Some selected classes are invalid. Refresh and try again.");
-    }
+  const validClasses = await db.class.findMany({
+    where: { schoolId: args.schoolId, id: { in: args.classIds } },
+    select: { id: true }
+  });
+  const validTargetClassIds = validClasses.map((entry) => entry.id);
+  if (validTargetClassIds.length !== args.classIds.length) {
+    throw new Error("Some selected classes are invalid. Refresh and try again.");
   }
+  return validTargetClassIds;
+}
 
-  await prisma.$transaction(async (tx) => {
+export async function createSchoolCalendarEventAction(formData: FormData) {
+  const { session, level } = await requirePermission("SCHOOL_CALENDAR", "VIEW");
+  const isTeacherRole = session.roleKey === "TEACHER" || session.roleKey === "CLASS_TEACHER";
+  const canManage = atLeastLevel(level, "EDIT");
+  if (!canManage) {
+    throw new Error("Only users with calendar edit access can add events.");
+  }
+  const input = parseCalendarEventInput(formData);
+  const validTargetClassIds = await resolveValidClassIds({
+    schoolId: session.schoolId,
+    userId: session.userId,
+    isTeacherRole,
+    audienceScope: input.audienceScope,
+    classIds: input.classIds
+  });
+
+  await db.$transaction(async (tx) => {
     const event = await tx.schoolCalendarEvent.create({
       data: {
         schoolId: session.schoolId,
-        title: parsed.data.title,
-        description: parsed.data.description,
-        eventType: parsed.data.eventType,
-        audienceScope: parsed.data.audienceScope,
-        startsOn,
-        endsOn,
+        title: input.title,
+        description: input.description,
+        eventType: input.eventType,
+        audienceScope: input.audienceScope,
+        startsOn: input.startsOn,
+        endsOn: input.endsOn,
         createdByUserId: session.userId
       },
       select: { id: true }
     });
 
-    if (parsed.data.audienceScope === "CLASS_WISE" && validTargetClassIds.length > 0) {
+    if (input.audienceScope === "CLASS_WISE" && validTargetClassIds.length > 0) {
       await tx.schoolCalendarEventClass.createMany({
         data: validTargetClassIds.map((classId) => ({
           schoolId: session.schoolId,
@@ -119,5 +127,79 @@ export async function createSchoolCalendarEventAction(formData: FormData) {
     }
   });
 
-  redirect(`/calendar?month=${formatMonthKey(startsOn)}`);
+  redirect(`/calendar?month=${formatMonthKey(input.startsOn)}`);
+}
+
+export async function updateSchoolCalendarEventAction(formData: FormData) {
+  const { session } = await requirePermission("SCHOOL_CALENDAR", "VIEW");
+  if (session.roleKey !== "ADMIN") {
+    throw new Error("Only admin can modify calendar events.");
+  }
+
+  const eventId = String(formData.get("eventId") ?? "").trim();
+  if (!eventId) throw new Error("Event id is required.");
+  const event = await db.schoolCalendarEvent.findFirst({
+    where: { id: eventId, schoolId: session.schoolId },
+    select: { id: true }
+  });
+  if (!event) throw new Error("Event not found.");
+
+  const input = parseCalendarEventInput(formData);
+  const validTargetClassIds = await resolveValidClassIds({
+    schoolId: session.schoolId,
+    userId: session.userId,
+    isTeacherRole: false,
+    audienceScope: input.audienceScope,
+    classIds: input.classIds
+  });
+
+  await db.$transaction(async (tx) => {
+    await tx.schoolCalendarEvent.update({
+      where: { id: eventId },
+      data: {
+        title: input.title,
+        description: input.description,
+        eventType: input.eventType,
+        audienceScope: input.audienceScope,
+        startsOn: input.startsOn,
+        endsOn: input.endsOn
+      }
+    });
+
+    await tx.schoolCalendarEventClass.deleteMany({
+      where: { schoolId: session.schoolId, eventId }
+    });
+    if (input.audienceScope === "CLASS_WISE" && validTargetClassIds.length > 0) {
+      await tx.schoolCalendarEventClass.createMany({
+        data: validTargetClassIds.map((classId) => ({
+          schoolId: session.schoolId,
+          eventId,
+          classId
+        })),
+        skipDuplicates: true
+      });
+    }
+  });
+
+  redirect(`/calendar?month=${formatMonthKey(input.startsOn)}`);
+}
+
+export async function deleteSchoolCalendarEventAction(formData: FormData) {
+  const { session } = await requirePermission("SCHOOL_CALENDAR", "VIEW");
+  if (session.roleKey !== "ADMIN") {
+    throw new Error("Only admin can delete calendar events.");
+  }
+
+  const eventId = String(formData.get("eventId") ?? "").trim();
+  if (!eventId) throw new Error("Event id is required.");
+  const event = await db.schoolCalendarEvent.findFirst({
+    where: { id: eventId, schoolId: session.schoolId },
+    select: { id: true, startsOn: true }
+  });
+  if (!event) throw new Error("Event not found.");
+  await db.schoolCalendarEvent.delete({ where: { id: event.id } });
+
+  const monthKeyRaw = String(formData.get("monthKey") ?? "").trim();
+  const monthKey = /^\d{4}-\d{2}$/.test(monthKeyRaw) ? monthKeyRaw : formatMonthKey(event.startsOn);
+  redirect(`/calendar?month=${monthKey}`);
 }

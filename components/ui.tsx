@@ -8,6 +8,7 @@ export function Card({
   accent?: "indigo"|"emerald"|"amber"|"rose"|"teal"|"violet";
   children: React.ReactNode; className?: string; action?: React.ReactNode;
 }) {
+  const hasBody = children !== null && children !== undefined && children !== false;
   const accentBar: Record<string, string> = {
     indigo:  "before:bg-blue-400",
     emerald: "before:bg-emerald-500",
@@ -31,7 +32,7 @@ export function Card({
       className
     )}>
       {(title || action) && (
-        <div className={clsx("mb-3 sm:mb-4", accent && "pl-1", action && "flex items-start justify-between gap-3")}>
+        <div className={clsx(hasBody && "mb-3 sm:mb-4", accent && "pl-1", action && "flex items-start justify-between gap-3")}>
           <div className="min-w-0">
             {title && <h2 className="text-[14px] sm:text-[15px] font-semibold tracking-[-0.01em] text-white/95">{title}</h2>}
             {description && <p className="mt-0.5 text-xs sm:text-sm text-white/50 leading-relaxed">{description}</p>}

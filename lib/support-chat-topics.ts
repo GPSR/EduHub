@@ -1,4 +1,4 @@
-import { prisma } from "@/lib/db";
+import { db } from "@/lib/db";
 
 export const DEFAULT_SUPPORT_CHAT_TOPICS = [
   "Fees",
@@ -40,7 +40,7 @@ export function normalizeSupportChatTopics(raw: string | string[] | null | undef
 }
 
 export async function getSchoolSupportChatTopics(schoolId: string) {
-  const latest = await prisma.auditLog.findFirst({
+  const latest = await db.auditLog.findFirst({
     where: {
       schoolId,
       action: SUPPORT_TOPICS_AUDIT_ACTION,

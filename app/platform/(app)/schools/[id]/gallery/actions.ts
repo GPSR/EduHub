@@ -2,7 +2,7 @@
 
 import { z } from "zod";
 import { redirect } from "next/navigation";
-import { prisma } from "@/lib/db";
+import { db } from "@/lib/db";
 import { requirePlatformSchoolAccess } from "@/lib/platform-require";
 import { saveUploadedImage } from "@/lib/uploads";
 
@@ -90,7 +90,7 @@ export async function createPlatformGalleryFolderAction(formData: FormData) {
   const uniqueRoleIds = [...new Set(parsed.data.roleIds)];
   const validRoleIds = uniqueRoleIds.length
     ? (
-        await prisma.schoolRole.findMany({
+        await db.schoolRole.findMany({
           where: {
             schoolId: parsed.data.schoolId,
             id: { in: uniqueRoleIds }
@@ -100,7 +100,7 @@ export async function createPlatformGalleryFolderAction(formData: FormData) {
       ).map((role) => role.id)
     : [];
 
-  const folder = await prisma.schoolGalleryFolder.create({
+  const folder = await db.schoolGalleryFolder.create({
     data: {
       schoolId: parsed.data.schoolId,
       name: parsed.data.name,
@@ -153,7 +153,7 @@ export async function uploadPlatformGalleryItemAction(formData: FormData) {
     });
   }
 
-  const folder = await prisma.schoolGalleryFolder.findFirst({
+  const folder = await db.schoolGalleryFolder.findFirst({
     where: {
       id: parsed.data.folderId,
       schoolId: parsed.data.schoolId,
@@ -204,7 +204,7 @@ export async function uploadPlatformGalleryItemAction(formData: FormData) {
       });
     }
 
-    await prisma.schoolGalleryItem.create({
+    await db.schoolGalleryItem.create({
       data: {
         schoolId: parsed.data.schoolId,
         folderId: folder.id,

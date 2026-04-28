@@ -1,6 +1,6 @@
 "use server";
 
-import { prisma } from "@/lib/db";
+import { db } from "@/lib/db";
 import { requirePermission } from "@/lib/require-permission";
 import { redirect } from "next/navigation";
 import { z } from "zod";
@@ -10,12 +10,12 @@ async function notifyParentsForStudent(
   studentId: string,
   payload: { title: string; body?: string }
 ) {
-  const links = await prisma.studentParent.findMany({
+  const links = await db.studentParent.findMany({
     where: { schoolId, studentId },
     select: { userId: true }
   });
   if (!links.length) return;
-  await prisma.notification.createMany({
+  await db.notification.createMany({
     data: links.map((p) => ({
       schoolId,
       userId: p.userId,
@@ -59,13 +59,13 @@ export async function createInvoiceAction(formData: FormData) {
   });
   if (!parsed.success) throw new Error("Unable to process request.");
 
-  const student = await prisma.student.findFirst({
+  const student = await db.student.findFirst({
     where: { id: parsed.data.studentId, schoolId: session.schoolId },
     select: { id: true, fullName: true }
   });
   if (!student) throw new Error("Student not found.");
 
-  const invoice = await prisma.feeInvoice.create({
+  const invoice = await db.feeInvoice.create({
     data: {
       schoolId: session.schoolId,
       studentId: student.id,
@@ -101,13 +101,13 @@ export async function addPaymentAction(formData: FormData) {
   });
   if (!parsed.success) throw new Error("Unable to process request.");
 
-  const invoice = await prisma.feeInvoice.findFirst({
+  const invoice = await db.feeInvoice.findFirst({
     where: { id: parsed.data.invoiceId, schoolId: session.schoolId },
     include: { payments: true }
   });
   if (!invoice) throw new Error("Unable to process request.");
 
-  await prisma.feePayment.create({
+  await db.feePayment.create({
     data: {
       invoiceId: invoice.id,
       amountCents: Math.round(parsed.data.amount * 100),
@@ -120,7 +120,7 @@ export async function addPaymentAction(formData: FormData) {
     invoice.payments.reduce((acc, p) => acc + p.amountCents, 0) + Math.round(parsed.data.amount * 100);
   const newStatus = paidCents >= invoice.amountCents ? "PAID" : "PARTIAL";
 
-  await prisma.feeInvoice.update({
+  await db.feeInvoice.update({
     where: { id: invoice.id },
     data: { status: newStatus }
   });
@@ -146,7 +146,7 @@ export async function sendInvoiceReminderAction(formData: FormData) {
   });
   if (!parsed.success) throw new Error("Unable to process reminder.");
 
-  const invoice = await prisma.feeInvoice.findFirst({
+  const invoice = await db.feeInvoice.findFirst({
     where: { id: parsed.data.invoiceId, schoolId: session.schoolId },
     include: { student: { select: { id: true, fullName: true } }, payments: { select: { amountCents: true } } }
   });
@@ -180,7 +180,7 @@ export async function sendPendingFeeRemindersAction(formData: FormData) {
   if (!parsed.success) throw new Error("Unable to process reminder.");
 
   const returnTo = normalizeReturnPath(parsed.data.returnTo, "/fees");
-  const pendingInvoices = await prisma.feeInvoice.findMany({
+  const pendingInvoices = await db.feeInvoice.findMany({
     where: { schoolId: session.schoolId, status: { not: "PAID" } },
     include: {
       student: { select: { id: true, fullName: true } },
@@ -220,7 +220,7 @@ export async function sendPendingFeeRemindersAction(formData: FormData) {
   }
 
   const studentIds = Array.from(byStudent.keys());
-  const parentLinks = await prisma.studentParent.findMany({
+  const parentLinks = await db.studentParent.findMany({
     where: { schoolId: session.schoolId, studentId: { in: studentIds } },
     select: { userId: true, studentId: true }
   });
@@ -239,7 +239,7 @@ export async function sendPendingFeeRemindersAction(formData: FormData) {
     .filter((item): item is { schoolId: string; userId: string; title: string; body: string } => Boolean(item));
 
   if (notifications.length > 0) {
-    await prisma.notification.createMany({ data: notifications });
+    await db.notification.createMany({ data: notifications });
   }
 
   let target = appendQuery(returnTo, "reminder", "bulk_sent");
@@ -261,13 +261,13 @@ export async function sendStudentFeeReminderAction(formData: FormData) {
   if (!parsed.success) throw new Error("Unable to process reminder.");
 
   const returnTo = normalizeReturnPath(parsed.data.returnTo, `/students/${parsed.data.studentId}`);
-  const student = await prisma.student.findFirst({
+  const student = await db.student.findFirst({
     where: { id: parsed.data.studentId, schoolId: session.schoolId },
     select: { id: true, fullName: true }
   });
   if (!student) throw new Error("Student not found.");
 
-  const pendingInvoices = await prisma.feeInvoice.findMany({
+  const pendingInvoices = await db.feeInvoice.findMany({
     where: { schoolId: session.schoolId, studentId: student.id, status: { not: "PAID" } },
     include: { payments: { select: { amountCents: true } } },
     take: 200

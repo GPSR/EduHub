@@ -3,7 +3,7 @@ import Image from "next/image";
 import { notFound } from "next/navigation";
 import { requireSession } from "@/lib/require";
 import { requirePermission } from "@/lib/require-permission";
-import { prisma } from "@/lib/db";
+import { db } from "@/lib/db";
 import { getSchoolIdCardTemplate } from "@/lib/id-card-template";
 import { getSchoolProfile } from "@/lib/school-profile";
 import { getUserProfileImageUrl } from "@/lib/uploads";
@@ -34,7 +34,7 @@ export default async function StudentVirtualIdCardPage({ params }: { params: Pro
   const { id } = await params;
 
   const [student, school, template, schoolProfile] = await Promise.all([
-    prisma.student.findFirst({
+    db.student.findFirst({
       where:
         session.roleKey === "PARENT"
           ? { id, schoolId: session.schoolId, parents: { some: { userId: session.userId } } }
@@ -50,7 +50,7 @@ export default async function StudentVirtualIdCardPage({ params }: { params: Pro
         }
       }
     }),
-    prisma.school.findUnique({ where: { id: session.schoolId }, select: { name: true, brandingLogoUrl: true } }),
+    db.school.findUnique({ where: { id: session.schoolId }, select: { name: true, brandingLogoUrl: true } }),
     getSchoolIdCardTemplate(session.schoolId),
     getSchoolProfile(session.schoolId)
   ]);

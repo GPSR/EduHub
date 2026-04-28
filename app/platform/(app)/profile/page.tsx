@@ -28,9 +28,9 @@ export default async function PlatformProfilePage() {
       </div>
 
       <div className="rounded-[22px] border border-white/[0.12] bg-[#121a2a]/88 p-6 backdrop-blur-xl">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:gap-5">
+        <div className="flex items-start gap-4 sm:gap-5">
           <PlatformProfileAvatarUploader userName={user.name} photoUrl={profilePhotoUrl} />
-          <div className="min-w-0">
+          <div className="min-w-0 pt-0.5">
             <h2 className="text-base font-bold tracking-tight text-white/95 sm:text-lg">{user.name}</h2>
             <p className="mt-0.5 text-sm text-white/50">{user.email}</p>
             <div className="mt-2 flex flex-wrap items-center gap-2">

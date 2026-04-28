@@ -1,4 +1,4 @@
-import { prisma } from "@/lib/db";
+import { db } from "@/lib/db";
 
 const LEADERSHIP_ROLE_KEYS = ["ADMIN", "PRINCIPAL", "HEAD_MASTER"] as const;
 const PARENT_CLASS_ROLE_KEYS = ["CLASS_TEACHER", "TEACHER"] as const;
@@ -17,7 +17,7 @@ export async function getLeadershipSupportRecipientIds(args: {
   schoolId: string;
   excludeUserIds?: string[];
 }) {
-  const users = await prisma.user.findMany({
+  const users = await db.user.findMany({
     where: {
       schoolId: args.schoolId,
       isActive: true,
@@ -34,7 +34,7 @@ export async function getParentSupportRecipientIds(args: {
   parentUserId: string;
 }) {
   const [childRows, leadershipIds] = await Promise.all([
-    prisma.student.findMany({
+    db.student.findMany({
       where: {
         schoolId: args.schoolId,
         parents: { some: { userId: args.parentUserId } }
@@ -52,7 +52,7 @@ export async function getParentSupportRecipientIds(args: {
     return unique(leadershipIds);
   }
 
-  const classTeachers = await prisma.user.findMany({
+  const classTeachers = await db.user.findMany({
     where: {
       schoolId: args.schoolId,
       isActive: true,
@@ -67,7 +67,7 @@ export async function getParentSupportRecipientIds(args: {
 }
 
 export async function getPlatformSupportRecipientIds(args: { schoolId: string }) {
-  const assigned = await prisma.platformUserSchoolAssignment.findMany({
+  const assigned = await db.platformUserSchoolAssignment.findMany({
     where: {
       schoolId: args.schoolId,
       platformUser: { isActive: true, status: "APPROVED" }
@@ -77,7 +77,7 @@ export async function getPlatformSupportRecipientIds(args: { schoolId: string })
   const assignedIds = unique(assigned.map((row) => row.platformUserId));
   if (assignedIds.length > 0) return assignedIds;
 
-  const fallback = await prisma.platformUser.findMany({
+  const fallback = await db.platformUser.findMany({
     where: { isActive: true, status: "APPROVED" },
     select: { id: true }
   });

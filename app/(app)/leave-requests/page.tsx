@@ -1,8 +1,7 @@
 import Link from "next/link";
-import type { Prisma } from "@prisma/client";
 import { Badge, Button, Card, EmptyState, Input, Label, SectionHeader } from "@/components/ui";
 import { LeaveRequestCreateCard } from "@/components/leave-request-create-card";
-import { prisma } from "@/lib/db";
+import { db } from "@/lib/db";
 import { atLeastLevel, getEffectivePermissions } from "@/lib/permissions";
 import { requirePermission } from "@/lib/require-permission";
 import { requireSession } from "@/lib/require";
@@ -30,6 +29,8 @@ function classLabel(name: string, section: string) {
 function dateLabel(date: Date) {
   return date.toISOString().slice(0, 10);
 }
+
+type LeaveRequestWhereInput = NonNullable<Parameters<typeof db.leaveRequest.findMany>[0]>["where"];
 
 export default async function LeaveRequestsPage({
   searchParams
@@ -59,7 +60,7 @@ export default async function LeaveRequestsPage({
   const parentStudentIds =
     session.roleKey === "PARENT"
       ? (
-          await prisma.student.findMany({
+          await db.student.findMany({
             where: {
               schoolId: session.schoolId,
               parents: { some: { userId: session.userId } }
@@ -69,7 +70,7 @@ export default async function LeaveRequestsPage({
         ).map((row) => row.id)
       : [];
 
-  const whereByRole: Prisma.LeaveRequestWhereInput = (() => {
+  const whereByRole: LeaveRequestWhereInput = (() => {
     if (session.roleKey === "ADMIN" || session.roleKey === "HEAD_MASTER" || session.roleKey === "PRINCIPAL") {
       return { schoolId: session.schoolId };
     }
@@ -107,7 +108,7 @@ export default async function LeaveRequestsPage({
     return { schoolId: session.schoolId, requestedByUserId: session.userId };
   })();
 
-  const leaveRequests = await prisma.leaveRequest.findMany({
+  const leaveRequests = await db.leaveRequest.findMany({
     where: {
       ...whereByRole,
       ...(statusFilter ? { status: statusFilter } : {})
@@ -133,7 +134,7 @@ export default async function LeaveRequestsPage({
     if (!canCreate) return [] as Array<{ id: string; fullName: string; classId: string; classLabel: string }>;
 
     if (session.roleKey === "PARENT") {
-      const rows = await prisma.student.findMany({
+      const rows = await db.student.findMany({
         where: {
           schoolId: session.schoolId,
           parents: { some: { userId: session.userId } }
@@ -154,7 +155,7 @@ export default async function LeaveRequestsPage({
     }
 
     if (session.roleKey === "CLASS_TEACHER") {
-      const rows = await prisma.student.findMany({
+      const rows = await db.student.findMany({
         where: {
           schoolId: session.schoolId,
           classId: { in: classTeacherClassIds }
@@ -175,7 +176,7 @@ export default async function LeaveRequestsPage({
     }
 
     if (session.roleKey === "ADMIN" || session.roleKey === "PRINCIPAL" || session.roleKey === "HEAD_MASTER") {
-      const rows = await prisma.student.findMany({
+      const rows = await db.student.findMany({
         where: { schoolId: session.schoolId },
         select: {
           id: true,
@@ -206,7 +207,7 @@ export default async function LeaveRequestsPage({
     if (!canCreate) return [] as Array<{ id: string; name: string; roleLabel: string }>;
 
     if (session.roleKey === "ADMIN" || session.roleKey === "PRINCIPAL" || session.roleKey === "HEAD_MASTER") {
-      const rows = await prisma.user.findMany({
+      const rows = await db.user.findMany({
         where: {
           schoolId: session.schoolId,
           isActive: true,
@@ -232,7 +233,7 @@ export default async function LeaveRequestsPage({
     }
 
     if (session.roleKey === "TEACHER" || session.roleKey === "CLASS_TEACHER") {
-      const me = await prisma.user.findFirst({
+      const me = await db.user.findFirst({
         where: {
           schoolId: session.schoolId,
           id: session.userId,
@@ -269,10 +270,10 @@ export default async function LeaveRequestsPage({
     visibleStaff.length > 0;
 
   const [totalCount, pendingCount, approvedCount, rejectedCount] = await Promise.all([
-    prisma.leaveRequest.count({ where: whereByRole }),
-    prisma.leaveRequest.count({ where: { ...whereByRole, status: "PENDING" } }),
-    prisma.leaveRequest.count({ where: { ...whereByRole, status: "APPROVED" } }),
-    prisma.leaveRequest.count({ where: { ...whereByRole, status: "REJECTED" } })
+    db.leaveRequest.count({ where: whereByRole }),
+    db.leaveRequest.count({ where: { ...whereByRole, status: "PENDING" } }),
+    db.leaveRequest.count({ where: { ...whereByRole, status: "APPROVED" } }),
+    db.leaveRequest.count({ where: { ...whereByRole, status: "REJECTED" } })
   ]);
 
   return (

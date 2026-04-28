@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Badge, SectionHeader } from "@/components/ui";
-import { prisma } from "@/lib/db";
+import { db } from "@/lib/db";
 import { requireSuperAdmin } from "@/lib/platform-require";
 
 function fmt(cents: number) {
@@ -12,18 +12,18 @@ export default async function PlatformSchoolDashboardPage({ params }: { params: 
   await requireSuperAdmin();
   const { id } = await params;
 
-  const school = await prisma.school.findUnique({
+  const school = await db.school.findUnique({
     where: { id },
     include: { subscription: { include: { customPlan: true } } },
   });
   if (!school) return notFound();
 
   const [students, teachers, users, invoices, payments] = await Promise.all([
-    prisma.student.count({ where: { schoolId: id } }),
-    prisma.user.count({ where: { schoolId: id, schoolRole: { key: { in: ["TEACHER", "CLASS_TEACHER"] } } } }),
-    prisma.user.count({ where: { schoolId: id } }),
-    prisma.feeInvoice.aggregate({ where: { schoolId: id }, _sum: { amountCents: true }, _count: { _all: true } }),
-    prisma.feePayment.aggregate({ where: { invoice: { schoolId: id } }, _sum: { amountCents: true }, _count: { _all: true } }),
+    db.student.count({ where: { schoolId: id } }),
+    db.user.count({ where: { schoolId: id, schoolRole: { key: { in: ["TEACHER", "CLASS_TEACHER"] } } } }),
+    db.user.count({ where: { schoolId: id } }),
+    db.feeInvoice.aggregate({ where: { schoolId: id }, _sum: { amountCents: true }, _count: { _all: true } }),
+    db.feePayment.aggregate({ where: { invoice: { schoolId: id } }, _sum: { amountCents: true }, _count: { _all: true } }),
   ]);
 
   const invoiced  = invoices._sum.amountCents ?? 0;

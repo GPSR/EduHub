@@ -1,7 +1,7 @@
 "use server";
 
 import { z } from "zod";
-import { prisma } from "@/lib/db";
+import { db } from "@/lib/db";
 import { requireSuperAdmin } from "@/lib/platform-require";
 import { hashPassword } from "@/lib/password";
 import { revalidatePath } from "next/cache";
@@ -31,11 +31,11 @@ export async function createPlatformUserAction(
   if (!parsed.success) return { ok: false, message: parsed.error.issues[0]?.message ?? "Invalid input." };
 
   const email = parsed.data.email.toLowerCase();
-  const exists = await prisma.platformUser.findUnique({ where: { email } });
+  const exists = await db.platformUser.findUnique({ where: { email } });
   if (exists) return { ok: false, message: "Platform user email already exists." };
 
   const passwordHash = await hashPassword(parsed.data.password);
-  const created = await prisma.platformUser.create({
+  const created = await db.platformUser.create({
     data: {
       name: parsed.data.name,
       email,
@@ -71,7 +71,7 @@ export async function approvePlatformUserAction(
   });
   if (!parsed.success) return { ok: false, message: "Invalid request." };
 
-  const target = await prisma.platformUser.findUnique({ where: { id: parsed.data.platformUserId } });
+  const target = await db.platformUser.findUnique({ where: { id: parsed.data.platformUserId } });
   if (!target) return { ok: false, message: "Platform user not found." };
   if (target.role === "SUPER_ADMIN") return { ok: false, message: "Cannot approve via this flow." };
 
@@ -81,7 +81,7 @@ export async function approvePlatformUserAction(
     .filter(Boolean);
   if (schoolIds.length === 0) return { ok: false, message: "Assign at least one school." };
 
-  await prisma.$transaction(async (tx) => {
+  await db.$transaction(async (tx) => {
     await tx.platformUser.update({
       where: { id: target.id },
       data: {
@@ -123,12 +123,12 @@ export async function rejectPlatformUserAction(
   });
   if (!parsed.success) return { ok: false, message: "Invalid request." };
 
-  const target = await prisma.platformUser.findUnique({ where: { id: parsed.data.platformUserId } });
+  const target = await db.platformUser.findUnique({ where: { id: parsed.data.platformUserId } });
   if (!target) return { ok: false, message: "Platform user not found." };
   if (target.role === "SUPER_ADMIN") return { ok: false, message: "Cannot reject super admin." };
 
-  await prisma.$transaction([
-    prisma.platformUser.update({
+  await db.$transaction([
+    db.platformUser.update({
       where: { id: target.id },
       data: {
         status: "REJECTED",
@@ -136,7 +136,7 @@ export async function rejectPlatformUserAction(
         approvedByPlatformUserId: superAdmin.id
       }
     }),
-    prisma.platformUserSchoolAssignment.deleteMany({ where: { platformUserId: target.id } })
+    db.platformUserSchoolAssignment.deleteMany({ where: { platformUserId: target.id } })
   ]);
 
   await auditLog({
@@ -168,12 +168,12 @@ export async function updatePlatformUserAction(
   });
   if (!parsed.success) return { ok: false, message: parsed.error.issues[0]?.message ?? "Invalid input." };
 
-  const target = await prisma.platformUser.findUnique({ where: { id: parsed.data.platformUserId } });
+  const target = await db.platformUser.findUnique({ where: { id: parsed.data.platformUserId } });
   if (!target) return { ok: false, message: "Platform user not found." };
   if (target.role === "SUPER_ADMIN") return { ok: false, message: "Cannot edit super admin." };
 
   const email = parsed.data.email.toLowerCase();
-  const existing = await prisma.platformUser.findFirst({
+  const existing = await db.platformUser.findFirst({
     where: { email, id: { not: target.id } },
     select: { id: true }
   });
@@ -187,7 +187,7 @@ export async function updatePlatformUserAction(
     return { ok: false, message: "Assign at least one school for approved users." };
   }
 
-  await prisma.$transaction(async (tx) => {
+  await db.$transaction(async (tx) => {
     await tx.platformUser.update({
       where: { id: target.id },
       data: {
@@ -227,11 +227,11 @@ export async function togglePlatformUserActiveAction(
   });
   if (!parsed.success) return { ok: false, message: "Invalid request." };
 
-  const target = await prisma.platformUser.findUnique({ where: { id: parsed.data.platformUserId } });
+  const target = await db.platformUser.findUnique({ where: { id: parsed.data.platformUserId } });
   if (!target) return { ok: false, message: "Platform user not found." };
   if (target.role === "SUPER_ADMIN") return { ok: false, message: "Cannot deactivate super admin." };
 
-  const updated = await prisma.platformUser.update({
+  const updated = await db.platformUser.update({
     where: { id: target.id },
     data: { isActive: !target.isActive }
   });
@@ -261,13 +261,13 @@ export async function deletePlatformUserAction(
   });
   if (!parsed.success) return { ok: false, message: "Invalid request." };
 
-  const target = await prisma.platformUser.findUnique({ where: { id: parsed.data.platformUserId } });
+  const target = await db.platformUser.findUnique({ where: { id: parsed.data.platformUserId } });
   if (!target) return { ok: false, message: "Platform user not found." };
   if (target.role === "SUPER_ADMIN") return { ok: false, message: "Cannot delete super admin." };
 
-  await prisma.$transaction([
-    prisma.platformUserSchoolAssignment.deleteMany({ where: { platformUserId: target.id } }),
-    prisma.platformUser.delete({ where: { id: target.id } })
+  await db.$transaction([
+    db.platformUserSchoolAssignment.deleteMany({ where: { platformUserId: target.id } }),
+    db.platformUser.delete({ where: { id: target.id } })
   ]);
 
   await auditLog({
@@ -294,7 +294,7 @@ export async function resetPlatformUserPasswordAction(
   });
   if (!parsed.success) return { ok: false, message: parsed.error.issues[0]?.message ?? "Invalid request." };
 
-  const target = await prisma.platformUser.findUnique({ where: { id: parsed.data.platformUserId } });
+  const target = await db.platformUser.findUnique({ where: { id: parsed.data.platformUserId } });
   if (!target) return { ok: false, message: "Platform user not found." };
   if (target.role === "SUPER_ADMIN") return { ok: false, message: "Cannot reset super admin password in this flow." };
   const tokenRow = await createPasswordResetToken({
@@ -343,7 +343,7 @@ export async function updatePlatformUserPasswordAction(
     return { ok: false, message: "Passwords do not match." };
   }
 
-  const target = await prisma.platformUser.findUnique({
+  const target = await db.platformUser.findUnique({
     where: { id: parsed.data.platformUserId },
     select: { id: true, role: true }
   });
@@ -352,12 +352,12 @@ export async function updatePlatformUserPasswordAction(
 
   const passwordHash = await hashPassword(parsed.data.newPassword);
   const now = new Date();
-  const [, revokedTokens] = await prisma.$transaction([
-    prisma.platformUser.update({
+  const [, revokedTokens] = await db.$transaction([
+    db.platformUser.update({
       where: { id: target.id },
       data: { passwordHash }
     }),
-    prisma.passwordResetToken.updateMany({
+    db.passwordResetToken.updateMany({
       where: { platformUserId: target.id, subjectType: "PLATFORM_USER", usedAt: null },
       data: { usedAt: now }
     })

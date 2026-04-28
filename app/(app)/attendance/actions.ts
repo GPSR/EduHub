@@ -1,6 +1,6 @@
 "use server";
 
-import { prisma } from "@/lib/db";
+import { db } from "@/lib/db";
 import { requirePermission } from "@/lib/require-permission";
 import { redirect } from "next/navigation";
 import { z } from "zod";
@@ -24,7 +24,7 @@ export async function markAttendanceAction(formData: FormData) {
   const date = new Date(parsed.data.date);
   date.setHours(0, 0, 0, 0);
 
-  await prisma.attendanceRecord.upsert({
+  await db.attendanceRecord.upsert({
     where: { studentId_date: { studentId: parsed.data.studentId, date } },
     update: { status: parsed.data.status, notedById: session.userId, schoolId: session.schoolId },
     create: {
@@ -36,12 +36,12 @@ export async function markAttendanceAction(formData: FormData) {
     }
   });
 
-  const student = await prisma.student.findFirst({
+  const student = await db.student.findFirst({
     where: { id: parsed.data.studentId, schoolId: session.schoolId },
     select: { fullName: true, parents: { select: { userId: true } } }
   });
   if (student?.parents?.length) {
-    await prisma.notification.createMany({
+    await db.notification.createMany({
       data: student.parents.map((p) => ({
         schoolId: session.schoolId,
         userId: p.userId,

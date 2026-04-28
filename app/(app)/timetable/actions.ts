@@ -2,7 +2,7 @@
 
 import { z } from "zod";
 import { redirect } from "next/navigation";
-import { prisma } from "@/lib/db";
+import { db } from "@/lib/db";
 import { requirePermission } from "@/lib/require-permission";
 
 const CreateTeacherTimetableEntrySchema = z.object({
@@ -47,7 +47,7 @@ export async function createTeacherTimetableEntryAction(formData: FormData) {
   }
 
   const [teacher, cls] = await Promise.all([
-    prisma.user.findFirst({
+    db.user.findFirst({
       where: {
         id: parsed.data.teacherUserId,
         schoolId: session.schoolId,
@@ -56,7 +56,7 @@ export async function createTeacherTimetableEntryAction(formData: FormData) {
       },
       select: { id: true }
     }),
-    prisma.class.findFirst({
+    db.class.findFirst({
       where: {
         id: parsed.data.classId,
         schoolId: session.schoolId
@@ -68,7 +68,7 @@ export async function createTeacherTimetableEntryAction(formData: FormData) {
   if (!teacher) throw new Error("Please choose a valid teacher.");
   if (!cls) throw new Error("Please choose a valid class.");
 
-  const overlaps = await prisma.teacherTimetableEntry.findMany({
+  const overlaps = await db.teacherTimetableEntry.findMany({
     where: {
       schoolId: session.schoolId,
       weekday: parsed.data.weekday,
@@ -95,7 +95,7 @@ export async function createTeacherTimetableEntryAction(formData: FormData) {
     );
   }
 
-  await prisma.teacherTimetableEntry.create({
+  await db.teacherTimetableEntry.create({
     data: {
       schoolId: session.schoolId,
       teacherUserId: teacher.id,
@@ -121,7 +121,7 @@ export async function deleteTeacherTimetableEntryAction(formData: FormData) {
   });
   if (!parsed.success) throw new Error("Unable to process request.");
 
-  const row = await prisma.teacherTimetableEntry.findFirst({
+  const row = await db.teacherTimetableEntry.findFirst({
     where: {
       id: parsed.data.entryId,
       schoolId: session.schoolId
@@ -130,6 +130,6 @@ export async function deleteTeacherTimetableEntryAction(formData: FormData) {
   });
   if (!row) throw new Error("Timetable entry not found.");
 
-  await prisma.teacherTimetableEntry.delete({ where: { id: row.id } });
+  await db.teacherTimetableEntry.delete({ where: { id: row.id } });
   redirect("/timetable");
 }

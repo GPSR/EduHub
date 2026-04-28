@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { Card, Button, Input, Label, Badge, SectionHeader, EmptyState } from "@/components/ui";
-import { prisma } from "@/lib/db";
+import { db } from "@/lib/db";
 import { requireSession } from "@/lib/require";
 import { atLeastLevel, getEffectivePermissions } from "@/lib/permissions";
 import { requirePermission } from "@/lib/require-permission";
@@ -29,7 +29,7 @@ export default async function InvoicePage({
   const perms = await getEffectivePermissions({ schoolId: session.schoolId, userId: session.userId, roleId: session.roleId });
   const canWrite = perms["FEES"] ? atLeastLevel(perms["FEES"], "EDIT") : false;
 
-  const invoice = await prisma.feeInvoice.findFirst({
+  const invoice = await db.feeInvoice.findFirst({
     where:
       session.roleKey === "PARENT"
         ? { id, schoolId: session.schoolId, student: { parents: { some: { userId: session.userId } } } }

@@ -1,4 +1,4 @@
-import { prisma } from "@/lib/db";
+import { db } from "@/lib/db";
 
 export type AuditActor =
   | { type: "SYSTEM"; id?: string }
@@ -17,7 +17,7 @@ export async function auditLog(args: {
     args.schoolId ??
     (args.actor.type === "SCHOOL_USER" ? args.actor.schoolId : undefined);
 
-  await prisma.auditLog.create({
+  await db.auditLog.create({
     data: {
       schoolId,
       actorType: args.actor.type,

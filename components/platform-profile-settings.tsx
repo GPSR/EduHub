@@ -46,60 +46,61 @@ export function PlatformProfileSettings({
   const [profileState, profileAction, profilePending] = useActionState(updatePlatformProfileAction, initialState);
   const [pwState, pwAction, pwPending] = useActionState(changePlatformPasswordAction, initialState);
   const [editingProfile, setEditingProfile] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
   const [editingPassword, setEditingPassword] = useState(false);
-  const [profileExpanded, setProfileExpanded] = useState(false);
-  const [passwordExpanded, setPasswordExpanded] = useState(false);
+  const [passwordOpen, setPasswordOpen] = useState(false);
 
   useEffect(() => {
-    if (profileState.ok && profileState.message) setEditingProfile(false);
+    if (profileState.ok && profileState.message) {
+      setEditingProfile(false);
+    }
   }, [profileState]);
 
   useEffect(() => {
     if (pwState.ok && pwState.message) setEditingPassword(false);
   }, [pwState]);
 
-  useEffect(() => {
-    if (editingProfile) setProfileExpanded(true);
-  }, [editingProfile]);
-
-  useEffect(() => {
-    if (editingPassword) setPasswordExpanded(true);
-  }, [editingPassword]);
-
   return (
-    <div className="space-y-6">
+    <div className="space-y-3">
       <Card
         title="Profile"
-        description={editingProfile ? "Edit your profile details" : profileExpanded ? "View your profile details" : "Collapsed by default. Click view to expand."}
+        description={editingProfile ? "Edit your profile details" : undefined}
+        className={profileOpen || editingProfile ? "p-3.5 sm:p-4" : "p-3 sm:p-3.5"}
         action={editingProfile ? null : (
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5">
             <button
               type="button"
-              onClick={() => setProfileExpanded((value) => !value)}
-              className="inline-flex items-center gap-1.5 rounded-[10px] border border-white/[0.14] bg-[#0f1728]/90 px-3 py-1.5 text-xs font-semibold text-white/85 hover:bg-[#1a2945] transition"
+              onClick={() => setProfileOpen((current) => !current)}
+              aria-label={profileOpen ? "Collapse profile details" : "Expand profile details"}
+              className="sm-btn min-h-0 inline-flex h-8 w-8 items-center justify-center rounded-[10px] border border-white/[0.14] bg-[#0f1728]/90 text-white/85 transition hover:bg-[#1a2945]"
             >
-              {profileExpanded ? "▴ Hide" : "▾ View"}
+              <span aria-hidden className="text-[14px] leading-none">{profileOpen ? "▾" : "▸"}</span>
             </button>
             <button
               type="button"
-              onClick={() => setEditingProfile(true)}
-              className="inline-flex items-center gap-1.5 rounded-[10px] border border-white/[0.14] bg-[#0f1728]/90 px-3 py-1.5 text-xs font-semibold text-white/85 hover:bg-[#1a2945] transition"
+              onClick={() => {
+                setEditingProfile(true);
+                setProfileOpen(true);
+              }}
+              aria-label="Edit profile"
+              className={[
+                "sm-btn min-h-0 inline-flex h-8 w-8 items-center justify-center rounded-[10px] border transition",
+                editingProfile
+                  ? "border-blue-300/40 bg-blue-500/20 text-blue-100"
+                  : "border-white/[0.14] bg-[#0f1728]/90 text-white/85 hover:bg-[#1a2945]",
+              ].join(" ")}
             >
-              ✎ Edit
+              <span aria-hidden className="text-[14px] leading-none">✎</span>
             </button>
           </div>
         )}
       >
-        {!editingProfile && !profileExpanded ? (
-          <p className="text-sm text-white/55">
-            Profile information is collapsed. Tap <span className="text-white/80 font-medium">View</span> to expand details.
-          </p>
-        ) : !editingProfile ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {!editingProfile && profileOpen ? (
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 md:gap-3.5">
             <ValueRow label="Name" value={name} />
             <ValueRow label="Email" value={email} />
           </div>
-        ) : (
+        ) : editingProfile ? (
           <form action={profileAction} className="grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
             <div>
               <Label required>Name</Label>
@@ -113,7 +114,14 @@ export function PlatformProfileSettings({
               <FormMsg state={profileState} />
             </div>
             <div className="md:col-span-2 flex justify-end gap-2">
-              <Button type="button" variant="secondary" onClick={() => setEditingProfile(false)} disabled={profilePending}>
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => {
+                  setEditingProfile(false);
+                }}
+                disabled={profilePending}
+              >
                 Cancel
               </Button>
               <Button type="submit" disabled={profilePending}>
@@ -121,44 +129,46 @@ export function PlatformProfileSettings({
               </Button>
             </div>
           </form>
-        )}
+        ) : null}
       </Card>
 
       <BiometricLockSettings />
 
       <Card
-        title="Change password"
-        description={editingPassword ? "Use a strong password with at least 10 characters" : passwordExpanded ? "Use a strong password with at least 10 characters" : "Collapsed by default. Click view to open password section."}
+        title="Change Password"
+        description={editingPassword ? "Update your account password" : undefined}
+        className={passwordOpen || editingPassword ? "p-3.5 sm:p-4" : "p-3 sm:p-3.5"}
         action={editingPassword ? null : (
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5">
             <button
               type="button"
-              onClick={() => setPasswordExpanded((value) => !value)}
-              className="inline-flex items-center gap-1.5 rounded-[10px] border border-white/[0.14] bg-[#0f1728]/90 px-3 py-1.5 text-xs font-semibold text-white/85 hover:bg-[#1a2945] transition"
+              onClick={() => setPasswordOpen((current) => !current)}
+              aria-label={passwordOpen ? "Collapse password details" : "Expand password details"}
+              className="sm-btn min-h-0 inline-flex h-8 w-8 items-center justify-center rounded-[10px] border border-white/[0.14] bg-[#0f1728]/90 text-white/85 transition hover:bg-[#1a2945]"
             >
-              {passwordExpanded ? "▴ Hide" : "▾ View"}
+              <span aria-hidden className="text-[14px] leading-none">{passwordOpen ? "▾" : "▸"}</span>
             </button>
             <button
               type="button"
-              onClick={() => setEditingPassword(true)}
-              className="inline-flex items-center gap-1.5 rounded-[10px] border border-white/[0.14] bg-[#0f1728]/90 px-3 py-1.5 text-xs font-semibold text-white/85 hover:bg-[#1a2945] transition"
+              onClick={() => {
+                setEditingPassword(true);
+                setPasswordOpen(true);
+              }}
+              aria-label="Edit password"
+              className="sm-btn min-h-0 inline-flex h-8 w-8 items-center justify-center rounded-[10px] border border-white/[0.14] bg-[#0f1728]/90 text-white/85 transition hover:bg-[#1a2945]"
             >
-              ✎ Edit
+              <span aria-hidden className="text-[14px] leading-none">✎</span>
             </button>
           </div>
         )}
       >
-        {!editingPassword && !passwordExpanded ? (
-          <p className="text-sm text-white/55">
-            Password section is collapsed. Tap <span className="text-white/80 font-medium">View</span> to expand.
-          </p>
-        ) : !editingPassword ? (
-          <p className="text-sm text-white/55">
-            Your password is hidden for security. Click the edit icon to change it.
-          </p>
-        ) : (
-          <form action={pwAction} className="grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
-            <div className="md:col-span-2">
+        {!editingPassword && passwordOpen ? (
+          <div className="grid grid-cols-1 gap-3">
+            <ValueRow label="Password" value="Hidden for security" />
+          </div>
+        ) : editingPassword ? (
+          <form action={pwAction} className="grid grid-cols-1 gap-3 sm:gap-4">
+            <div>
               <Label required>Current password</Label>
               <Input name="currentPassword" type="password" required />
             </div>
@@ -170,10 +180,10 @@ export function PlatformProfileSettings({
               <Label required>Confirm new password</Label>
               <Input name="confirmPassword" type="password" minLength={10} required />
             </div>
-            <div className="md:col-span-2">
+            <div>
               <FormMsg state={pwState} />
             </div>
-            <div className="md:col-span-2 flex justify-end gap-2">
+            <div className="flex justify-end gap-2">
               <Button type="button" variant="secondary" onClick={() => setEditingPassword(false)} disabled={pwPending}>
                 Cancel
               </Button>
@@ -182,7 +192,7 @@ export function PlatformProfileSettings({
               </Button>
             </div>
           </form>
-        )}
+        ) : null}
       </Card>
     </div>
   );

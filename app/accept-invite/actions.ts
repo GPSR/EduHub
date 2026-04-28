@@ -1,6 +1,6 @@
 "use server";
 
-import { prisma } from "@/lib/db";
+import { db } from "@/lib/db";
 import { hashPassword } from "@/lib/password";
 import { createSessionCookie } from "@/lib/session";
 import { redirect } from "next/navigation";
@@ -25,18 +25,18 @@ export async function acceptInviteAction(
   });
   if (!parsed.success) return { ok: false, message: parsed.error.issues[0]?.message };
 
-  const invite = await prisma.schoolInvite.findUnique({ where: { token: parsed.data.token } });
+  const invite = await db.schoolInvite.findUnique({ where: { token: parsed.data.token } });
   if (!invite) return { ok: false, message: "Invite link is invalid." };
   if (invite.usedAt) return { ok: false, message: "This invite link has already been used." };
   if (invite.expiresAt.getTime() < Date.now()) return { ok: false, message: "This invite link has expired." };
 
-  const existing = await prisma.user.findFirst({
+  const existing = await db.user.findFirst({
     where: { schoolId: invite.schoolId, email: invite.email.toLowerCase() }
   });
   if (existing) return { ok: false, message: "A user with this email already exists for this school." };
 
   const passwordHash = await hashPassword(parsed.data.password);
-  const user = await prisma.user.create({
+  const user = await db.user.create({
     data: {
       schoolId: invite.schoolId,
       email: invite.email.toLowerCase(),
@@ -46,12 +46,12 @@ export async function acceptInviteAction(
     }
   });
 
-  await prisma.schoolInvite.update({
+  await db.schoolInvite.update({
     where: { id: invite.id },
     data: { usedAt: new Date() }
   });
 
-  const role = await prisma.schoolRole.findUnique({ where: { id: invite.schoolRoleId } });
+  const role = await db.schoolRole.findUnique({ where: { id: invite.schoolRoleId } });
   if (!role) return { ok: false, message: "Invite is misconfigured (missing role)." };
   await createSessionCookie({ userId: user.id, schoolId: invite.schoolId, roleId: role.id, roleKey: role.key });
   redirect("/dashboard");

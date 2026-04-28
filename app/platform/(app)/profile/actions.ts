@@ -1,7 +1,7 @@
 "use server";
 
 import { z } from "zod";
-import { prisma } from "@/lib/db";
+import { db } from "@/lib/db";
 import { requirePlatformUser } from "@/lib/platform-require";
 import { hashPassword, verifyPassword } from "@/lib/password";
 import { clearPlatformUserProfileImages, savePlatformUserProfileImage } from "@/lib/uploads";
@@ -28,13 +28,13 @@ export async function updatePlatformProfileAction(
   const name = parsed.data.name.trim();
   if (user.name === name && user.email.toLowerCase() === email) return { ok: false, message: "No changes to save." };
 
-  const existing = await prisma.platformUser.findFirst({
+  const existing = await db.platformUser.findFirst({
     where: { email, id: { not: user.id } },
     select: { id: true }
   });
   if (existing) return { ok: false, message: "That email is already used by another platform user." };
 
-  await prisma.platformUser.update({
+  await db.platformUser.update({
     where: { id: user.id },
     data: { name, email }
   });
@@ -66,7 +66,7 @@ export async function changePlatformPasswordAction(
   if (!ok) return { ok: false, message: "Current password is incorrect." };
 
   const passwordHash = await hashPassword(parsed.data.newPassword);
-  await prisma.platformUser.update({
+  await db.platformUser.update({
     where: { id: user.id },
     data: { passwordHash }
   });

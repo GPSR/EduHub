@@ -1,6 +1,6 @@
 # School Subscription App (MVP)
 
-A multi-tenant school management SaaS MVP built with Next.js + Prisma.
+A multi-tenant school management SaaS MVP built with Next.js + Neon PostgreSQL.
 
 ## What’s included (MVP)
 
@@ -38,13 +38,13 @@ Open `http://localhost:3000`.
 ## Database strategy
 
 - Local/lower environments:
-  - Prisma uses `LOCAL_DATABASE_URL` (preferred) or `DATABASE_URL`
+  - Neon DB connection uses `LOCAL_DATABASE_URL` (preferred) or `DATABASE_URL`
   - Run schema sync with `npm run db:push`
-  - This uses `prisma db push` (no migration files needed for local iteration)
+  - Uses schema push for local iteration (no migration files required)
 - Production:
-  - Prisma uses `NEON_DATABASE_URL` (preferred) or `DATABASE_URL`
+  - Neon DB connection uses `NEON_DATABASE_URL` (preferred) or `DATABASE_URL`
   - Run migrations with `npm run db:deploy`
-  - This uses `prisma migrate deploy`
+  - Uses production-safe migration deploy
 
 ## Environment URLs
 

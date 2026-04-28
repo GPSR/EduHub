@@ -30,7 +30,7 @@ const config: CapacitorConfig = {
   appName: 'Schools',
   webDir: 'capacitor_www',
 
-  // This app relies on a live Next.js backend (Prisma/Auth/Server Actions),
+  // This app relies on a live Next.js backend (Neon DB/Auth/Server Actions),
   // so native builds should point to a hosted HTTPS URL.
   server: {
     url: serverUrl,

@@ -2,7 +2,7 @@
 
 import { z } from "zod";
 import { redirect } from "next/navigation";
-import { prisma } from "@/lib/db";
+import { db } from "@/lib/db";
 import { requirePlatformUser } from "@/lib/platform-require";
 import { notifyUser } from "@/lib/notify";
 import { supportPreview } from "@/lib/support-chat";
@@ -25,7 +25,7 @@ export async function sendPlatformSupportMessageAction(formData: FormData) {
   });
   if (!parsed.success) throw new Error(parsed.error.issues[0]?.message ?? "Unable to process request.");
 
-  const participant = await prisma.supportConversationPlatformParticipant.findFirst({
+  const participant = await db.supportConversationPlatformParticipant.findFirst({
     where: {
       conversationId: parsed.data.conversationId,
       platformUserId: session.platformUserId
@@ -47,7 +47,7 @@ export async function sendPlatformSupportMessageAction(formData: FormData) {
 
   const now = new Date();
 
-  await prisma.$transaction(async (tx) => {
+  await db.$transaction(async (tx) => {
     await tx.supportMessage.create({
       data: {
         conversationId: parsed.data.conversationId,
@@ -72,7 +72,7 @@ export async function sendPlatformSupportMessageAction(formData: FormData) {
     });
   });
 
-  const schoolParticipants = await prisma.supportConversationSchoolParticipant.findMany({
+  const schoolParticipants = await db.supportConversationSchoolParticipant.findMany({
     where: {
       conversationId: parsed.data.conversationId,
       schoolId: participant.conversation.schoolId
@@ -104,7 +104,7 @@ export async function closePlatformSupportConversationAction(formData: FormData)
   });
   if (!parsed.success) throw new Error(parsed.error.issues[0]?.message ?? "Unable to process request.");
 
-  const participant = await prisma.supportConversationPlatformParticipant.findFirst({
+  const participant = await db.supportConversationPlatformParticipant.findFirst({
     where: {
       conversationId: parsed.data.conversationId,
       platformUserId: session.platformUserId
@@ -126,12 +126,12 @@ export async function closePlatformSupportConversationAction(formData: FormData)
     redirect(`/platform/support?conversationId=${encodeURIComponent(parsed.data.conversationId)}`);
   }
 
-  await prisma.supportConversation.update({
+  await db.supportConversation.update({
     where: { id: parsed.data.conversationId },
     data: { status: "CLOSED" }
   });
 
-  const schoolParticipants = await prisma.supportConversationSchoolParticipant.findMany({
+  const schoolParticipants = await db.supportConversationSchoolParticipant.findMany({
     where: {
       conversationId: parsed.data.conversationId,
       schoolId: participant.conversation.schoolId

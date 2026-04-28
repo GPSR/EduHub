@@ -1,7 +1,7 @@
 "use server";
 
 import { z } from "zod";
-import { prisma } from "@/lib/db";
+import { db } from "@/lib/db";
 import { requirePermission } from "@/lib/require-permission";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
@@ -36,7 +36,7 @@ export async function updateIdSettingsAction(_prevState: SettingsState, formData
   });
   if (!parsed.success) throw new Error("Unable to process request.");
 
-  const current = await prisma.school.findUnique({
+  const current = await db.school.findUnique({
     where: { id: session.schoolId },
     select: {
       studentIdFormat: true,
@@ -57,7 +57,7 @@ export async function updateIdSettingsAction(_prevState: SettingsState, formData
 
   if (!changed) return { ok: false, message: "No changes to save." } satisfies SettingsState;
 
-  await prisma.school.update({ where: { id: session.schoolId }, data: parsed.data });
+  await db.school.update({ where: { id: session.schoolId }, data: parsed.data });
 
   revalidatePath("/admin/settings");
   return { ok: true, message: "Saved." } satisfies SettingsState;
@@ -87,14 +87,14 @@ export async function createRoleAction(formData: FormData) {
   const baseKey = toRoleKey(parsed.data.name);
   let key = baseKey;
   for (let i = 2; i < 100; i++) {
-    const exists = await prisma.schoolRole.findFirst({
+    const exists = await db.schoolRole.findFirst({
       where: { schoolId: session.schoolId, key }
     });
     if (!exists) break;
     key = `${baseKey}_${i}`;
   }
 
-  const role = await prisma.schoolRole.create({ data: { schoolId: session.schoolId, name: parsed.data.name, key, isSystem: false } });
+  const role = await db.schoolRole.create({ data: { schoolId: session.schoolId, name: parsed.data.name, key, isSystem: false } });
 
   redirect(`/admin/settings?roleId=${encodeURIComponent(role.id)}`);
 }
@@ -112,14 +112,14 @@ export async function renameRoleAction(_prevState: SettingsState, formData: Form
   });
   if (!parsed.success) throw new Error("Unable to process request.");
 
-  const role = await prisma.schoolRole.findFirst({
+  const role = await db.schoolRole.findFirst({
     where: { id: parsed.data.roleId, schoolId: session.schoolId }
   });
   if (!role) throw new Error("Unable to process request.");
   if (role.key === "ADMIN") throw new Error("Admin role name cannot be changed.");
   if (role.name === parsed.data.newName) return { ok: false, message: "No changes to save." } satisfies SettingsState;
 
-  await prisma.schoolRole.update({
+  await db.schoolRole.update({
     where: { id: role.id },
     data: { name: parsed.data.newName }
   });
@@ -135,18 +135,18 @@ export async function deleteRoleAction(formData: FormData) {
   const parsed = DeleteRoleSchema.safeParse({ roleId: formData.get("roleId") });
   if (!parsed.success) throw new Error("Unable to process request.");
 
-  const role = await prisma.schoolRole.findFirst({
+  const role = await db.schoolRole.findFirst({
     where: { id: parsed.data.roleId, schoolId: session.schoolId }
   });
   if (!role) redirect("/admin/settings");
   if (role.isSystem) throw new Error("System roles cannot be deleted.");
 
-  const usersCount = await prisma.user.count({ where: { schoolId: session.schoolId, schoolRoleId: role.id } });
-  const invitesCount = await prisma.schoolInvite.count({ where: { schoolId: session.schoolId, schoolRoleId: role.id } });
+  const usersCount = await db.user.count({ where: { schoolId: session.schoolId, schoolRoleId: role.id } });
+  const invitesCount = await db.schoolInvite.count({ where: { schoolId: session.schoolId, schoolRoleId: role.id } });
   if (usersCount > 0 || invitesCount > 0) throw new Error("Role is in use and cannot be deleted.");
 
-  await prisma.roleModulePermission.deleteMany({ where: { schoolId: session.schoolId, schoolRoleId: role.id } });
-  await prisma.schoolRole.delete({ where: { id: role.id } });
+  await db.roleModulePermission.deleteMany({ where: { schoolId: session.schoolId, schoolRoleId: role.id } });
+  await db.schoolRole.delete({ where: { id: role.id } });
 
   redirect("/admin/settings");
 }
@@ -164,7 +164,7 @@ export async function createClassConfigAction(formData: FormData) {
   });
   if (!parsed.success) throw new Error("Unable to process request.");
 
-  await prisma.class.upsert({
+  await db.class.upsert({
     where: {
       schoolId_name_section: {
         schoolId: session.schoolId,
@@ -190,16 +190,16 @@ export async function deleteClassConfigAction(formData: FormData) {
   const parsed = DeleteClassSchema.safeParse({ classId: formData.get("classId") });
   if (!parsed.success) throw new Error("Unable to process request.");
 
-  const cls = await prisma.class.findFirst({
+  const cls = await db.class.findFirst({
     where: { id: parsed.data.classId, schoolId: session.schoolId },
     select: { id: true }
   });
   if (!cls) redirect("/admin/settings");
 
-  const studentsCount = await prisma.student.count({ where: { schoolId: session.schoolId, classId: cls.id } });
+  const studentsCount = await db.student.count({ where: { schoolId: session.schoolId, classId: cls.id } });
   if (studentsCount > 0) throw new Error("Class has students and cannot be deleted.");
 
-  await prisma.class.delete({ where: { id: cls.id } });
+  await db.class.delete({ where: { id: cls.id } });
   redirect("/admin/settings");
 }
 
@@ -211,7 +211,7 @@ export async function uploadSchoolLogoAction(formData: FormData) {
     redirect(`${basePath}?logoUploadStatus=error&logoUploadMessage=${encodeURIComponent("Please choose a logo image.")}`);
   }
 
-  const school = await prisma.school.findUnique({
+  const school = await db.school.findUnique({
     where: { id: session.schoolId },
     select: { brandingLogoUrl: true }
   });
@@ -227,7 +227,7 @@ export async function uploadSchoolLogoAction(formData: FormData) {
     redirect(`${basePath}?logoUploadStatus=error&logoUploadMessage=${encodeURIComponent(saved.message)}`);
   }
 
-  await prisma.school.update({
+  await db.school.update({
     where: { id: session.schoolId },
     data: { brandingLogoUrl: saved.url }
   });
@@ -250,7 +250,7 @@ export async function saveIdCardTemplateAction(formData: FormData) {
     showGuardian: Boolean(formData.get("showGuardian"))
   });
 
-  await prisma.auditLog.create({
+  await db.auditLog.create({
     data: {
       schoolId: session.schoolId,
       actorType: "SCHOOL_USER",
@@ -269,7 +269,7 @@ export async function updateSchoolModulesAction(_prevState: SettingsState, formD
   const { session } = await requirePermission("SETTINGS", "ADMIN");
   await ensureBaseModules();
 
-  const allModules = await prisma.module.findMany({ select: { id: true } });
+  const allModules = await db.module.findMany({ select: { id: true } });
   const enabled = new Set(
     formData
       .getAll("enabledModuleIds")
@@ -277,7 +277,7 @@ export async function updateSchoolModulesAction(_prevState: SettingsState, formD
       .filter(Boolean)
   );
 
-  const current = await prisma.schoolModule.findMany({
+  const current = await db.schoolModule.findMany({
     where: { schoolId: session.schoolId },
     select: { moduleId: true, enabled: true }
   });
@@ -285,7 +285,7 @@ export async function updateSchoolModulesAction(_prevState: SettingsState, formD
   const changed = allModules.some((m) => (currentByModuleId.get(m.id) ?? false) !== enabled.has(m.id));
   if (!changed) return { ok: false, message: "No changes to save." } satisfies SettingsState;
 
-  await prisma.$transaction(async (tx) => {
+  await db.$transaction(async (tx) => {
     for (const m of allModules) {
       await tx.schoolModule.upsert({
         where: { schoolId_moduleId: { schoolId: session.schoolId, moduleId: m.id } },
@@ -319,7 +319,7 @@ export async function updateStudentDemographicsConfigAction(formData: FormData) 
   });
   if (JSON.stringify(current) === JSON.stringify(next)) redirect("/admin/settings");
 
-  await prisma.auditLog.create({
+  await db.auditLog.create({
     data: {
       schoolId: session.schoolId,
       actorType: "SCHOOL_USER",
@@ -351,7 +351,7 @@ export async function updateSchoolProfileAction(formData: FormData) {
   const next = normalizeSchoolProfile({ address: parsed.data.address });
   if (JSON.stringify(current) === JSON.stringify(next)) redirect("/admin/settings");
 
-  await prisma.auditLog.create({
+  await db.auditLog.create({
     data: {
       schoolId: session.schoolId,
       actorType: "SCHOOL_USER",
@@ -383,7 +383,7 @@ export async function updateSupportChatTopicsAction(formData: FormData) {
   const next = normalizeSupportChatTopics(parsed.data.topics);
   if (JSON.stringify(current) === JSON.stringify(next)) redirect("/admin/settings");
 
-  await prisma.auditLog.create({
+  await db.auditLog.create({
     data: {
       schoolId: session.schoolId,
       actorType: "SCHOOL_USER",

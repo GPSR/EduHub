@@ -1,12 +1,12 @@
 "use server";
 
-import { prisma } from "@/lib/db";
+import { db } from "@/lib/db";
 import { hashPassword } from "@/lib/password";
 import { requirePermission } from "@/lib/require-permission";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
-import type { PermissionLevel } from "@prisma/client";
+import type { PermissionLevel } from "@/lib/db-types";
 import { createPasswordResetToken, sendPasswordResetEmail } from "@/lib/password-reset";
 import { auditLog } from "@/lib/audit";
 
@@ -40,7 +40,7 @@ export async function createUserAction(
   });
   if (!parsed.success) return { ok: false, message: "Please check your inputs." };
 
-  const role = await prisma.schoolRole.findFirst({
+  const role = await db.schoolRole.findFirst({
     where: { id: parsed.data.schoolRoleId, schoolId: session.schoolId }
   });
   if (!role) return { ok: false, message: "Invalid role." };
@@ -50,7 +50,7 @@ export async function createUserAction(
     return { ok: false, message: "Class Teacher must be mapped to exactly one class." };
   }
 
-  const enabledModuleRows = await prisma.schoolModule.findMany({
+  const enabledModuleRows = await db.schoolModule.findMany({
     where: { schoolId: session.schoolId, enabled: true },
     select: { moduleId: true, module: { select: { key: true } } }
   });
@@ -68,7 +68,7 @@ export async function createUserAction(
   }
 
   const passwordHash = await hashPassword(parsed.data.password);
-  const user = await prisma.user.create({
+  const user = await db.user.create({
     data: {
       schoolId: session.schoolId,
       schoolRoleId: role.id,
@@ -79,7 +79,7 @@ export async function createUserAction(
   });
 
   if (role.key === "CLASS_TEACHER") {
-    await prisma.teacherClassAssignment.create({
+    await db.teacherClassAssignment.create({
       data: {
         schoolId: session.schoolId,
         userId: user.id,
@@ -89,7 +89,7 @@ export async function createUserAction(
     });
   } else if (role.key === "TEACHER") {
     if (classIds.length > 0) {
-      await prisma.teacherClassAssignment.createMany({
+      await db.teacherClassAssignment.createMany({
         data: classIds.map((classId) => ({
           schoolId: session.schoolId,
           userId: user.id,
@@ -101,7 +101,7 @@ export async function createUserAction(
   }
 
   if (role.key === "PARENT" && parsed.data.linkStudentId) {
-    await prisma.studentParent.create({
+    await db.studentParent.create({
       data: {
         schoolId: session.schoolId,
         studentId: parsed.data.linkStudentId,
@@ -119,7 +119,7 @@ export async function createUserAction(
       : permEntries;
 
   if (finalPerms.length) {
-    await prisma.userModulePermission.createMany({
+    await db.userModulePermission.createMany({
       data: finalPerms.map((p) => ({
         schoolId: session.schoolId,
         userId: user.id,
@@ -146,26 +146,26 @@ export async function updateUserRoleAction(formData: FormData) {
   if (!parsed.success) throw new Error("Unable to process request.");
   if (parsed.data.userId === session.userId) throw new Error("You cannot change your own role.");
 
-  const target = await prisma.user.findFirst({
+  const target = await db.user.findFirst({
     where: { id: parsed.data.userId, schoolId: session.schoolId },
     include: { schoolRole: true }
   });
   if (!target) throw new Error("Unable to process request.");
 
-  const role = await prisma.schoolRole.findFirst({
+  const role = await db.schoolRole.findFirst({
     where: { id: parsed.data.schoolRoleId, schoolId: session.schoolId }
   });
   if (!role) throw new Error("Unable to process request.");
 
   // Prevent locking the school out by removing the last active Admin.
   if (target.schoolRole.key === "ADMIN" && role.key !== "ADMIN" && target.isActive) {
-    const activeAdmins = await prisma.user.count({
+    const activeAdmins = await db.user.count({
       where: { schoolId: session.schoolId, isActive: true, schoolRole: { key: "ADMIN" } }
     });
     if (activeAdmins <= 1) throw new Error("You must keep at least one active Admin user.");
   }
 
-  await prisma.user.update({
+  await db.user.update({
     where: { id: parsed.data.userId },
     data: { schoolRoleId: role.id }
   });
@@ -189,20 +189,20 @@ export async function setUserActiveAction(formData: FormData) {
 
   const isActive = parsed.data.active === "1";
   if (!isActive) {
-    const target = await prisma.user.findFirst({
+    const target = await db.user.findFirst({
       where: { id: parsed.data.userId, schoolId: session.schoolId },
       include: { schoolRole: true }
     });
     if (!target) throw new Error("Unable to process request.");
     if (target.schoolRole.key === "ADMIN" && target.isActive) {
-      const activeAdmins = await prisma.user.count({
+      const activeAdmins = await db.user.count({
         where: { schoolId: session.schoolId, isActive: true, schoolRole: { key: "ADMIN" } }
       });
       if (activeAdmins <= 1) throw new Error("You must keep at least one active Admin user.");
     }
   }
 
-  await prisma.user.updateMany({
+  await db.user.updateMany({
     where: { id: parsed.data.userId, schoolId: session.schoolId },
     data: { isActive, deactivatedAt: isActive ? null : new Date() }
   });
@@ -220,19 +220,19 @@ export async function deleteUserAction(formData: FormData) {
   if (!parsed.success) throw new Error("Unable to process request.");
   if (parsed.data.userId === session.userId) throw new Error("You cannot delete your own account.");
 
-  const target = await prisma.user.findFirst({
+  const target = await db.user.findFirst({
     where: { id: parsed.data.userId, schoolId: session.schoolId },
     include: { schoolRole: true }
   });
   if (!target) redirect("/admin/users");
   if (target.schoolRole.key === "ADMIN" && target.isActive) {
-    const activeAdmins = await prisma.user.count({
+    const activeAdmins = await db.user.count({
       where: { schoolId: session.schoolId, isActive: true, schoolRole: { key: "ADMIN" } }
     });
     if (activeAdmins <= 1) throw new Error("You must keep at least one active Admin user.");
   }
 
-  await prisma.user.deleteMany({
+  await db.user.deleteMany({
     where: { id: parsed.data.userId, schoolId: session.schoolId }
   });
 
@@ -262,7 +262,7 @@ export async function assignUserTaskAction(formData: FormData) {
   });
   if (!parsed.success) throw new Error("Unable to assign task.");
 
-  const target = await prisma.user.findFirst({
+  const target = await db.user.findFirst({
     where: { id: parsed.data.userId, schoolId: session.schoolId, isActive: true },
     select: { id: true, name: true }
   });
@@ -273,7 +273,7 @@ export async function assignUserTaskAction(formData: FormData) {
   const descriptionText = parsed.data.taskDescription ? parsed.data.taskDescription : null;
   const body = [descriptionText, dueText, pathText].filter(Boolean).join(" · ");
 
-  await prisma.notification.create({
+  await db.notification.create({
     data: {
       schoolId: session.schoolId,
       userId: target.id,
@@ -303,7 +303,7 @@ export async function sendUserPasswordResetAction(formData: FormData) {
   const parsed = SendResetSchema.safeParse({ userId: formData.get("userId") });
   if (!parsed.success) throw new Error("Unable to process request.");
 
-  const target = await prisma.user.findFirst({
+  const target = await db.user.findFirst({
     where: { id: parsed.data.userId, schoolId: session.schoolId },
     select: { id: true, name: true, email: true, isActive: true }
   });
@@ -363,7 +363,7 @@ export async function updateUserPasswordAction(
     return { ok: false, message: "Passwords do not match." };
   }
 
-  const target = await prisma.user.findFirst({
+  const target = await db.user.findFirst({
     where: { id: parsed.data.userId, schoolId: session.schoolId },
     select: { id: true, schoolRole: { select: { key: true, name: true } } }
   });
@@ -371,12 +371,12 @@ export async function updateUserPasswordAction(
 
   const passwordHash = await hashPassword(parsed.data.newPassword);
   const now = new Date();
-  const [, revokedTokens] = await prisma.$transaction([
-    prisma.user.update({
+  const [, revokedTokens] = await db.$transaction([
+    db.user.update({
       where: { id: target.id },
       data: { passwordHash }
     }),
-    prisma.passwordResetToken.updateMany({
+    db.passwordResetToken.updateMany({
       where: { userId: target.id, subjectType: "SCHOOL_USER", usedAt: null },
       data: { usedAt: now }
     })

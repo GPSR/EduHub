@@ -1,4 +1,4 @@
-import { prisma } from "@/lib/db";
+import { db } from "@/lib/db";
 
 export async function notifyUser(args: {
   schoolId: string;
@@ -6,7 +6,7 @@ export async function notifyUser(args: {
   title: string;
   body?: string;
 }) {
-  await prisma.notification.create({
+  await db.notification.create({
     data: {
       schoolId: args.schoolId,
       userId: args.userId,

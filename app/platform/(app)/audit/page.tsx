@@ -1,6 +1,6 @@
 import { Badge, SectionHeader } from "@/components/ui";
 import { describeAuditAction, humanizeAuditToken } from "@/lib/audit-display";
-import { prisma } from "@/lib/db";
+import { db } from "@/lib/db";
 import { requireSuperAdmin } from "@/lib/platform-require";
 
 function fmt(date: Date) {
@@ -55,20 +55,20 @@ function formatMetaEntries(meta: Record<string, unknown>): Array<[string, string
 
 export default async function PlatformAuditPage() {
   await requireSuperAdmin();
-  const rawLogs = await prisma.auditLog.findMany({
+  const rawLogs = await db.auditLog.findMany({
     where: { actorType: { in: ["PLATFORM_USER", "SCHOOL_USER", "SYSTEM"] } },
     orderBy: { createdAt: "desc" }, take: 500,
   });
   const puIds = Array.from(new Set(rawLogs.filter(l => l.actorType === "PLATFORM_USER" && l.actorId).map(l => l.actorId as string)));
   const suIds = Array.from(new Set(rawLogs.filter(l => l.actorType === "SCHOOL_USER" && l.actorId).map(l => l.actorId as string)));
   const pUsers = puIds.length
-    ? await prisma.platformUser.findMany({
+    ? await db.platformUser.findMany({
         where: { id: { in: puIds } },
         select: { id: true, name: true, email: true, role: true }
       })
     : [];
   const sUsers = suIds.length
-    ? await prisma.user.findMany({
+    ? await db.user.findMany({
         where: { id: { in: suIds } },
         select: {
           id: true,

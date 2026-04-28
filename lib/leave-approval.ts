@@ -1,4 +1,4 @@
-import { prisma } from "@/lib/db";
+import { db } from "@/lib/db";
 
 export function canApproveStudentLeaveByRole(roleKey: string) {
   return roleKey === "ADMIN" || roleKey === "PRINCIPAL" || roleKey === "HEAD_MASTER" || roleKey === "CLASS_TEACHER";
@@ -9,7 +9,7 @@ export function canApproveTeacherLeaveByRole(roleKey: string) {
 }
 
 export async function getClassTeacherClassIds(schoolId: string, userId: string) {
-  const rows = await prisma.teacherClassAssignment.findMany({
+  const rows = await db.teacherClassAssignment.findMany({
     where: {
       schoolId,
       userId,
@@ -27,7 +27,7 @@ export async function getStudentLeaveApproverIds(args: {
 }) {
   const exclude = new Set(args.excludeUserIds ?? []);
 
-  const leadership = await prisma.user.findMany({
+  const leadership = await db.user.findMany({
     where: {
       schoolId: args.schoolId,
       isActive: true,
@@ -37,7 +37,7 @@ export async function getStudentLeaveApproverIds(args: {
   });
 
   const classTeachers = args.classId
-    ? await prisma.teacherClassAssignment.findMany({
+    ? await db.teacherClassAssignment.findMany({
         where: {
           schoolId: args.schoolId,
           classId: args.classId,
@@ -59,7 +59,7 @@ export async function getTeacherLeaveApproverIds(args: {
 }) {
   const exclude = new Set(args.excludeUserIds ?? []);
 
-  const approvers = await prisma.user.findMany({
+  const approvers = await db.user.findMany({
     where: {
       schoolId: args.schoolId,
       isActive: true,

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Card, EmptyState, SectionHeader } from "@/components/ui";
-import { prisma } from "@/lib/db";
+import { db } from "@/lib/db";
 import { requireSession } from "@/lib/require";
 
 export default async function StudentProfileRequestPage() {
@@ -16,7 +16,7 @@ export default async function StudentProfileRequestPage() {
     );
   }
 
-  const students = await prisma.student.findMany({
+  const students = await db.student.findMany({
     where: { schoolId: session.schoolId, parents: { some: { userId: session.userId } } },
     include: { class: true },
     orderBy: { fullName: "asc" },

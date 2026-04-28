@@ -1,6 +1,6 @@
 "use server";
 
-import { prisma } from "@/lib/db";
+import { db } from "@/lib/db";
 import { requireSuperAdmin } from "@/lib/platform-require";
 import { auditLog } from "@/lib/audit";
 import { redirect } from "next/navigation";
@@ -21,10 +21,10 @@ export async function toggleSchoolActiveAction(
   const parsed = ToggleSchema.safeParse({ schoolId: formData.get("schoolId") });
   if (!parsed.success) return { ok: false, message: "Invalid request." };
 
-  const school = await prisma.school.findUnique({ where: { id: parsed.data.schoolId } });
+  const school = await db.school.findUnique({ where: { id: parsed.data.schoolId } });
   if (!school) return { ok: false, message: "School not found." };
 
-  const updated = await prisma.school.update({
+  const updated = await db.school.update({
     where: { id: school.id },
     data: { isActive: !school.isActive }
   });
@@ -57,7 +57,7 @@ export async function changeSchoolPlanAction(
   if (!parsed.success) return { ok: false, message: "Invalid request." };
   await ensureSubscriptionPlanSettings();
 
-  const sub = await prisma.subscription.findUnique({ where: { schoolId: parsed.data.schoolId } });
+  const sub = await db.subscription.findUnique({ where: { schoolId: parsed.data.schoolId } });
   if (!sub) return { ok: false, message: "Subscription not found." };
   let planSetting: { durationDays: number | null } | null = null;
   let planValue: "PREMIUM" | "DEFAULT" | "UNLIMITED" | "BETA" | "CUSTOM";
@@ -68,7 +68,7 @@ export async function changeSchoolPlanAction(
 
   if (parsed.data.plan.startsWith("CUSTOM:")) {
     const id = parsed.data.plan.slice("CUSTOM:".length);
-    const custom = await prisma.customSubscriptionPlan.findFirst({
+    const custom = await db.customSubscriptionPlan.findFirst({
       where: { id, isActive: true },
       select: { id: true, code: true, durationDays: true }
     });
@@ -78,7 +78,7 @@ export async function changeSchoolPlanAction(
     customPlanCode = custom.code;
     endsAt = custom.durationDays == null ? null : new Date(Date.now() + custom.durationDays * 24 * 60 * 60 * 1000);
     amountCents = custom.durationDays == null ? 0 : 0;
-    const customAmount = await prisma.customSubscriptionPlan.findUnique({
+    const customAmount = await db.customSubscriptionPlan.findUnique({
       where: { id: custom.id },
       select: { amountCents: true }
     });
@@ -88,12 +88,12 @@ export async function changeSchoolPlanAction(
       return { ok: false, message: "Invalid plan." };
     }
     planValue = parsed.data.plan as "PREMIUM" | "DEFAULT" | "UNLIMITED" | "BETA";
-    planSetting = await prisma.subscriptionPlanSetting.findUnique({ where: { plan: planValue } });
+    planSetting = await db.subscriptionPlanSetting.findUnique({ where: { plan: planValue } });
     endsAt = await getPlanEndsAt(planValue);
     amountCents = await getPlanAmountCents(planValue);
   }
 
-  const updated = await prisma.subscription.update({
+  const updated = await db.subscription.update({
     where: { id: sub.id },
     data: {
       plan: planValue,

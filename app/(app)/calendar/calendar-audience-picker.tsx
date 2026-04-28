@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Label } from "@/components/ui";
 
 type ClassOption = {
@@ -13,9 +13,23 @@ function classLabel(item: ClassOption) {
   return item.section ? `${item.name}-${item.section}` : item.name;
 }
 
-export function CalendarAudiencePicker({ classes }: { classes: ClassOption[] }) {
-  const [audienceScope, setAudienceScope] = useState<"SCHOOL_WIDE" | "CLASS_WISE">("SCHOOL_WIDE");
-  const [selectedClassIds, setSelectedClassIds] = useState<string[]>([]);
+export function CalendarAudiencePicker({
+  classes,
+  initialAudienceScope = "SCHOOL_WIDE",
+  initialClassIds = []
+}: {
+  classes: ClassOption[];
+  initialAudienceScope?: "SCHOOL_WIDE" | "CLASS_WISE";
+  initialClassIds?: string[];
+}) {
+  const normalizedInitialClassIds = useMemo(() => [...new Set(initialClassIds)], [initialClassIds.join("|")]);
+  const [audienceScope, setAudienceScope] = useState<"SCHOOL_WIDE" | "CLASS_WISE">(initialAudienceScope);
+  const [selectedClassIds, setSelectedClassIds] = useState<string[]>(normalizedInitialClassIds);
+
+  useEffect(() => {
+    setAudienceScope(initialAudienceScope);
+    setSelectedClassIds(normalizedInitialClassIds);
+  }, [initialAudienceScope, normalizedInitialClassIds]);
 
   const classIds = useMemo(() => classes.map((item) => item.id), [classes]);
   const allSelected = classes.length > 0 && selectedClassIds.length === classes.length;
@@ -43,7 +57,7 @@ export function CalendarAudiencePicker({ classes }: { classes: ClassOption[] }) 
             setAudienceScope(value);
             if (value === "SCHOOL_WIDE") setSelectedClassIds([]);
           }}
-          className="w-full rounded-[12px] border border-white/[0.12] bg-[#0f1728]/75 px-3.5 py-2.5 text-sm text-white outline-none transition-all focus:border-blue-300/70 focus:ring-4 focus:ring-blue-500/22"
+          className="w-full rounded-[12px] border border-white/[0.12] bg-[#101b30] px-3.5 py-2.5 text-sm text-white outline-none transition-all focus:border-blue-300/70 focus:ring-4 focus:ring-blue-500/22"
         >
           <option value="SCHOOL_WIDE">School wide (all classes)</option>
           <option value="CLASS_WISE">Specific class(es)</option>
@@ -51,7 +65,7 @@ export function CalendarAudiencePicker({ classes }: { classes: ClassOption[] }) 
       </div>
 
       {audienceScope === "CLASS_WISE" ? (
-        <div className="rounded-[12px] border border-white/[0.12] bg-white/[0.03] p-3">
+        <div className="rounded-[12px] border border-white/[0.12] bg-[#101b30] p-3">
           {classes.length > 0 ? (
             <div className="space-y-2.5">
               <label className="inline-flex cursor-pointer items-center gap-2 text-[12px] text-white/80">
@@ -68,7 +82,7 @@ export function CalendarAudiencePicker({ classes }: { classes: ClassOption[] }) 
                 {classes.map((item) => (
                   <label
                     key={item.id}
-                    className="flex cursor-pointer items-center gap-2 rounded-[10px] border border-white/[0.08] bg-white/[0.02] px-2.5 py-1.5 text-[12px] text-white/80 hover:bg-white/[0.05]"
+                    className="flex cursor-pointer items-center gap-2 rounded-[10px] border border-white/[0.08] bg-white/[0.04] px-2.5 py-1.5 text-[12px] text-white/80 hover:bg-white/[0.08]"
                   >
                     <input
                       type="checkbox"

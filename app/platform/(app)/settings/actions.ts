@@ -1,7 +1,7 @@
 "use server";
 
 import { z } from "zod";
-import { prisma } from "@/lib/db";
+import { db } from "@/lib/db";
 import { requireSuperAdmin } from "@/lib/platform-require";
 import { revalidatePath } from "next/cache";
 import { auditLog } from "@/lib/audit";
@@ -29,10 +29,10 @@ export async function createModuleAction(_prev: CreateModuleState, formData: For
   });
   if (!parsed.success) return { ok: false, message: parsed.error.issues[0]?.message ?? "Invalid input." };
 
-  const exists = await prisma.module.findUnique({ where: { key: parsed.data.key } });
+  const exists = await db.module.findUnique({ where: { key: parsed.data.key } });
   if (exists) return { ok: false, message: "Module key already exists." };
 
-  const created = await prisma.module.create({
+  const created = await db.module.create({
     data: { name: parsed.data.name, key: parsed.data.key }
   });
 
@@ -78,23 +78,23 @@ export async function updateSubscriptionPlanSettingsAction(
   });
   if (!parsed.success) return { ok: false, message: parsed.error.issues[0]?.message ?? "Invalid input." };
 
-  await prisma.$transaction([
-    prisma.subscriptionPlanSetting.upsert({
+  await db.$transaction([
+    db.subscriptionPlanSetting.upsert({
       where: { plan: "PREMIUM" },
       update: { durationDays: parsed.data.premiumDays, amountCents: 0 },
       create: { plan: "PREMIUM", durationDays: parsed.data.premiumDays, amountCents: 0 }
     }),
-    prisma.subscriptionPlanSetting.upsert({
+    db.subscriptionPlanSetting.upsert({
       where: { plan: "DEFAULT" },
       update: { durationDays: parsed.data.defaultDays, amountCents: Math.round(parsed.data.defaultAmount * 100) },
       create: { plan: "DEFAULT", durationDays: parsed.data.defaultDays, amountCents: Math.round(parsed.data.defaultAmount * 100) }
     }),
-    prisma.subscriptionPlanSetting.upsert({
+    db.subscriptionPlanSetting.upsert({
       where: { plan: "UNLIMITED" },
       update: { durationDays: null, amountCents: Math.round(parsed.data.unlimitedAmount * 100) },
       create: { plan: "UNLIMITED", durationDays: null, amountCents: Math.round(parsed.data.unlimitedAmount * 100) }
     }),
-    prisma.subscriptionPlanSetting.upsert({
+    db.subscriptionPlanSetting.upsert({
       where: { plan: "BETA" },
       update: { amountCents: Math.round(parsed.data.betaAmount * 100) },
       create: { plan: "BETA", durationDays: 180, amountCents: Math.round(parsed.data.betaAmount * 100) }
@@ -148,7 +148,7 @@ export async function createCustomSubscriptionAction(
   });
   if (!parsed.success) return { ok: false, message: parsed.error.issues[0]?.message ?? "Invalid input." };
 
-  const exists = await prisma.customSubscriptionPlan.findUnique({
+  const exists = await db.customSubscriptionPlan.findUnique({
     where: { code: parsed.data.code }
   });
   if (exists) return { ok: false, message: "Custom subscription code already exists." };
@@ -158,7 +158,7 @@ export async function createCustomSubscriptionAction(
     return { ok: false, message: "Duration days is required for DAYS mode." };
   }
 
-  const created = await prisma.customSubscriptionPlan.create({
+  const created = await db.customSubscriptionPlan.create({
     data: {
       name: parsed.data.name,
       code: parsed.data.code,

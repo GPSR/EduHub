@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { Button, Card, Input, Label, SectionHeader, Textarea } from "@/components/ui";
 import { CroppedImageUploadForm } from "@/components/cropped-image-upload-form";
 import { ConfirmableServerForm } from "@/components/confirmable-server-form";
-import { prisma } from "@/lib/db";
+import { db } from "@/lib/db";
 import { requireSession } from "@/lib/require";
 import { atLeastLevel, getEffectivePermissions } from "@/lib/permissions";
 import { updateStudentAction } from "../../actions";
@@ -27,7 +27,7 @@ export default async function EditStudentPage({ params }: { params: Promise<{ id
   const canEditStudents = perms["STUDENTS"] ? atLeastLevel(perms["STUDENTS"], "EDIT") : false;
   const { id } = await params;
 
-  const student = await prisma.student.findFirst({
+  const student = await db.student.findFirst({
     where:
       canEditStudents
         ? { id, schoolId: session.schoolId }

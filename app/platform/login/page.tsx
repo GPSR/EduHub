@@ -2,13 +2,13 @@ import Link from "next/link";
 import { Card } from "@/components/ui";
 import { PlatformLoginForm } from "@/components/platform-login-form";
 import { BrandWordmark } from "@/components/brand";
-import { prisma } from "@/lib/db";
+import { db } from "@/lib/db";
 import { platformOnboardReady } from "@/lib/platform-onboard-guard";
 
 export const dynamic = "force-dynamic";
 
 export default async function PlatformLoginPage() {
-  const hasSuperAdmin = Boolean(await prisma.platformUser.findFirst({ select: { id: true } }));
+  const hasSuperAdmin = Boolean(await db.platformUser.findFirst({ select: { id: true } }));
   const canOnboard = platformOnboardReady();
 
   return (

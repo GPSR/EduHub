@@ -2,8 +2,7 @@
 
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
-import { prisma } from "@/lib/db";
-import { Prisma } from "@prisma/client";
+import { db } from "@/lib/db";
 
 const NAME_REGEX = /^[A-Za-z][A-Za-z '.-]{1,59}$/;
 const SCHOOL_NAME_REGEX = /^[A-Za-z0-9][A-Za-z0-9 '&().,-]{1,119}$/;
@@ -14,6 +13,12 @@ const NORMALIZE_SPACES_REGEX = /\s+/g;
 function normalizeTextValue(value: unknown) {
   if (typeof value !== "string") return value;
   return value.replace(NORMALIZE_SPACES_REGEX, " ").trim();
+}
+
+function getDbErrorCode(error: unknown): string | null {
+  if (!error || typeof error !== "object") return null;
+  const code = (error as { code?: unknown }).code;
+  return typeof code === "string" ? code : null;
 }
 
 const DemoRequestSchema = z.object({
@@ -135,7 +140,7 @@ export async function createDemoRequestAction(_prev: DemoRequestState, formData:
   };
 
   try {
-    const recentCandidates = await prisma.demoRequest.findMany({
+    const recentCandidates = await db.demoRequest.findMany({
       where: {
         email: normalized.email,
         createdAt: { gte: new Date(Date.now() - 30 * 60 * 1000) },
@@ -158,12 +163,12 @@ export async function createDemoRequestAction(_prev: DemoRequestState, formData:
     let submitted = false;
     for (let attempt = 1; attempt <= 2; attempt += 1) {
       try {
-        await prisma.demoRequest.create({ data: normalized });
+        await db.demoRequest.create({ data: normalized });
         submitted = true;
         break;
       } catch (error) {
         const isLastAttempt = attempt === 2;
-        const code = error instanceof Prisma.PrismaClientKnownRequestError ? error.code : "";
+        const code = getDbErrorCode(error) ?? "";
         const transientCodes = new Set(["P1001", "P1002", "P1017"]);
 
         if (!isLastAttempt && transientCodes.has(code)) {
@@ -193,25 +198,24 @@ export async function createDemoRequestAction(_prev: DemoRequestState, formData:
     };
   } catch (error) {
     console.error("createDemoRequestAction failed:", error);
-    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2021") {
+    const dbErrorCode = getDbErrorCode(error);
+    if (dbErrorCode === "P2021") {
       return {
         ok: false,
         message: "Demo request service is syncing. Please try again in 1 minute.",
       };
     }
-    if (error instanceof Prisma.PrismaClientKnownRequestError) {
-      if (["P1001", "P1002", "P1017"].includes(error.code)) {
-        return {
-          ok: false,
-          message: "We are unable to connect right now. Please try again in a minute.",
-        };
-      }
-      if (error.code === "P1000") {
-        return {
-          ok: false,
-          message: "Demo request service is temporarily unavailable. Please contact support if this continues.",
-        };
-      }
+    if (dbErrorCode && ["P1001", "P1002", "P1017"].includes(dbErrorCode)) {
+      return {
+        ok: false,
+        message: "We are unable to connect right now. Please try again in a minute.",
+      };
+    }
+    if (dbErrorCode === "P1000") {
+      return {
+        ok: false,
+        message: "Demo request service is temporarily unavailable. Please contact support if this continues.",
+      };
     }
     return {
       ok: false,

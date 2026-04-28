@@ -1,7 +1,7 @@
 "use server";
 
 import { z } from "zod";
-import { prisma } from "@/lib/db";
+import { db } from "@/lib/db";
 import { requireSuperAdmin } from "@/lib/platform-require";
 import { revalidatePath } from "next/cache";
 import { auditLog } from "@/lib/audit";
@@ -36,10 +36,10 @@ export async function addModuleFieldAction(_prev: ModuleFieldState, formData: Fo
   });
   if (!parsed.success) return { ok: false, message: parsed.error.issues[0]?.message ?? "Invalid input." };
 
-  const module = await prisma.module.findUnique({ where: { id: parsed.data.moduleId } });
+  const module = await db.module.findUnique({ where: { id: parsed.data.moduleId } });
   if (!module) return { ok: false, message: "Module not found." };
 
-  const duplicate = await prisma.moduleField.findFirst({
+  const duplicate = await db.moduleField.findFirst({
     where: { moduleId: parsed.data.moduleId, key: parsed.data.key },
     select: { id: true }
   });
@@ -54,12 +54,12 @@ export async function addModuleFieldAction(_prev: ModuleFieldState, formData: Fo
     return { ok: false, message: "Dropdown needs at least 2 options (comma separated)." };
   }
 
-  const maxOrder = await prisma.moduleField.aggregate({
+  const maxOrder = await db.moduleField.aggregate({
     where: { moduleId: parsed.data.moduleId },
     _max: { sortOrder: true }
   });
 
-  await prisma.moduleField.create({
+  await db.moduleField.create({
     data: {
       moduleId: parsed.data.moduleId,
       label: parsed.data.label,
@@ -98,12 +98,12 @@ export async function deleteModuleFieldAction(formData: FormData) {
   });
   if (!parsed.success) throw new Error("Unable to process request.");
 
-  const field = await prisma.moduleField.findFirst({
+  const field = await db.moduleField.findFirst({
     where: { id: parsed.data.fieldId, moduleId: parsed.data.moduleId }
   });
   if (!field) throw new Error("Unable to process request.");
 
-  await prisma.moduleField.delete({ where: { id: field.id } });
+  await db.moduleField.delete({ where: { id: field.id } });
 
   await auditLog({
     actor: { type: "PLATFORM_USER", id: session.platformUserId },
@@ -131,7 +131,7 @@ export async function applyModuleIndustryTemplateAction(
   });
   if (!parsed.success) return { ok: false, message: "Invalid request." };
 
-  const module = await prisma.module.findUnique({
+  const module = await db.module.findUnique({
     where: { id: parsed.data.moduleId },
     select: { id: true, key: true, name: true }
   });

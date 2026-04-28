@@ -1,9 +1,9 @@
-import { prisma } from "@/lib/db";
+import { db } from "@/lib/db";
 
 const LAST_SEEN_ACTION = "YOUTUBE_LIBRARY_LAST_SEEN";
 
 async function getYouTubeLibraryLastSeenAt(args: { schoolId: string; userId: string }): Promise<Date | null> {
-  const log = await prisma.auditLog.findFirst({
+  const log = await db.auditLog.findFirst({
     where: {
       schoolId: args.schoolId,
       actorType: "SCHOOL_USER",
@@ -42,7 +42,7 @@ async function getVisibleClassIds(args: {
   roleKey: string;
 }): Promise<string[] | null> {
   if (args.roleKey === "PARENT") {
-    const rows = await prisma.student.findMany({
+    const rows = await db.student.findMany({
       where: {
         schoolId: args.schoolId,
         parents: { some: { userId: args.userId } }
@@ -53,7 +53,7 @@ async function getVisibleClassIds(args: {
   }
 
   if (args.roleKey === "TEACHER" || args.roleKey === "CLASS_TEACHER") {
-    const rows = await prisma.teacherClassAssignment.findMany({
+    const rows = await db.teacherClassAssignment.findMany({
       where: {
         schoolId: args.schoolId,
         userId: args.userId
@@ -67,7 +67,7 @@ async function getVisibleClassIds(args: {
 }
 
 export async function markYouTubeLearningSeen(args: { schoolId: string; userId: string }) {
-  await prisma.auditLog.create({
+  await db.auditLog.create({
     data: {
       schoolId: args.schoolId,
       actorType: "SCHOOL_USER",
@@ -90,7 +90,7 @@ export async function getUnreadYouTubeLearningCount(args: {
     getVisibleClassIds(args)
   ]);
 
-  return prisma.youTubeLearningVideo.count({
+  return db.youTubeLearningVideo.count({
     where: {
       schoolId: args.schoolId,
       isActive: true,

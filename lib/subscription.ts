@@ -1,10 +1,10 @@
-import { prisma } from "@/lib/db";
-import type { Plan } from "@prisma/client";
+import { db } from "@/lib/db";
+import type { Plan } from "@/lib/db-types";
 
 export type SubscriptionAccessCheck = { ok: true } | { ok: false; reason: string };
 
 export async function ensureSchoolSubscriptionActive(schoolId: string): Promise<SubscriptionAccessCheck> {
-  const subscription = await prisma.subscription.findUnique({
+  const subscription = await db.subscription.findUnique({
     where: { schoolId },
     select: { id: true, plan: true, status: true, endsAt: true }
   });
@@ -16,7 +16,7 @@ export async function ensureSchoolSubscriptionActive(schoolId: string): Promise<
 
   if (isExpired) {
     if (subscription.status !== "EXPIRED") {
-      await prisma.subscription.update({
+      await db.subscription.update({
         where: { id: subscription.id },
         data: { status: "EXPIRED" }
       });
@@ -25,7 +25,7 @@ export async function ensureSchoolSubscriptionActive(schoolId: string): Promise<
   }
 
   if (subscription.status === "EXPIRED") {
-    await prisma.subscription.update({
+    await db.subscription.update({
       where: { id: subscription.id },
       data: { status: "ACTIVE" }
     });
@@ -42,9 +42,9 @@ export async function ensureSubscriptionPlanSettings() {
     { plan: "BETA", durationDays: 180, amountCents: 0 }
   ];
 
-  await prisma.$transaction(
+  await db.$transaction(
     defaults.map((item) =>
-      prisma.subscriptionPlanSetting.upsert({
+      db.subscriptionPlanSetting.upsert({
         where: { plan: item.plan },
         update: {},
         create: { plan: item.plan, durationDays: item.durationDays, amountCents: item.amountCents }
@@ -55,7 +55,7 @@ export async function ensureSubscriptionPlanSettings() {
 
 export async function getPlanEndsAt(plan: Plan) {
   await ensureSubscriptionPlanSettings();
-  const setting = await prisma.subscriptionPlanSetting.findUnique({
+  const setting = await db.subscriptionPlanSetting.findUnique({
     where: { plan },
     select: { durationDays: true }
   });
@@ -65,7 +65,7 @@ export async function getPlanEndsAt(plan: Plan) {
 
 export async function getPlanAmountCents(plan: Plan) {
   await ensureSubscriptionPlanSettings();
-  const setting = await prisma.subscriptionPlanSetting.findUnique({
+  const setting = await db.subscriptionPlanSetting.findUnique({
     where: { plan },
     select: { amountCents: true }
   });

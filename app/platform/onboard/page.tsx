@@ -3,13 +3,13 @@ import { redirect } from "next/navigation";
 import { Button, Card } from "@/components/ui";
 import { PlatformOnboardForm } from "@/components/platform-onboard-form";
 import { BrandIcon } from "@/components/brand";
-import { prisma } from "@/lib/db";
+import { db } from "@/lib/db";
 import { platformOnboardNeedsSetupKey, platformOnboardReady } from "@/lib/platform-onboard-guard";
 
 export const dynamic = "force-dynamic";
 
 export default async function PlatformOnboardPage() {
-  const existing = await prisma.platformUser.findFirst({ select: { id: true } });
+  const existing = await db.platformUser.findFirst({ select: { id: true } });
   if (existing) redirect("/platform/login");
   const ready = platformOnboardReady();
   const requireSetupKey = platformOnboardNeedsSetupKey();

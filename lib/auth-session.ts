@@ -1,4 +1,4 @@
-import { prisma } from "@/lib/db";
+import { db } from "@/lib/db";
 import type { PlatformSession } from "@/lib/platform-session";
 import type { Session } from "@/lib/session";
 import { ensureSchoolSubscriptionActive } from "@/lib/subscription";
@@ -6,7 +6,7 @@ import { ensureSchoolSubscriptionActive } from "@/lib/subscription";
 export async function resolveActiveSchoolSession(session: Session | null): Promise<Session | null> {
   if (!session) return null;
 
-  const user = await prisma.user.findUnique({
+  const user = await db.user.findUnique({
     where: { id: session.userId },
     select: {
       id: true,
@@ -20,7 +20,7 @@ export async function resolveActiveSchoolSession(session: Session | null): Promi
     return null;
   }
 
-  const role = await prisma.schoolRole.findFirst({
+  const role = await db.schoolRole.findFirst({
     where: { id: user.schoolRoleId, schoolId: user.schoolId },
     select: { id: true, key: true }
   });
@@ -40,7 +40,7 @@ export async function resolveActiveSchoolSession(session: Session | null): Promi
 export async function resolveActivePlatformSessionWithUser(session: PlatformSession | null) {
   if (!session) return null;
 
-  const user = await prisma.platformUser.findUnique({ where: { id: session.platformUserId } });
+  const user = await db.platformUser.findUnique({ where: { id: session.platformUserId } });
   if (!user || !user.isActive || user.status !== "APPROVED") return null;
 
   return {

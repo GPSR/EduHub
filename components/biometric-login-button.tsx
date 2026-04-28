@@ -1,13 +1,15 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { haptic, isNative } from "@/lib/native";
 import {
   BIOMETRIC_PREFERENCE_CHANGED_EVENT,
+  clearBiometricUnlockUntil,
   getBiometricCredentialServer,
   getBiometricPreferenceKey,
   readBiometricPreference,
+  writeBiometricUnlockUntil,
 } from "@/lib/biometric-preference";
 
 type BiometricLoginButtonProps = {
@@ -27,7 +29,6 @@ function biometryLabel(type: number): string {
 
 export function BiometricLoginButton({ scope }: BiometricLoginButtonProps) {
   const pathname = usePathname() || (scope === "platform" ? "/platform/login" : "/login");
-  const router = useRouter();
   const native = useMemo(() => isNative(), []);
   const preferenceKey = useMemo(() => getBiometricPreferenceKey(pathname), [pathname]);
   const credentialServer = useMemo(() => getBiometricCredentialServer(pathname), [pathname]);
@@ -92,7 +93,17 @@ export function BiometricLoginButton({ scope }: BiometricLoginButtonProps) {
 
     try {
       const { AccessControl, NativeBiometric } = await import("@capgo/capacitor-native-biometric");
-      const creds = await NativeBiometric.getCredentials({ server: credentialServer });
+      const creds =
+        typeof NativeBiometric.getSecureCredentials === "function"
+          ? await NativeBiometric.getSecureCredentials({
+              server: credentialServer,
+              reason: "Sign in to EduHub",
+              title: "Sign in with Face ID",
+              subtitle: "Secure login",
+              description: "Authenticate to continue",
+              negativeButtonText: "Cancel",
+            })
+          : await NativeBiometric.getCredentials({ server: credentialServer });
       if (!creds?.password) {
         setMessage("Biometric sign-in is not ready yet. Please sign in with password once.");
         return;
@@ -100,6 +111,7 @@ export function BiometricLoginButton({ scope }: BiometricLoginButtonProps) {
 
       const response = await fetch(loginEndpoint, {
         method: "POST",
+        credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ token: creds.password }),
       });
@@ -110,12 +122,12 @@ export function BiometricLoginButton({ scope }: BiometricLoginButtonProps) {
       if (!response.ok || !payload?.ok) {
         setMessage(payload?.message ?? "Unable to sign in with biometrics right now.");
         if (response.status === 401) {
+          clearBiometricUnlockUntil(pathname);
           try {
             await NativeBiometric.deleteCredentials({ server: credentialServer });
           } catch {
             // Ignore cleanup errors.
           }
-          setVisible(false);
         }
         void haptic("warning");
         return;
@@ -131,7 +143,9 @@ export function BiometricLoginButton({ scope }: BiometricLoginButtonProps) {
       }
 
       void haptic("success");
-      router.replace(payload.redirectTo || fallbackRedirect);
+      writeBiometricUnlockUntil(pathname, Date.now() + 15 * 60 * 1000);
+      const destination = payload.redirectTo || fallbackRedirect;
+      window.location.assign(destination);
     } catch {
       setMessage("Biometric authentication failed. Please try again.");
       void haptic("warning");
@@ -154,4 +168,3 @@ export function BiometricLoginButton({ scope }: BiometricLoginButtonProps) {
     </div>
   );
 }
-

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Badge, Button, Card, EmptyState, Input, Label, SectionHeader } from "@/components/ui";
-import { prisma } from "@/lib/db";
+import { db } from "@/lib/db";
 import { atLeastLevel, getEffectivePermissions } from "@/lib/permissions";
 import { requirePermission } from "@/lib/require-permission";
 import { requireSession } from "@/lib/require";
@@ -44,7 +44,7 @@ export default async function TimetablePage({
   const canManage = session.roleKey === "ADMIN" && (perms.TIMETABLE ? atLeastLevel(perms.TIMETABLE, "EDIT") : false);
 
   const [teachers, classes] = await Promise.all([
-    prisma.user.findMany({
+    db.user.findMany({
       where: {
         schoolId: session.schoolId,
         isActive: true,
@@ -57,7 +57,7 @@ export default async function TimetablePage({
       },
       orderBy: { name: "asc" }
     }),
-    prisma.class.findMany({
+    db.class.findMany({
       where: { schoolId: session.schoolId },
       select: { id: true, name: true, section: true },
       orderBy: [{ name: "asc" }, { section: "asc" }]
@@ -70,7 +70,7 @@ export default async function TimetablePage({
   const parentClassIds =
     session.roleKey === "PARENT"
       ? (
-          await prisma.student.findMany({
+          await db.student.findMany({
             where: {
               schoolId: session.schoolId,
               parents: { some: { userId: session.userId } }
@@ -82,7 +82,7 @@ export default async function TimetablePage({
           .filter(Boolean) as string[]
       : null;
 
-  const rows = await prisma.teacherTimetableEntry.findMany({
+  const rows = await db.teacherTimetableEntry.findMany({
     where: {
       schoolId: session.schoolId,
       ...(roleScopedTeacherId ? { teacherUserId: roleScopedTeacherId } : {}),

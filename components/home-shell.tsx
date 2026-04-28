@@ -598,7 +598,7 @@ export function HomeShell({ isSignedIn, userName }: { isSignedIn: boolean; userN
   /* Signed-in state */
   if (isSignedIn) {
     return (
-      <div className="space-y-3 md:grid md:grid-cols-2 md:gap-4 md:space-y-0">
+      <div className="space-y-3">
         <Card title={welcomeTitle} accent="indigo">
           <div className="mb-4 flex flex-col items-center text-center">
             <BrandWordmark size="sm" className="pointer-events-none w-[118px] opacity-95" />
@@ -622,27 +622,6 @@ export function HomeShell({ isSignedIn, userName }: { isSignedIn: boolean; userN
             >
               Live Chat Widget
             </Link>
-          </div>
-        </Card>
-        <Card title="Quick links" accent="teal">
-          <div className="grid grid-cols-2 gap-2">
-            {[
-              { href: "/gallery",    icon: "🖼️", label: "Gallery"    },
-              { href: "/students",   icon: "👥", label: "Students"   },
-              { href: "/fees",       icon: "💳", label: "Fees"       },
-              { href: "/attendance", icon: "✅", label: "Attendance" },
-              { href: "/feed",       icon: "📢", label: "Feed"       },
-              { href: "/learning-center", icon: "🧠", label: "Learning" },
-            ].map(item => (
-              <Link
-                key={item.href}
-                href={item.href}
-                className="flex items-center gap-2 rounded-[13px] border border-white/[0.12] bg-[#101a2d]/90
-                           px-3.5 py-3 hover:bg-[#17253d] hover:border-white/[0.20] transition-all text-sm font-medium text-white/85"
-              >
-                <span className="text-base">{item.icon}</span> {item.label}
-              </Link>
-            ))}
           </div>
         </Card>
       </div>

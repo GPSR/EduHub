@@ -40,7 +40,7 @@ For cross-platform safety before release:
 npm run platform:compat
 ```
 
-Important: this app uses a live backend (Prisma + Server Actions), so native apps
+Important: this app uses a live backend (Neon DB + Server Actions), so native apps
 must load your hosted web URL (default: `https://schools.softlanetech.com`).
 The URL is configured in `capacitor.config.ts` via:
 
@@ -52,7 +52,7 @@ Environment defaults (`APP_ENV`) for hosted URL fallback:
 - `stage` (legacy `int`, `integration`, and `stgae` are still accepted) -> `https://stgae.schools.softlanetech.com`
 - `production` -> `https://schools.softlanetech.com`
 
-Prisma DB strategy:
+Neon DB strategy:
 
 - Local/lower: `npm run db:push` (uses `LOCAL_DATABASE_URL`)
 - Production: `npm run db:deploy` (uses `NEON_DATABASE_URL`)

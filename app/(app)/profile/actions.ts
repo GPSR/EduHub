@@ -1,7 +1,7 @@
 "use server";
 
 import { z } from "zod";
-import { prisma } from "@/lib/db";
+import { db } from "@/lib/db";
 import { requireUser } from "@/lib/require";
 import { hashPassword, verifyPassword } from "@/lib/password";
 import { clearUserProfileImages, saveUserProfileImage } from "@/lib/uploads";
@@ -58,7 +58,7 @@ export async function updateProfileAction(_prev: ProfileState, formData: FormDat
   const parsedDob = parsed.data.dateOfBirth ? new Date(parsed.data.dateOfBirth) : null;
   const dateOfBirth = parsedDob && !Number.isNaN(parsedDob.getTime()) ? parsedDob : null;
 
-  const current = await prisma.user.findUnique({
+  const current = await db.user.findUnique({
     where: { id: user.id },
     select: {
       name: true,
@@ -99,13 +99,13 @@ export async function updateProfileAction(_prev: ProfileState, formData: FormDat
     (current.notes ?? "") !== (toNull(parsed.data.notes) ?? "");
   if (!changed) return { ok: false, message: "No changes to save." };
 
-  const existing = await prisma.user.findFirst({
+  const existing = await db.user.findFirst({
     where: { schoolId: user.schoolId, email, id: { not: user.id } },
     select: { id: true }
   });
   if (existing) return { ok: false, message: "That email is already used in this school." };
 
-  await prisma.user.update({
+  await db.user.update({
     where: { id: user.id },
     data: {
       name,
@@ -152,7 +152,7 @@ export async function changePasswordAction(_prev: ProfileState, formData: FormDa
   if (!ok) return { ok: false, message: "Current password is incorrect." };
 
   const passwordHash = await hashPassword(parsed.data.newPassword);
-  await prisma.user.update({
+  await db.user.update({
     where: { id: user.id },
     data: { passwordHash }
   });

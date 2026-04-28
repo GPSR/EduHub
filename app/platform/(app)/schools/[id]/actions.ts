@@ -1,6 +1,6 @@
 "use server";
 
-import { prisma } from "@/lib/db";
+import { db } from "@/lib/db";
 import { randomToken } from "@/lib/token";
 import { requireSuperAdmin } from "@/lib/platform-require";
 import { createSessionCookie } from "@/lib/session";
@@ -45,10 +45,10 @@ export async function createAdminInviteAction(
   const token = randomToken(24);
   const expiresAt = new Date(Date.now() + 30 * 60 * 1000);
 
-  const adminRole = await prisma.schoolRole.findFirst({ where: { schoolId: parsed.data.schoolId, key: "ADMIN" } });
+  const adminRole = await db.schoolRole.findFirst({ where: { schoolId: parsed.data.schoolId, key: "ADMIN" } });
   if (!adminRole) return { ok: false, message: "School is missing Admin role." };
 
-  await prisma.schoolInvite.create({
+  await db.schoolInvite.create({
     data: {
       schoolId: parsed.data.schoolId,
       email: parsed.data.adminEmail.toLowerCase(),
@@ -58,7 +58,7 @@ export async function createAdminInviteAction(
     }
   });
 
-  const school = await prisma.school.findUnique({
+  const school = await db.school.findUnique({
     where: { id: parsed.data.schoolId },
     select: { name: true }
   });
@@ -115,7 +115,7 @@ export async function impersonateSchoolAction(formData: FormData) {
   const schoolId = String(formData.get("schoolId") ?? "");
   if (!schoolId) throw new Error("Unable to process request.");
 
-  const admin = await prisma.user.findFirst({
+  const admin = await db.user.findFirst({
     where: { schoolId, schoolRole: { key: "ADMIN" } },
     orderBy: { createdAt: "asc" },
     include: { schoolRole: true }
@@ -135,7 +135,7 @@ export async function impersonateUserAction(formData: FormData) {
   const userId = String(formData.get("userId") ?? "");
   if (!schoolId || !userId) throw new Error("Unable to process request.");
 
-  const user = await prisma.user.findFirst({
+  const user = await db.user.findFirst({
     where: { id: userId, schoolId },
     include: { schoolRole: true }
   });
@@ -158,7 +158,7 @@ export async function updatePlatformSchoolModulesAction(
 
   await ensureBaseModules();
 
-  const allModules = await prisma.module.findMany({ select: { id: true } });
+  const allModules = await db.module.findMany({ select: { id: true } });
   const enabled = new Set(
     formData
       .getAll("enabledModuleIds")
@@ -166,7 +166,7 @@ export async function updatePlatformSchoolModulesAction(
       .filter(Boolean)
   );
 
-  const current = await prisma.schoolModule.findMany({
+  const current = await db.schoolModule.findMany({
     where: { schoolId },
     select: { moduleId: true, enabled: true }
   });
@@ -174,7 +174,7 @@ export async function updatePlatformSchoolModulesAction(
   const changed = allModules.some((m) => (currentByModuleId.get(m.id) ?? false) !== enabled.has(m.id));
   if (!changed) return { ok: false, message: "No changes to save." };
 
-  await prisma.$transaction(async (tx) => {
+  await db.$transaction(async (tx) => {
     for (const m of allModules) {
       await tx.schoolModule.upsert({
         where: { schoolId_moduleId: { schoolId, moduleId: m.id } },
@@ -211,7 +211,7 @@ export async function updateSchoolAdminPasswordAction(
     return { ok: false, message: "Passwords do not match." };
   }
 
-  const target = await prisma.user.findFirst({
+  const target = await db.user.findFirst({
     where: { id: parsed.data.userId, schoolId: parsed.data.schoolId },
     select: { id: true, schoolId: true, schoolRole: { select: { key: true } } }
   });
@@ -222,12 +222,12 @@ export async function updateSchoolAdminPasswordAction(
 
   const passwordHash = await hashPassword(parsed.data.newPassword);
   const now = new Date();
-  const [, revokedTokens] = await prisma.$transaction([
-    prisma.user.update({
+  const [, revokedTokens] = await db.$transaction([
+    db.user.update({
       where: { id: target.id },
       data: { passwordHash }
     }),
-    prisma.passwordResetToken.updateMany({
+    db.passwordResetToken.updateMany({
       where: { userId: target.id, subjectType: "SCHOOL_USER", usedAt: null },
       data: { usedAt: now }
     })

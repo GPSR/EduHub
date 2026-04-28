@@ -2,7 +2,7 @@
 
 import { z } from "zod";
 import { redirect } from "next/navigation";
-import { prisma } from "@/lib/db";
+import { db } from "@/lib/db";
 import { requirePermission } from "@/lib/require-permission";
 import { notifyUser } from "@/lib/notify";
 import {
@@ -84,7 +84,7 @@ export async function createStudentLeaveRequestAction(formData: FormData) {
   const range = normalizeDateRange({ fromDate: parsed.data.fromDate, toDate: parsed.data.toDate });
   if (!range) throw new Error("Invalid leave date range.");
 
-  const student = await prisma.student.findFirst({
+  const student = await db.student.findFirst({
     where: {
       id: parsed.data.studentId,
       schoolId: session.schoolId
@@ -111,7 +111,7 @@ export async function createStudentLeaveRequestAction(formData: FormData) {
     }
   }
 
-  await prisma.leaveRequest.create({
+  await db.leaveRequest.create({
     data: {
       schoolId: session.schoolId,
       requesterType: "STUDENT",
@@ -168,7 +168,7 @@ export async function createTeacherLeaveRequestAction(formData: FormData) {
     throw new Error("You can submit staff leave only for yourself.");
   }
 
-  const staffUser = await prisma.user.findFirst({
+  const staffUser = await db.user.findFirst({
     where: {
       id: parsed.data.teacherUserId,
       schoolId: session.schoolId,
@@ -181,7 +181,7 @@ export async function createTeacherLeaveRequestAction(formData: FormData) {
   });
   if (!staffUser) throw new Error("Selected staff member not found.");
 
-  await prisma.leaveRequest.create({
+  await db.leaveRequest.create({
     data: {
       schoolId: session.schoolId,
       requesterType: "TEACHER",
@@ -222,7 +222,7 @@ export async function decideLeaveRequestAction(formData: FormData) {
     throw new Error(parsed.error.issues[0]?.message ?? "Unable to process request.");
   }
 
-  const leaveRequest = await prisma.leaveRequest.findFirst({
+  const leaveRequest = await db.leaveRequest.findFirst({
     where: {
       id: parsed.data.leaveRequestId,
       schoolId: session.schoolId
@@ -259,7 +259,7 @@ export async function decideLeaveRequestAction(formData: FormData) {
   const nextStatus = parsed.data.decision === "APPROVE" ? "APPROVED" : "REJECTED";
   const approvedAt = nextStatus === "APPROVED" ? new Date() : null;
 
-  await prisma.$transaction(async (tx) => {
+  await db.$transaction(async (tx) => {
     await tx.leaveRequest.update({
       where: { id: leaveRequest.id },
       data: {

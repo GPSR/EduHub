@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/db";
+import { db } from "@/lib/db";
 import { getPlatformSession } from "@/lib/platform-session";
 import { resolveActivePlatformSession } from "@/lib/auth-session";
 
@@ -9,14 +9,14 @@ export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> 
 
   const { id: schoolId } = await ctx.params;
   if (session.role !== "SUPER_ADMIN") {
-    const assigned = await prisma.platformUserSchoolAssignment.findFirst({
+    const assigned = await db.platformUserSchoolAssignment.findFirst({
       where: { platformUserId: session.platformUserId, schoolId },
       select: { id: true }
     });
     if (!assigned) return NextResponse.json({ ok: false, message: "Not assigned to this school." }, { status: 403 });
   }
 
-  const users = await prisma.user.findMany({
+  const users = await db.user.findMany({
     where: { schoolId },
     orderBy: [{ createdAt: "asc" }],
     select: { id: true, name: true, email: true, schoolRole: { select: { key: true, name: true } } }

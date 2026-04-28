@@ -1,7 +1,7 @@
 "use server";
 
 import { z } from "zod";
-import { prisma } from "@/lib/db";
+import { db } from "@/lib/db";
 import { auditLog } from "@/lib/audit";
 import { createPasswordResetToken, sendPasswordResetEmail } from "@/lib/password-reset";
 import { buildRateLimitKey, consumeRateLimitAttempt, readRequestIp } from "@/lib/rate-limit";
@@ -43,7 +43,7 @@ export async function requestPlatformUserPasswordResetAction(
     return { ok: true, message: GENERIC_SUCCESS_MESSAGE };
   }
 
-  const target = await prisma.platformUser.findUnique({
+  const target = await db.platformUser.findUnique({
     where: { email },
     select: { id: true, name: true, isActive: true }
   });

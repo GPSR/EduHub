@@ -1,12 +1,12 @@
 import { Card, Badge, SectionHeader, EmptyState } from "@/components/ui";
 import { describeAuditAction, humanizeAuditToken } from "@/lib/audit-display";
-import { prisma } from "@/lib/db";
+import { db } from "@/lib/db";
 import { requirePermission } from "@/lib/require-permission";
 
 export default async function SchoolAuditPage() {
   const { session } = await requirePermission("REPORTS", "VIEW");
 
-  const logs = await prisma.auditLog.findMany({
+  const logs = await db.auditLog.findMany({
     where: { schoolId: session.schoolId },
     orderBy: { createdAt: "desc" },
     take: 200,
@@ -18,13 +18,13 @@ export default async function SchoolAuditPage() {
     new Set(logs.filter(l => l.actorType === "PLATFORM_USER" && l.actorId).map(l => l.actorId as string))
   );
   const schoolUsers = schoolUserIds.length
-    ? await prisma.user.findMany({
+    ? await db.user.findMany({
         where: { id: { in: schoolUserIds } },
         select: { id: true, name: true, email: true, schoolRole: { select: { key: true, name: true } } },
       })
     : [];
   const platformUsers = platformUserIds.length
-    ? await prisma.platformUser.findMany({
+    ? await db.platformUser.findMany({
         where: { id: { in: platformUserIds } },
         select: { id: true, name: true, email: true, role: true }
       })

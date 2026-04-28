@@ -1,5 +1,5 @@
 import { Card, Badge, Button, Select, SectionHeader } from "@/components/ui";
-import { prisma } from "@/lib/db";
+import { db } from "@/lib/db";
 import { requirePermission } from "@/lib/require-permission";
 import Link from "next/link";
 import {
@@ -32,22 +32,22 @@ export default async function AdminUsersPage({
   const { reset, task } = await searchParams;
 
   const [users, students, classes, roles] = await Promise.all([
-    prisma.user.findMany({
+    db.user.findMany({
       where: { schoolId: session.schoolId },
       orderBy: { createdAt: "desc" },
       take: 200,
       include: { schoolRole: true, classAssignments: { include: { class: true } } },
     }),
-    prisma.student.findMany({
+    db.student.findMany({
       where: { schoolId: session.schoolId },
       orderBy: { fullName: "asc" },
       include: { class: true }
     }),
-    prisma.class.findMany({ where: { schoolId: session.schoolId }, orderBy: [{ name: "asc" }, { section: "asc" }] }),
-    prisma.schoolRole.findMany({ where: { schoolId: session.schoolId }, orderBy: [{ isSystem: "desc" }, { name: "asc" }] }),
+    db.class.findMany({ where: { schoolId: session.schoolId }, orderBy: [{ name: "asc" }, { section: "asc" }] }),
+    db.schoolRole.findMany({ where: { schoolId: session.schoolId }, orderBy: [{ isSystem: "desc" }, { name: "asc" }] }),
   ]);
 
-  const modules = await prisma.schoolModule.findMany({
+  const modules = await db.schoolModule.findMany({
     where: { schoolId: session.schoolId, enabled: true },
     include: { module: true },
     orderBy: { module: { name: "asc" } },
@@ -56,12 +56,12 @@ export default async function AdminUsersPage({
   const userIds = users.map((u) => u.id);
   const [feedCounts, recentFeedPosts] = userIds.length
     ? await Promise.all([
-        prisma.feedPost.groupBy({
+        db.feedPost.groupBy({
           by: ["authorId"],
           where: { schoolId: session.schoolId, authorId: { in: userIds } },
           _count: { _all: true }
         }),
-        prisma.feedPost.findMany({
+        db.feedPost.findMany({
           where: { schoolId: session.schoolId, authorId: { in: userIds } },
           select: { id: true, authorId: true, title: true, scope: true, classId: true, createdAt: true },
           orderBy: { createdAt: "desc" },

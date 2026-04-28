@@ -1,4 +1,4 @@
-import { prisma } from "@/lib/db";
+import { db } from "@/lib/db";
 
 type LatestGallerySlideshowArgs = {
   schoolId: string;
@@ -29,7 +29,7 @@ export async function getLatestGallerySlideshow(args: LatestGallerySlideshowArgs
           OR: [{ roleAccess: { none: {} } }, { roleAccess: { some: { schoolRoleId: args.roleId } } }]
         };
 
-  const latestItem = await prisma.schoolGalleryItem.findFirst({
+  const latestItem = await db.schoolGalleryItem.findFirst({
     where: {
       schoolId: args.schoolId,
       folder: {
@@ -46,7 +46,7 @@ export async function getLatestGallerySlideshow(args: LatestGallerySlideshowArgs
 
   if (!latestItem?.folderId) return null;
 
-  const items = await prisma.schoolGalleryItem.findMany({
+  const items = await db.schoolGalleryItem.findMany({
     where: {
       schoolId: args.schoolId,
       folderId: latestItem.folderId

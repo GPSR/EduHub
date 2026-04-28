@@ -1,7 +1,7 @@
 "use server";
 
 import { z } from "zod";
-import { prisma } from "@/lib/db";
+import { db } from "@/lib/db";
 import { hashPassword } from "@/lib/password";
 import { hashToken } from "@/lib/token";
 import { buildRateLimitKey, consumeRateLimitAttempt, readRequestIp } from "@/lib/rate-limit";
@@ -38,7 +38,7 @@ export async function resetPasswordWithTokenAction(
   }
 
   const tokenHash = hashToken(parsed.data.token);
-  const token = await prisma.passwordResetToken.findFirst({
+  const token = await db.passwordResetToken.findFirst({
     where: {
       OR: [{ token: parsed.data.token }, { token: tokenHash }]
     },
@@ -57,7 +57,7 @@ export async function resetPasswordWithTokenAction(
 
   const passwordHash = await hashPassword(parsed.data.password);
 
-  await prisma.$transaction(async (tx) => {
+  await db.$transaction(async (tx) => {
     if (token.subjectType === "PLATFORM_USER") {
       if (!token.platformUserId) throw new Error("invalid_token_subject");
       await tx.platformUser.update({ where: { id: token.platformUserId }, data: { passwordHash } });

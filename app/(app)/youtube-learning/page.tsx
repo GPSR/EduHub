@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Badge, Button, Card, EmptyState, Input, Label, SectionHeader, Textarea } from "@/components/ui";
-import { prisma } from "@/lib/db";
+import { db } from "@/lib/db";
 import { atLeastLevel, getEffectivePermissions } from "@/lib/permissions";
 import { requirePermission } from "@/lib/require-permission";
 import { requireSession } from "@/lib/require";
@@ -38,7 +38,7 @@ export default async function YouTubeLearningPage({
   const learningLevel = perms.YOUTUBE_LEARNING;
   const canCreate = learningLevel ? atLeastLevel(learningLevel, "EDIT") : false;
 
-  const classes = await prisma.class.findMany({
+  const classes = await db.class.findMany({
     where: { schoolId: session.schoolId },
     select: { id: true, name: true, section: true },
     orderBy: [{ name: "asc" }, { section: "asc" }]
@@ -49,7 +49,7 @@ export default async function YouTubeLearningPage({
   let allowedClassIds: string[] | null = null;
 
   if (session.roleKey === "PARENT") {
-    const rows = await prisma.student.findMany({
+    const rows = await db.student.findMany({
       where: {
         schoolId: session.schoolId,
         parents: { some: { userId: session.userId } }
@@ -58,7 +58,7 @@ export default async function YouTubeLearningPage({
     });
     allowedClassIds = [...new Set(rows.map((row) => row.classId).filter(Boolean) as string[])];
   } else if (session.roleKey === "TEACHER" || session.roleKey === "CLASS_TEACHER") {
-    const rows = await prisma.teacherClassAssignment.findMany({
+    const rows = await db.teacherClassAssignment.findMany({
       where: {
         schoolId: session.schoolId,
         userId: session.userId
@@ -81,7 +81,7 @@ export default async function YouTubeLearningPage({
     return {};
   })();
 
-  const videos = await prisma.youTubeLearningVideo.findMany({
+  const videos = await db.youTubeLearningVideo.findMany({
     where: {
       schoolId: session.schoolId,
       isActive: true,

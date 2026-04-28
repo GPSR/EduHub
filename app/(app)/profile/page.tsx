@@ -1,5 +1,5 @@
 import { requireUser } from "@/lib/require";
-import { prisma } from "@/lib/db";
+import { db } from "@/lib/db";
 import { Badge } from "@/components/ui";
 import { ProfileSettings } from "@/components/profile-settings";
 import { getUserProfileImageUrl } from "@/lib/uploads";
@@ -8,7 +8,7 @@ import { ProfileAvatarUploader } from "@/components/profile-avatar-uploader";
 export default async function ProfilePage() {
   const { user, session } = await requireUser();
   const [school, profilePhotoUrl] = await Promise.all([
-    prisma.school.findUnique({
+    db.school.findUnique({
       where: { id: user.schoolId },
       select: {
         name: true,
@@ -43,9 +43,9 @@ export default async function ProfilePage() {
 
       {/* Profile hero */}
       <div className="rounded-[22px] border border-white/[0.12] bg-[#121a2a]/88 p-6 backdrop-blur-xl">
-        <div className="flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-5">
+        <div className="flex items-start gap-4 sm:gap-5">
           <ProfileAvatarUploader userName={user.name} photoUrl={profilePhotoUrl ?? undefined} />
-          <div className="min-w-0">
+          <div className="min-w-0 pt-0.5">
             <h2 className="text-base sm:text-lg font-bold text-white/95 tracking-tight">{user.name}</h2>
             <p className="text-sm text-white/50 mt-0.5">{user.email}</p>
             <div className="mt-2 flex items-center gap-2 flex-wrap">

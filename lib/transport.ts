@@ -1,4 +1,4 @@
-import { prisma } from "@/lib/db";
+import { db } from "@/lib/db";
 
 const ASSIGN_PREFIX = "BUS_ASSIGN:";
 
@@ -122,7 +122,7 @@ export async function getParentAssignedBusIds(
   userId: string,
   opts?: { onlyUndroppedActiveTrip?: boolean }
 ): Promise<Set<string>> {
-  const students = await prisma.student.findMany({
+  const students = await db.student.findMany({
     where: { schoolId, parents: { some: { userId } } },
     select: { id: true, transportDetails: true }
   });
@@ -139,7 +139,7 @@ export async function getParentAssignedBusIds(
   const busIds = Array.from(byBusId.keys());
   if (busIds.length === 0) return new Set<string>();
 
-  const tripLogs = await prisma.auditLog.findMany({
+  const tripLogs = await db.auditLog.findMany({
     where: { schoolId, action: "BUS_TRIP_STATUS", entityType: "Bus", entityId: { in: busIds } },
     orderBy: { createdAt: "desc" },
     select: { entityId: true, metadataJson: true }
@@ -153,7 +153,7 @@ export async function getParentAssignedBusIds(
     activeTripByBus.set(log.entityId, meta.tripToken);
   }
 
-  const dropLogs = await prisma.auditLog.findMany({
+  const dropLogs = await db.auditLog.findMany({
     where: { schoolId, action: "BUS_STUDENT_DROP", entityType: "Bus", entityId: { in: busIds } },
     orderBy: { createdAt: "desc" },
     select: { entityId: true, metadataJson: true }
@@ -187,24 +187,24 @@ export async function getParentAssignedBusIds(
 
 export async function getLiveTransportForSchool(schoolId: string): Promise<BusLiveView[]> {
   const [buses, assignments, routes, locationLogs, tripLogs] = await Promise.all([
-    prisma.bus.findMany({ where: { schoolId }, orderBy: { name: "asc" } }),
-    prisma.busDriverAssignment.findMany({
+    db.bus.findMany({ where: { schoolId }, orderBy: { name: "asc" } }),
+    db.busDriverAssignment.findMany({
       where: { schoolId },
       include: { user: { select: { id: true, name: true } } },
       orderBy: { assignedAt: "desc" }
     }),
-    prisma.busRoute.findMany({
+    db.busRoute.findMany({
       where: { schoolId, busId: { not: null } },
       orderBy: { updatedAt: "desc" },
       select: { id: true, name: true, busId: true }
     }),
-    prisma.auditLog.findMany({
+    db.auditLog.findMany({
       where: { schoolId, action: "BUS_LOCATION_UPDATE", entityType: "Bus" },
       orderBy: { createdAt: "desc" },
       take: 1000,
       select: { entityId: true, metadataJson: true, createdAt: true }
     }),
-    prisma.auditLog.findMany({
+    db.auditLog.findMany({
       where: { schoolId, action: "BUS_TRIP_STATUS", entityType: "Bus" },
       orderBy: { createdAt: "desc" },
       take: 1000,

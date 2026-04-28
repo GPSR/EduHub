@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { prisma } from "@/lib/db";
+import { db } from "@/lib/db";
 import { requirePlatformUser } from "@/lib/platform-require";
 
 const UpdateDemoRequestSchema = z.object({
@@ -31,7 +31,7 @@ export async function updateDemoRequestAction(formData: FormData) {
     return;
   }
 
-  await prisma.demoRequest.updateMany({
+  await db.demoRequest.updateMany({
     where: {
       id: parsed.data.requestId,
       reviewedAt: null,

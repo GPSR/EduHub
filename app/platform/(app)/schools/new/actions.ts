@@ -1,6 +1,6 @@
 "use server";
 
-import { prisma } from "@/lib/db";
+import { db } from "@/lib/db";
 import { randomToken } from "@/lib/token";
 import { requireSuperAdmin } from "@/lib/platform-require";
 import { auditLog } from "@/lib/audit";
@@ -38,7 +38,7 @@ export async function createSchoolInviteAction(
   if (!parsed.success) return { ok: false, message: parsed.error.issues[0]?.message };
 
   const slug = parsed.data.schoolSlug.toLowerCase();
-  const existing = await prisma.school.findUnique({ where: { slug } });
+  const existing = await db.school.findUnique({ where: { slug } });
   if (existing) return { ok: false, message: "That school slug is already taken." };
   await ensureSubscriptionPlanSettings();
 
@@ -48,7 +48,7 @@ export async function createSchoolInviteAction(
 
     const endsAt = await getPlanEndsAt(parsed.data.plan);
     const amountCents = await getPlanAmountCents(parsed.data.plan);
-    const school = await prisma.school.create({
+    const school = await db.school.create({
       data: {
         name: parsed.data.schoolName,
         slug,
@@ -66,10 +66,10 @@ export async function createSchoolInviteAction(
       }
     });
 
-    const adminRole = await prisma.schoolRole.findFirst({ where: { schoolId: school.id, key: "ADMIN" } });
+    const adminRole = await db.schoolRole.findFirst({ where: { schoolId: school.id, key: "ADMIN" } });
     if (!adminRole) return { ok: false, message: "Failed to create Admin role." };
 
-    await prisma.schoolInvite.create({
+    await db.schoolInvite.create({
       data: {
         schoolId: school.id,
         email: parsed.data.adminEmail.toLowerCase(),

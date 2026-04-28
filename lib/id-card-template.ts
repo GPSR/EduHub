@@ -1,4 +1,4 @@
-import { prisma } from "@/lib/db";
+import { db } from "@/lib/db";
 
 export type IdCardTemplate = {
   schoolLabel: string;
@@ -62,7 +62,7 @@ export function normalizeTemplate(input: Partial<IdCardTemplate> | null | undefi
 }
 
 export async function getSchoolIdCardTemplate(schoolId: string): Promise<IdCardTemplate> {
-  const log = await prisma.auditLog.findFirst({
+  const log = await db.auditLog.findFirst({
     where: { schoolId, action: "ID_CARD_TEMPLATE_UPDATE", entityType: "School", entityId: schoolId },
     orderBy: { createdAt: "desc" },
     select: { metadataJson: true }

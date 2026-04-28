@@ -2,7 +2,7 @@
 
 import { z } from "zod";
 import { redirect } from "next/navigation";
-import { prisma } from "@/lib/db";
+import { db } from "@/lib/db";
 import { requirePermission } from "@/lib/require-permission";
 
 const CreateYouTubeLearningVideoSchema = z.object({
@@ -41,7 +41,7 @@ function extractYouTubeVideoId(inputUrl: string) {
 }
 
 async function getTeacherClassIds(schoolId: string, userId: string) {
-  const rows = await prisma.teacherClassAssignment.findMany({
+  const rows = await db.teacherClassAssignment.findMany({
     where: {
       schoolId,
       userId
@@ -69,7 +69,7 @@ export async function createYouTubeLearningVideoAction(formData: FormData) {
 
   const classId = parsed.data.classId ?? null;
   if (classId) {
-    const classExists = await prisma.class.findFirst({
+    const classExists = await db.class.findFirst({
       where: {
         id: classId,
         schoolId: session.schoolId
@@ -92,7 +92,7 @@ export async function createYouTubeLearningVideoAction(formData: FormData) {
 
   const canonicalUrl = `https://www.youtube.com/watch?v=${videoId}`;
 
-  await prisma.youTubeLearningVideo.create({
+  await db.youTubeLearningVideo.create({
     data: {
       schoolId: session.schoolId,
       classId,

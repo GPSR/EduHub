@@ -1,4 +1,4 @@
-import { prisma } from "@/lib/db";
+import { db } from "@/lib/db";
 
 export type SchoolProfile = {
   address: string;
@@ -21,7 +21,7 @@ export function normalizeSchoolProfile(input: Partial<SchoolProfile> | null | un
 }
 
 export async function getSchoolProfile(schoolId: string): Promise<SchoolProfile> {
-  const log = await prisma.auditLog.findFirst({
+  const log = await db.auditLog.findFirst({
     where: { schoolId, action: "SCHOOL_PROFILE_UPDATE", entityType: "School", entityId: schoolId },
     orderBy: { createdAt: "desc" },
     select: { metadataJson: true }

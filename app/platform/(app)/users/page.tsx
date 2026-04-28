@@ -1,17 +1,17 @@
 import { Card, Badge, SectionHeader } from "@/components/ui";
-import { prisma } from "@/lib/db";
+import { db } from "@/lib/db";
 import { requireSuperAdmin } from "@/lib/platform-require";
 import { ApprovePlatformUserForm, CreatePlatformUserForm, ManagePlatformUserForm } from "./ui";
 
 export default async function PlatformUsersPage() {
   await requireSuperAdmin();
   const [platformUsers, schools] = await Promise.all([
-    prisma.platformUser.findMany({
+    db.platformUser.findMany({
       where: { role: { not: "SUPER_ADMIN" } },
       include: { schoolAssignments: { select: { schoolId: true } } },
       orderBy: [{ status: "asc" }, { createdAt: "desc" }],
     }),
-    prisma.school.findMany({ select: { id: true, name: true, slug: true }, orderBy: { name: "asc" }, take: 300 }),
+    db.school.findMany({ select: { id: true, name: true, slug: true }, orderBy: { name: "asc" }, take: 300 }),
   ]);
 
   const pending = platformUsers.filter((u) => u.status === "PENDING");

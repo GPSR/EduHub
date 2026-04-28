@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Card, Badge, SectionHeader } from "@/components/ui";
-import { prisma } from "@/lib/db";
+import { db } from "@/lib/db";
 import { requireSuperAdmin } from "@/lib/platform-require";
 import { ensureBaseModules } from "@/lib/permissions";
 import { ApplyIndustryTemplatesForm, CreateCustomSubscriptionForm, CreateModuleForm, SubscriptionPlanSettingsForm } from "./ui";
@@ -23,9 +23,9 @@ export default async function PlatformSettingsPage() {
   await ensureSubscriptionPlanSettings();
 
   const [modules, planSettings, customPlans] = await Promise.all([
-    prisma.module.findMany({ orderBy: { name: "asc" } }),
-    prisma.subscriptionPlanSetting.findMany(),
-    prisma.customSubscriptionPlan.findMany({ orderBy: { createdAt: "desc" }, take: 100 }),
+    db.module.findMany({ orderBy: { name: "asc" } }),
+    db.subscriptionPlanSetting.findMany(),
+    db.customSubscriptionPlan.findMany({ orderBy: { createdAt: "desc" }, take: 100 }),
   ]);
 
   const planByKey       = new Map(planSettings.map(p => [p.plan, p.durationDays]));

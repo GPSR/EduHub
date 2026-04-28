@@ -1,11 +1,17 @@
 import Link from "next/link";
 import { Card, Button, Badge, SectionHeader, EmptyState } from "@/components/ui";
-import { prisma } from "@/lib/db";
+import { db } from "@/lib/db";
 import { requireSession } from "@/lib/require";
 import { atLeastLevel, getEffectivePermissions } from "@/lib/permissions";
 import { requirePermission } from "@/lib/require-permission";
+import { eachDayInclusive, formatMonthKey, monthWindow, parseDateOnlyInput, parseMonthKey } from "@/lib/leave-utils";
 
-function isoDate(d: Date) { return d.toISOString().slice(0, 10); }
+function isoDate(d: Date) {
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
 function startOfDay(d: Date) {
   const out = new Date(d);
   out.setHours(0, 0, 0, 0);
@@ -16,7 +22,28 @@ function addDays(d: Date, days: number) {
   out.setDate(out.getDate() + days);
   return out;
 }
-function dayKey(d: Date) { return d.toISOString().slice(0, 10); }
+function dayKey(d: Date) { return isoDate(d); }
+function startOfMonth(d: Date) {
+  return new Date(d.getFullYear(), d.getMonth(), 1);
+}
+function addMonths(d: Date, delta: number) {
+  return new Date(d.getFullYear(), d.getMonth() + delta, 1);
+}
+
+function statusCellConfig(status: string) {
+  switch (status) {
+    case "PRESENT":
+      return { short: "P", label: "Present", className: "border-emerald-400/35 bg-emerald-500/20 text-emerald-100" };
+    case "ABSENT":
+      return { short: "A", label: "Absent", className: "border-rose-400/35 bg-rose-500/20 text-rose-100" };
+    case "LATE":
+      return { short: "L", label: "Late", className: "border-amber-400/35 bg-amber-500/20 text-amber-100" };
+    case "LEAVE":
+      return { short: "V", label: "Leave", className: "border-slate-300/28 bg-slate-500/20 text-slate-100" };
+    default:
+      return { short: "•", label: "Not marked", className: "border-white/[0.14] bg-white/[0.04] text-white/45" };
+  }
+}
 
 type TrendPoint = {
   day: Date;
@@ -40,24 +67,43 @@ function statusConfig(status: string) {
 export default async function AttendancePage({
   searchParams,
 }: {
-  searchParams: Promise<{ date?: string }>;
+  searchParams: Promise<{ date?: string; month?: string }>;
 }) {
   await requirePermission("ATTENDANCE", "VIEW");
   const session = await requireSession();
-  const { date: dateParam } = await searchParams;
-  const date = dateParam ? new Date(dateParam) : new Date();
-  date.setHours(0, 0, 0, 0);
+  const { date: dateParam, month: monthParam } = await searchParams;
+  const date = parseDateOnlyInput(String(dateParam ?? "").trim()) ?? startOfDay(new Date());
+  const monthStart = parseMonthKey(monthParam) ?? startOfMonth(date);
+  const previousMonthKey = formatMonthKey(addMonths(monthStart, -1));
+  const nextMonthKey = formatMonthKey(addMonths(monthStart, 1));
+  const { start: monthRangeStart, end: monthRangeEnd } = monthWindow(monthStart);
+  const monthLastDay = new Date(monthStart.getFullYear(), monthStart.getMonth() + 1, 0);
+  const monthDays = eachDayInclusive(monthStart, monthLastDay);
   const today = isoDate(new Date());
   const dateStr = isoDate(date);
   const isToday = dateStr === today;
 
   /* Parent view */
   if (session.roleKey === "PARENT") {
-    const students = await prisma.student.findMany({
+    const students = await db.student.findMany({
       where: { schoolId: session.schoolId, parents: { some: { userId: session.userId } } },
       orderBy: { fullName: "asc" },
       include: { attendance: { where: { date }, orderBy: { date: "desc" } } },
     });
+    const studentIds = students.map((s) => s.id);
+    const monthRecords =
+      studentIds.length > 0
+        ? await db.attendanceRecord.findMany({
+            where: {
+              schoolId: session.schoolId,
+              studentId: { in: studentIds },
+              date: { gte: monthRangeStart, lte: monthRangeEnd }
+            },
+            select: { studentId: true, date: true, status: true }
+          })
+        : [];
+    const monthStatusMap = new Map(monthRecords.map((record) => [`${record.studentId}:${isoDate(record.date)}`, record.status]));
+
     return (
       <div className="space-y-5 animate-fade-up">
         <DateHeader date={date} isToday={isToday} />
@@ -79,17 +125,28 @@ export default async function AttendancePage({
             </div>
           )}
         </Card>
+
+        <MonthlyAttendanceGrid
+          title="Monthly Attendance Grid"
+          description="Full month details for your linked students."
+          previousMonthKey={previousMonthKey}
+          nextMonthKey={nextMonthKey}
+          monthStart={monthStart}
+          monthDays={monthDays}
+          students={students.map((s) => ({ id: s.id, fullName: s.fullName }))}
+          statusByStudentDay={monthStatusMap}
+        />
       </div>
     );
   }
 
   /* Staff / Admin view */
-  const students = await prisma.student.findMany({
+  const students = await db.student.findMany({
     where: { schoolId: session.schoolId },
     orderBy: { fullName: "asc" },
     take: 200,
   });
-  const existing = await prisma.attendanceRecord.findMany({
+  const existing = await db.attendanceRecord.findMany({
     where: { schoolId: session.schoolId, date },
     select: { studentId: true, status: true },
   });
@@ -111,7 +168,7 @@ export default async function AttendancePage({
   const trendEnd = startOfDay(date);
   const trendStart = addDays(trendEnd, -13);
   if (scopedStudentIds.length > 0) {
-    const records = await prisma.attendanceRecord.findMany({
+    const records = await db.attendanceRecord.findMany({
       where: {
         schoolId: session.schoolId,
         studentId: { in: scopedStudentIds },
@@ -147,6 +204,18 @@ export default async function AttendancePage({
     late: 0,
     leave: 0
   };
+  const monthRecords =
+    scopedStudentIds.length > 0
+      ? await db.attendanceRecord.findMany({
+          where: {
+            schoolId: session.schoolId,
+            studentId: { in: scopedStudentIds },
+            date: { gte: monthRangeStart, lte: monthRangeEnd }
+          },
+          select: { studentId: true, date: true, status: true }
+        })
+      : [];
+  const monthStatusMap = new Map(monthRecords.map((record) => [`${record.studentId}:${isoDate(record.date)}`, record.status]));
 
   return (
     <div className="space-y-5 animate-fade-up">
@@ -166,6 +235,17 @@ export default async function AttendancePage({
           </div>
         ))}
       </div>
+
+      <MonthlyAttendanceGrid
+        title="Monthly Attendance Grid"
+        description="Monthly view across all students and all days."
+        previousMonthKey={previousMonthKey}
+        nextMonthKey={nextMonthKey}
+        monthStart={monthStart}
+        monthDays={monthDays}
+        students={students.map((s) => ({ id: s.id, fullName: s.fullName }))}
+        statusByStudentDay={monthStatusMap}
+      />
 
       <Card
         title="Attendance Trend (Last 14 Days)"
@@ -231,6 +311,126 @@ export default async function AttendancePage({
         )}
       </Card>
     </div>
+  );
+}
+
+function MonthlyAttendanceGrid({
+  title,
+  description,
+  previousMonthKey,
+  nextMonthKey,
+  monthStart,
+  monthDays,
+  students,
+  statusByStudentDay
+}: {
+  title: string;
+  description: string;
+  previousMonthKey: string;
+  nextMonthKey: string;
+  monthStart: Date;
+  monthDays: Date[];
+  students: Array<{ id: string; fullName: string }>;
+  statusByStudentDay: Map<string, string>;
+}) {
+  const displayedStudents = students.slice(0, 120);
+  const hiddenCount = Math.max(0, students.length - displayedStudents.length);
+
+  return (
+    <Card title={title} description={description} accent="teal">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <p className="text-[14px] font-semibold text-white/90">
+            {monthStart.toLocaleDateString("en-US", { month: "long", year: "numeric" })}
+          </p>
+          <p className="text-[11px] text-white/45">
+            {displayedStudents.length} student(s) · {monthDays.length} day(s)
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Link href={`/attendance?month=${encodeURIComponent(previousMonthKey)}&date=${encodeURIComponent(`${previousMonthKey}-01`)}`}>
+            <Button variant="secondary" size="sm">← Prev</Button>
+          </Link>
+          <Link href={`/attendance?month=${encodeURIComponent(formatMonthKey(new Date()))}&date=${encodeURIComponent(isoDate(new Date()))}`}>
+            <Button variant="secondary" size="sm">Today</Button>
+          </Link>
+          <Link href={`/attendance?month=${encodeURIComponent(nextMonthKey)}&date=${encodeURIComponent(`${nextMonthKey}-01`)}`}>
+            <Button variant="secondary" size="sm">Next →</Button>
+          </Link>
+        </div>
+      </div>
+
+      <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px] text-white/55">
+        <span className="inline-flex items-center gap-1 rounded-full border border-white/[0.12] px-2 py-0.5">
+          <i className="h-2 w-2 rounded-full bg-emerald-300 inline-block" /> P = Present
+        </span>
+        <span className="inline-flex items-center gap-1 rounded-full border border-white/[0.12] px-2 py-0.5">
+          <i className="h-2 w-2 rounded-full bg-rose-300 inline-block" /> A = Absent
+        </span>
+        <span className="inline-flex items-center gap-1 rounded-full border border-white/[0.12] px-2 py-0.5">
+          <i className="h-2 w-2 rounded-full bg-amber-300 inline-block" /> L = Late
+        </span>
+        <span className="inline-flex items-center gap-1 rounded-full border border-white/[0.12] px-2 py-0.5">
+          <i className="h-2 w-2 rounded-full bg-slate-200 inline-block" /> V = Leave
+        </span>
+      </div>
+
+      {displayedStudents.length === 0 ? (
+        <p className="mt-3 text-sm text-white/50">No students available for monthly attendance view.</p>
+      ) : (
+        <div className="mt-3 overflow-x-auto rounded-[14px] border border-white/[0.08] bg-black/20">
+          <table className="min-w-[980px] w-full border-separate border-spacing-0">
+            <thead>
+              <tr>
+                <th className="sticky left-0 z-20 min-w-[220px] bg-[#0f1728] px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-white/65 border-b border-white/[0.10]">
+                  Student
+                </th>
+                {monthDays.map((day) => (
+                  <th
+                    key={dayKey(day)}
+                    className="w-[36px] min-w-[36px] border-b border-white/[0.10] px-0.5 py-2 text-center"
+                  >
+                    <div className="text-[11px] font-semibold text-white/85">{day.getDate()}</div>
+                    <div className="text-[9px] text-white/40">
+                      {day.toLocaleDateString("en-US", { weekday: "short" }).slice(0, 1)}
+                    </div>
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {displayedStudents.map((student, rowIndex) => (
+                <tr key={student.id} className={rowIndex % 2 === 0 ? "bg-white/[0.01]" : ""}>
+                  <td className="sticky left-0 z-10 min-w-[220px] bg-[#0f1728] px-3 py-2 border-b border-white/[0.06]">
+                    <p className="truncate text-[12px] font-medium text-white/88">{student.fullName}</p>
+                  </td>
+                  {monthDays.map((day) => {
+                    const status = statusByStudentDay.get(`${student.id}:${dayKey(day)}`) ?? "NOT_MARKED";
+                    const cell = statusCellConfig(status);
+                    return (
+                      <td key={`${student.id}-${dayKey(day)}`} className="border-b border-white/[0.04] px-1 py-1 text-center">
+                        <span
+                          title={cell.label}
+                          className={`inline-flex h-6 w-6 items-center justify-center rounded-[8px] border text-[10px] font-semibold ${cell.className}`}
+                        >
+                          {cell.short}
+                        </span>
+                      </td>
+                    );
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {hiddenCount > 0 ? (
+        <p className="mt-2 text-[11px] text-white/45">
+          Showing first {displayedStudents.length} students in grid for readability. {hiddenCount} more student(s) are hidden.
+        </p>
+      ) : null}
+    </Card>
   );
 }
 

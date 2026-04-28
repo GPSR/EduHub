@@ -3,7 +3,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { Badge, Button } from "@/components/ui";
 import { StudentPhotoAvatarUploader } from "@/components/student-photo-avatar-uploader";
-import { prisma } from "@/lib/db";
+import { db } from "@/lib/db";
 import { requireSession } from "@/lib/require";
 import { atLeastLevel, getEffectivePermissions } from "@/lib/permissions";
 import { requirePermission } from "@/lib/require-permission";
@@ -36,7 +36,7 @@ export default async function StudentProfilePage({
   const { id } = await params;
   const { reminder, photoUpdated, photoError } = await searchParams;
 
-  const student = await prisma.student.findFirst({
+  const student = await db.student.findFirst({
     where:
       session.roleKey === "PARENT"
         ? { id, schoolId: session.schoolId, parents: { some: { userId: session.userId } } }
@@ -59,13 +59,13 @@ export default async function StudentProfilePage({
 
   const [perms, feedPosts, invoices] = await Promise.all([
     getEffectivePermissions({ schoolId: session.schoolId, userId: session.userId, roleId: session.roleId }),
-    prisma.feedPost.findMany({
+    db.feedPost.findMany({
       where: feedWhere,
       select: { id: true, title: true, scope: true, authorId: true, createdAt: true },
       orderBy: { createdAt: "desc" },
       take: 10
     }),
-    prisma.feeInvoice.findMany({
+    db.feeInvoice.findMany({
       where:
         session.roleKey === "PARENT"
           ? { schoolId: session.schoolId, studentId: student.id, student: { parents: { some: { userId: session.userId } } } }
@@ -78,7 +78,7 @@ export default async function StudentProfilePage({
 
   const authorIds = Array.from(new Set(feedPosts.map((post) => post.authorId)));
   const authorRows = authorIds.length
-    ? await prisma.user.findMany({
+    ? await db.user.findMany({
         where: { schoolId: session.schoolId, id: { in: authorIds } },
         select: { id: true, name: true }
       })

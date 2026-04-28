@@ -1,6 +1,6 @@
 import { Card, Input, Label, Button, Select, Badge, SectionHeader, Textarea } from "@/components/ui";
 import { CroppedImageUploadForm } from "@/components/cropped-image-upload-form";
-import { prisma } from "@/lib/db";
+import { db } from "@/lib/db";
 import { requirePermission } from "@/lib/require-permission";
 import { IdSettingsClientForm, RenameRoleClientForm, SchoolModulesClientForm } from "@/components/admin-settings-forms";
 import Image from "next/image";
@@ -19,17 +19,17 @@ export default async function AdminSettingsPage({
   await ensureBaseModules();
   const { roleId, logoUploadStatus, logoUploadMessage } = await searchParams;
   const [school, roles, modules, schoolModuleRows, classes, idCardTemplate, demographicsConfig, schoolProfile, supportTopics] = await Promise.all([
-    prisma.school.findUnique({ where: { id: session.schoolId } }),
-    prisma.schoolRole.findMany({
+    db.school.findUnique({ where: { id: session.schoolId } }),
+    db.schoolRole.findMany({
       where: { schoolId: session.schoolId },
       orderBy: [{ isSystem: "desc" }, { name: "asc" }],
     }),
-    prisma.module.findMany({ orderBy: { name: "asc" } }),
-    prisma.schoolModule.findMany({
+    db.module.findMany({ orderBy: { name: "asc" } }),
+    db.schoolModule.findMany({
       where: { schoolId: session.schoolId },
       include: { module: true },
     }),
-    prisma.class.findMany({
+    db.class.findMany({
       where: { schoolId: session.schoolId },
       orderBy: [{ name: "asc" }, { section: "asc" }]
     }),
@@ -170,7 +170,7 @@ async function RolesPanel({
 }) {
   const { createRoleAction, deleteRoleAction } = await import("./actions");
 
-  const counts = await prisma.user.groupBy({
+  const counts = await db.user.groupBy({
     by: ["schoolRoleId"],
     where: { schoolId },
     _count: { _all: true },

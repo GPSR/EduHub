@@ -1,6 +1,6 @@
 "use server";
 
-import { prisma } from "@/lib/db";
+import { db } from "@/lib/db";
 import { verifyPassword } from "@/lib/password";
 import { createSessionCookie } from "@/lib/session";
 import { auditLog } from "@/lib/audit";
@@ -53,7 +53,7 @@ export async function loginAction(_prev: LoginState, formData: FormData): Promis
     return { ok: false, message: "Too many sign-in attempts. Please wait a few minutes and try again." };
   }
 
-  const school = await prisma.school.findUnique({
+  const school = await db.school.findUnique({
     where: { slug: schoolSlug }
   });
   if (!school || !school.isActive)
@@ -62,7 +62,7 @@ export async function loginAction(_prev: LoginState, formData: FormData): Promis
   const sub = await ensureSchoolSubscriptionActive(school.id);
   if (!sub.ok) return { ok: false, message: sub.reason };
 
-  const user = await prisma.user.findUnique({
+  const user = await db.user.findUnique({
     where: { schoolId_email: { schoolId: school.id, email } }
   });
   const ok = await verifyPassword(parsed.data.password, user?.passwordHash ?? DUMMY_PASSWORD_HASH);
@@ -75,7 +75,7 @@ export async function loginAction(_prev: LoginState, formData: FormData): Promis
     entityType: "User",
     entityId: user.id
   });
-  const role = await prisma.schoolRole.findUnique({ where: { id: user.schoolRoleId } });
+  const role = await db.schoolRole.findUnique({ where: { id: user.schoolRoleId } });
   if (!role) return { ok: false, message: "Account is misconfigured (missing role)." };
   await createSessionCookie({ userId: user.id, schoolId: school.id, roleId: role.id, roleKey: role.key });
   redirect(sanitizeNextPath(formData.get("next")) ?? "/dashboard");

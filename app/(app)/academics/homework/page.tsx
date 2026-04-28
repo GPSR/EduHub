@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Card, Button, Input, Label, Textarea, Badge, SectionHeader, EmptyState } from "@/components/ui";
-import { prisma } from "@/lib/db";
+import { db } from "@/lib/db";
 import { requireSession } from "@/lib/require";
 import { atLeastLevel, getEffectivePermissions } from "@/lib/permissions";
 import { requirePermission } from "@/lib/require-permission";
@@ -37,13 +37,13 @@ export default async function HomeworkPage() {
 
   const homework =
     session.roleKey === "PARENT"
-      ? await prisma.homework.findMany({
+      ? await db.homework.findMany({
           where: { schoolId: session.schoolId, student: { parents: { some: { userId: session.userId } } } },
           include: { student: true },
           orderBy: { createdAt: "desc" },
           take: 100,
         })
-      : await prisma.homework.findMany({
+      : await db.homework.findMany({
           where: { schoolId: session.schoolId },
           include: { student: true },
           orderBy: { createdAt: "desc" },
@@ -52,7 +52,7 @@ export default async function HomeworkPage() {
 
   const students =
     canWrite && session.roleKey !== "PARENT"
-      ? await prisma.student.findMany({ where: { schoolId: session.schoolId }, orderBy: { fullName: "asc" } })
+      ? await db.student.findMany({ where: { schoolId: session.schoolId }, orderBy: { fullName: "asc" } })
       : [];
 
   return (

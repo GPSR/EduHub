@@ -1,5 +1,5 @@
 import { Badge, SectionHeader, EmptyState } from "@/components/ui";
-import { prisma } from "@/lib/db";
+import { db } from "@/lib/db";
 import { requireSuperAdmin } from "@/lib/platform-require";
 import { RequestApprovalForm } from "./ui";
 import { ensureBaseModules } from "@/lib/permissions";
@@ -9,7 +9,7 @@ export default async function PlatformOnboardingRequestsPage() {
   await ensureBaseModules();
 
   const [requests, modules, schoolModules] = await Promise.all([
-    prisma.schoolOnboardingRequest.findMany({
+    db.schoolOnboardingRequest.findMany({
       orderBy: [{ status: "asc" }, { createdAt: "desc" }],
       take: 200,
       select: {
@@ -23,8 +23,8 @@ export default async function PlatformOnboardingRequestsPage() {
         createdAt: true
       }
     }),
-    prisma.module.findMany({ orderBy: { name: "asc" } }),
-    prisma.schoolModule.findMany({ where: { enabled: true }, select: { moduleId: true } }),
+    db.module.findMany({ orderBy: { name: "asc" } }),
+    db.schoolModule.findMany({ where: { enabled: true }, select: { moduleId: true } }),
   ]);
 
   const defaultEnabled = new Set(schoolModules.map(m => m.moduleId));

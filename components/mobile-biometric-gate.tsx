@@ -10,8 +10,11 @@ import {
 import { haptic, isNative } from "@/lib/native";
 import {
   BIOMETRIC_PREFERENCE_CHANGED_EVENT,
+  clearBiometricUnlockUntil,
   getBiometricPreferenceKey,
+  readBiometricUnlockUntil,
   readBiometricPreference,
+  writeBiometricUnlockUntil,
 } from "@/lib/biometric-preference";
 
 const PUBLIC_PATHS = new Set([
@@ -58,6 +61,7 @@ export function MobileBiometricGate() {
   const pathname = usePathname() || "/";
   const native = useMemo(() => isNative(), []);
   const preferenceKey = useMemo(() => getBiometricPreferenceKey(pathname), [pathname]);
+  const passwordLogoutAction = pathname.startsWith("/platform") ? "/platform/logout" : "/logout";
   const [biometricEnabled, setBiometricEnabled] = useState(false);
   const shouldProtectRoute = native && biometricEnabled && routeNeedsBiometric(pathname);
 
@@ -80,13 +84,15 @@ export function MobileBiometricGate() {
 
   const markUnlocked = useCallback(() => {
     const now = Date.now();
+    const unlockUntil = now + SESSION_UNLOCK_TTL_MS;
     unlockedRef.current = true;
     lastUnlockAtRef.current = now;
-    sessionUnlockUntilRef.current = now + SESSION_UNLOCK_TTL_MS;
+    sessionUnlockUntilRef.current = unlockUntil;
     foregroundGraceUntilRef.current = now + FOREGROUND_REAUTH_GRACE_MS;
+    writeBiometricUnlockUntil(pathname, unlockUntil);
     setLocked(false);
     setErrorMessage(null);
-  }, []);
+  }, [pathname]);
 
   useEffect(() => {
     if (!native) {
@@ -196,11 +202,43 @@ export function MobileBiometricGate() {
   }, [markUnlocked, shouldProtectRoute]);
 
   useEffect(() => {
+    if (!shouldProtectRoute) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const check = await NativeBiometric.isAvailable({ useFallback: true });
+        if (!cancelled) setUnlockLabel(biometryLabel(check.biometryType));
+      } catch {
+        if (!cancelled) setUnlockLabel("Face ID");
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [shouldProtectRoute]);
+
+  useEffect(() => {
     if (!shouldProtectRoute) {
       setLocked(false);
       setLoading(false);
       setErrorMessage(null);
       return;
+    }
+
+    const now = Date.now();
+    const persistedUnlockUntil = readBiometricUnlockUntil(pathname);
+    if (persistedUnlockUntil > now) {
+      unlockedRef.current = true;
+      lastUnlockAtRef.current = now;
+      sessionUnlockUntilRef.current = persistedUnlockUntil;
+      foregroundGraceUntilRef.current = now + FOREGROUND_REAUTH_GRACE_MS;
+      setLocked(false);
+      setLoading(false);
+      setErrorMessage(null);
+      return;
+    }
+    if (persistedUnlockUntil > 0) {
+      clearBiometricUnlockUntil(pathname);
     }
 
     if (unlockedRef.current && Date.now() < sessionUnlockUntilRef.current) {
@@ -209,8 +247,12 @@ export function MobileBiometricGate() {
     }
 
     unlockedRef.current = false;
-    void promptUnlock();
-  }, [promptUnlock, shouldProtectRoute]);
+    sessionUnlockUntilRef.current = 0;
+    clearBiometricUnlockUntil(pathname);
+    setLocked(true);
+    setLoading(false);
+    setErrorMessage(null);
+  }, [pathname, shouldProtectRoute]);
 
   useEffect(() => {
     if (!native) return;
@@ -254,39 +296,54 @@ export function MobileBiometricGate() {
       if (unlockedRef.current && now < sessionUnlockUntilRef.current) return;
 
       unlockedRef.current = false;
+      sessionUnlockUntilRef.current = 0;
+      clearBiometricUnlockUntil(window.location.pathname);
       setLocked(true);
-      void promptUnlock();
+      setLoading(false);
+      setErrorMessage(null);
     };
 
     window.addEventListener("app-foreground", onForeground);
     return () => window.removeEventListener("app-foreground", onForeground);
-  }, [biometricEnabled, native, promptUnlock]);
+  }, [biometricEnabled, native]);
 
   if (!shouldProtectRoute || !locked) return null;
 
-  const buttonLabel = loading ? "Checking..." : `Unlock with ${unlockLabel}`;
+  const faceButtonLabel = loading ? "Checking..." : unlockLabel;
 
   return (
     <div className="fixed inset-0 z-[220] flex items-center justify-center bg-[#040915]/92 backdrop-blur-md px-4">
-      <div className="w-full max-w-[360px] rounded-[20px] border border-white/[0.12] bg-[linear-gradient(180deg,rgba(18,28,46,0.98),rgba(10,16,29,0.98))] p-5 text-center shadow-[0_24px_70px_-30px_rgba(0,0,0,0.95)]">
-        <div className="mx-auto mb-3 grid h-12 w-12 place-items-center rounded-[14px] bg-cyan-500/18 text-[24px]">
-          🔐
+      <div className="w-full max-w-[420px] rounded-[24px] border border-white/[0.12] bg-[linear-gradient(180deg,rgba(18,28,46,0.98),rgba(10,16,29,0.98))] p-6 text-center shadow-[0_24px_70px_-30px_rgba(0,0,0,0.95)]">
+        <div className="mx-auto mb-3 grid h-16 w-16 place-items-center rounded-[18px] bg-cyan-500/18 text-[30px]">
+          🛡️
         </div>
         <h2 className="text-[18px] font-semibold text-white/96">Unlock EduHub</h2>
         <p className="mt-1.5 text-[13px] leading-relaxed text-white/65">
-          Use {unlockLabel} or your device passcode to continue.
+          Choose {unlockLabel} or Password to continue.
         </p>
         {errorMessage ? <p className="mt-3 text-[12px] text-amber-200/90">{errorMessage}</p> : null}
-        <button
-          type="button"
-          disabled={loading}
-          onClick={() => void promptUnlock()}
-          className="mt-4 inline-flex w-full items-center justify-center rounded-[13px] px-4 py-2.5 text-sm font-semibold text-white
-                     bg-gradient-to-b from-[#67b4ff] to-[#4f8dfd] shadow-[0_10px_28px_-12px_rgba(79,141,253,0.82)]
-                     transition-colors hover:from-[#7ac0ff] hover:to-[#5a95ff] disabled:opacity-60 disabled:cursor-not-allowed"
-        >
-          {buttonLabel}
-        </button>
+
+        <div className="mt-5 grid grid-cols-2 gap-3">
+          <button
+            type="button"
+            disabled={loading}
+            onClick={() => void promptUnlock()}
+            className="flex flex-col items-center justify-center gap-2 rounded-[16px] border border-white/[0.15] bg-white/[0.04] px-3 py-4 text-white transition hover:bg-white/[0.09] disabled:opacity-60 disabled:cursor-not-allowed"
+          >
+            <span className="grid h-12 w-12 place-items-center rounded-full bg-blue-500/20 text-[24px]">🧬</span>
+            <span className="text-sm font-semibold">{faceButtonLabel}</span>
+          </button>
+
+          <form action={passwordLogoutAction} method="post" className="w-full">
+            <button
+              type="submit"
+              className="w-full flex flex-col items-center justify-center gap-2 rounded-[16px] border border-white/[0.15] bg-white/[0.04] px-3 py-4 text-white transition hover:bg-white/[0.09]"
+            >
+              <span className="grid h-12 w-12 place-items-center rounded-full bg-indigo-500/20 text-[24px]">🔐</span>
+              <span className="text-sm font-semibold">Password</span>
+            </button>
+          </form>
+        </div>
       </div>
     </div>
   );

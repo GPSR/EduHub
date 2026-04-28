@@ -2,7 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { CheckboxBulkActions } from "@/components/checkbox-bulk-actions";
 import { Badge, Button, Card, EmptyState, Input, Label, SectionHeader, Textarea } from "@/components/ui";
-import { prisma } from "@/lib/db";
+import { db } from "@/lib/db";
 import { requirePlatformSchoolAccess } from "@/lib/platform-require";
 
 function roleListLabel(roleNames: string[]) {
@@ -34,13 +34,13 @@ export default async function PlatformSchoolGalleryPage({
   const canUpload = user.role === "SUPER_ADMIN";
 
   const [school, roles, folders] = await Promise.all([
-    prisma.school.findUnique({ where: { id }, select: { id: true, name: true, slug: true } }),
-    prisma.schoolRole.findMany({
+    db.school.findUnique({ where: { id }, select: { id: true, name: true, slug: true } }),
+    db.schoolRole.findMany({
       where: { schoolId: id },
       orderBy: [{ isSystem: "desc" }, { name: "asc" }],
       select: { id: true, name: true }
     }),
-    prisma.schoolGalleryFolder.findMany({
+    db.schoolGalleryFolder.findMany({
       where: { schoolId: id, isActive: true },
       include: {
         roleAccess: { include: { schoolRole: { select: { id: true, name: true } } } },
@@ -60,7 +60,7 @@ export default async function PlatformSchoolGalleryPage({
 
   const selectedFolder = folders.find((folder) => folder.id === folderId) ?? folders[0] ?? null;
   const items = selectedFolder
-    ? await prisma.schoolGalleryItem.findMany({
+    ? await db.schoolGalleryItem.findMany({
         where: {
           schoolId: id,
           folderId: selectedFolder.id

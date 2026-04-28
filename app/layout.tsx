@@ -5,9 +5,6 @@ import { MobileBiometricGate } from "@/components/mobile-biometric-gate";
 import { NetworkBanner } from "@/components/network-banner";
 import { ScrollPreserver } from "@/components/scroll-preserver";
 import { ScrollUnlocker } from "@/components/scroll-unlocker";
-import { DesktopHelpWidget } from "@/components/desktop-help-widget";
-import { getSession } from "@/lib/session";
-import { getPlatformSession } from "@/lib/platform-session";
 
 export const metadata: Metadata = {
   title: { default: "EduHub", template: "%s · EduHub" },
@@ -39,10 +36,7 @@ export const viewport: Viewport = {
   viewportFit: "cover",     // content under notch / Dynamic Island
 };
 
-export default async function RootLayout({ children }: { children: React.ReactNode }) {
-  const [schoolSession, platformSession] = await Promise.all([getSession(), getPlatformSession()]);
-  const isSignedIn = Boolean(schoolSession || platformSession);
-
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
       <head>
@@ -60,7 +54,6 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <ScrollPreserver />
         <ScrollUnlocker />
         {children}
-        <DesktopHelpWidget isSignedIn={isSignedIn} />
       </body>
     </html>
   );

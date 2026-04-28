@@ -2,7 +2,7 @@
 
 import { z } from "zod";
 import { redirect } from "next/navigation";
-import { prisma } from "@/lib/db";
+import { db } from "@/lib/db";
 import { requireSession } from "@/lib/require";
 import { notifyUser } from "@/lib/notify";
 import {
@@ -40,7 +40,7 @@ async function createSchoolConversation(args: {
   const schoolParticipantIds = [...new Set(args.schoolParticipantIds.concat(args.createdBySchoolUserId))];
   const platformParticipantIds = [...new Set(args.platformParticipantIds ?? [])];
 
-  const conversation = await prisma.$transaction(async (tx) => {
+  const conversation = await db.$transaction(async (tx) => {
     const created = await tx.supportConversation.create({
       data: {
         schoolId: args.schoolId,
@@ -205,7 +205,7 @@ export async function createPlatformSupportConversationAction(formData: FormData
 
   const [platformRecipientIds, schoolAdminIds] = await Promise.all([
     getPlatformSupportRecipientIds({ schoolId: session.schoolId }),
-    prisma.user
+    db.user
       .findMany({
         where: {
           schoolId: session.schoolId,
@@ -251,7 +251,7 @@ export async function sendSchoolSupportMessageAction(formData: FormData) {
   });
   if (!parsed.success) throw new Error(parsed.error.issues[0]?.message ?? "Unable to process request.");
 
-  const participant = await prisma.supportConversationSchoolParticipant.findFirst({
+  const participant = await db.supportConversationSchoolParticipant.findFirst({
     where: {
       conversationId: parsed.data.conversationId,
       schoolId: session.schoolId,
@@ -274,7 +274,7 @@ export async function sendSchoolSupportMessageAction(formData: FormData) {
 
   const now = new Date();
 
-  await prisma.$transaction(async (tx) => {
+  await db.$transaction(async (tx) => {
     await tx.supportMessage.create({
       data: {
         conversationId: parsed.data.conversationId,
@@ -299,7 +299,7 @@ export async function sendSchoolSupportMessageAction(formData: FormData) {
     });
   });
 
-  const otherSchoolParticipants = await prisma.supportConversationSchoolParticipant.findMany({
+  const otherSchoolParticipants = await db.supportConversationSchoolParticipant.findMany({
     where: {
       conversationId: parsed.data.conversationId,
       schoolId: session.schoolId,
@@ -326,7 +326,7 @@ export async function closeSchoolSupportConversationAction(formData: FormData) {
   });
   if (!parsed.success) throw new Error(parsed.error.issues[0]?.message ?? "Unable to process request.");
 
-  const participant = await prisma.supportConversationSchoolParticipant.findFirst({
+  const participant = await db.supportConversationSchoolParticipant.findFirst({
     where: {
       conversationId: parsed.data.conversationId,
       schoolId: session.schoolId,
@@ -350,12 +350,12 @@ export async function closeSchoolSupportConversationAction(formData: FormData) {
     redirect(`/support?conversationId=${encodeURIComponent(parsed.data.conversationId)}`);
   }
 
-  await prisma.supportConversation.update({
+  await db.supportConversation.update({
     where: { id: parsed.data.conversationId },
     data: { status: "CLOSED" }
   });
 
-  const otherSchoolParticipants = await prisma.supportConversationSchoolParticipant.findMany({
+  const otherSchoolParticipants = await db.supportConversationSchoolParticipant.findMany({
     where: {
       conversationId: parsed.data.conversationId,
       schoolId: session.schoolId,

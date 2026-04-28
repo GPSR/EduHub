@@ -1,6 +1,6 @@
 "use server";
 
-import { prisma } from "@/lib/db";
+import { db } from "@/lib/db";
 import { requirePermission } from "@/lib/require-permission";
 import { notifyUser } from "@/lib/notify";
 import { auditLog } from "@/lib/audit";
@@ -25,7 +25,7 @@ export async function createPostAction(formData: FormData) {
 
   const isClassPost = !!parsed.data.classId;
 
-  await prisma.feedPost.create({
+  await db.feedPost.create({
     data: {
       schoolId: session.schoolId,
       authorId: session.userId,
@@ -48,12 +48,12 @@ export async function createPostAction(formData: FormData) {
 
   if (isClassPost) {
     // Only parents of students in that class
-    const parents = await prisma.studentParent.findMany({
+    const parents = await db.studentParent.findMany({
       where:  { student: { schoolId: session.schoolId, classId: parsed.data.classId } },
       select: { userId: true },
     });
     // Also teachers assigned to that class
-    const teachers = await prisma.teacherClassAssignment.findMany({
+    const teachers = await db.teacherClassAssignment.findMany({
       where:  { class: { id: parsed.data.classId }, user: { schoolId: session.schoolId } },
       select: { userId: true },
     });
@@ -61,7 +61,7 @@ export async function createPostAction(formData: FormData) {
     usersToNotify   = uniqueIds.map(id => ({ id }));
   } else {
     // School-wide — notify all non-admin users
-    usersToNotify = await prisma.user.findMany({
+    usersToNotify = await db.user.findMany({
       where:  { schoolId: session.schoolId, schoolRole: { key: { not: "ADMIN" } } },
       select: { id: true },
     });

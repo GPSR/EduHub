@@ -1,7 +1,7 @@
 "use server";
 
 import { z } from "zod";
-import { prisma } from "@/lib/db";
+import { db } from "@/lib/db";
 import { auditLog } from "@/lib/audit";
 import { createPasswordResetToken, sendPasswordResetEmail } from "@/lib/password-reset";
 import { buildRateLimitKey, consumeRateLimitAttempt, readRequestIp } from "@/lib/rate-limit";
@@ -46,7 +46,7 @@ export async function requestSchoolUserPasswordResetAction(
     return { ok: true, message: GENERIC_SUCCESS_MESSAGE };
   }
 
-  const school = await prisma.school.findUnique({
+  const school = await db.school.findUnique({
     where: { slug: schoolSlug },
     select: { id: true, isActive: true }
   });
@@ -54,7 +54,7 @@ export async function requestSchoolUserPasswordResetAction(
     return { ok: true, message: GENERIC_SUCCESS_MESSAGE };
   }
 
-  const target = await prisma.user.findUnique({
+  const target = await db.user.findUnique({
     where: { schoolId_email: { schoolId: school.id, email } },
     select: { id: true, name: true, isActive: true }
   });

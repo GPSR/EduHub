@@ -1,5 +1,5 @@
 import { Card, Button, Input, Label, Textarea, SectionHeader, EmptyState, Badge } from "@/components/ui";
-import { prisma } from "@/lib/db";
+import { db } from "@/lib/db";
 import { requireSession } from "@/lib/require";
 import { atLeastLevel, getEffectivePermissions } from "@/lib/permissions";
 import { requirePermission } from "@/lib/require-permission";
@@ -27,14 +27,14 @@ export default async function FeedPage({
   const perms   = await getEffectivePermissions({ schoolId: session.schoolId, userId: session.userId, roleId: session.roleId });
   const canPost = perms["COMMUNICATION"] ? atLeastLevel(perms["COMMUNICATION"], "EDIT") : false;
 
-  const classes = await prisma.class.findMany({
+  const classes = await db.class.findMany({
     where: { schoolId: session.schoolId }, orderBy: [{ name: "asc" }, { section: "asc" }],
   });
 
   // Parents only see school-wide + their children's class posts
   let classFilter: object = {};
   if (session.roleKey === "PARENT") {
-    const childClassIds = (await prisma.student.findMany({
+    const childClassIds = (await db.student.findMany({
       where:  { schoolId: session.schoolId, parents: { some: { userId: session.userId } } },
       select: { classId: true },
     })).map(s => s.classId).filter(Boolean) as string[];
@@ -43,7 +43,7 @@ export default async function FeedPage({
     classFilter = { OR: [{ scope: "SCHOOL" }, { classId: filterClassId }] };
   }
 
-  const posts = await prisma.feedPost.findMany({
+  const posts = await db.feedPost.findMany({
     where:   { schoolId: session.schoolId, ...classFilter },
     orderBy: { createdAt: "desc" },
     take:    50,
@@ -51,7 +51,7 @@ export default async function FeedPage({
 
   // Get author names
   const authorIds = [...new Set(posts.map(p => p.authorId))];
-  const authors   = await prisma.user.findMany({
+  const authors   = await db.user.findMany({
     where:  { id: { in: authorIds } },
     select: { id: true, name: true },
   });

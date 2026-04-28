@@ -1,8 +1,18 @@
 import Link from "next/link";
 import { Badge, Button, Card, EmptyState, Input, Label, SectionHeader, Textarea } from "@/components/ui";
-import { prisma } from "@/lib/db";
+import { db } from "@/lib/db";
 import { requirePermission } from "@/lib/require-permission";
 import { formatMonthKey, monthWindow, overlapDayCount, parseMonthKey, yearWindow } from "@/lib/leave-utils";
+
+type TeacherSalaryPayoutRow = {
+  id: string;
+  teacherUserId: string;
+  paidAmountCents: number;
+  paidOn: Date;
+  paymentMode: string | null;
+  reference: string | null;
+  notes: string | null;
+};
 
 function currency(cents: number) {
   return new Intl.NumberFormat("en-US", {
@@ -46,7 +56,7 @@ export default async function TeacherSalaryPage({
   const periodKey = payCycle === "MONTHLY" ? formatMonthKey(currentMonth) : String(selectedYear);
 
   const [teachers, salaryProfiles] = await Promise.all([
-    prisma.user.findMany({
+    db.user.findMany({
       where: {
         schoolId: session.schoolId,
         isActive: true,
@@ -60,7 +70,7 @@ export default async function TeacherSalaryPage({
       },
       orderBy: [{ name: "asc" }]
     }),
-    prisma.teacherSalaryProfile.findMany({
+    db.teacherSalaryProfile.findMany({
       where: { schoolId: session.schoolId },
       include: {
         teacherUser: { select: { id: true, name: true } }
@@ -75,10 +85,17 @@ export default async function TeacherSalaryPage({
   const activeCycleProfiles = salaryProfiles.filter(
     (profile) => profile.isActive && profile.payCycle === payCycle && visibleTeacherIds.includes(profile.teacherUserId)
   );
+  const teacherSalaryPayoutDelegate = (
+    db as unknown as {
+      teacherSalaryPayout?: {
+        findMany: (args: unknown) => Promise<TeacherSalaryPayoutRow[]>;
+      };
+    }
+  ).teacherSalaryPayout;
 
   const [approvedTeacherLeaves, payouts] = await Promise.all([
     activeCycleProfiles.length
-      ? prisma.leaveRequest.findMany({
+      ? db.leaveRequest.findMany({
           where: {
             schoolId: session.schoolId,
             requesterType: "TEACHER",
@@ -94,24 +111,26 @@ export default async function TeacherSalaryPage({
           }
         })
       : Promise.resolve([]),
-    prisma.teacherSalaryPayout.findMany({
-      where: {
-        schoolId: session.schoolId,
-        payCycle,
-        periodKey,
-        ...(selectedTeacherId ? { teacherUserId: selectedTeacherId } : {})
-      },
-      orderBy: [{ paidOn: "desc" }, { createdAt: "desc" }],
-      select: {
-        id: true,
-        teacherUserId: true,
-        paidAmountCents: true,
-        paidOn: true,
-        paymentMode: true,
-        reference: true,
-        notes: true
-      }
-    })
+    teacherSalaryPayoutDelegate
+      ? teacherSalaryPayoutDelegate.findMany({
+          where: {
+            schoolId: session.schoolId,
+            payCycle,
+            periodKey,
+            ...(selectedTeacherId ? { teacherUserId: selectedTeacherId } : {})
+          },
+          orderBy: [{ paidOn: "desc" }, { createdAt: "desc" }],
+          select: {
+            id: true,
+            teacherUserId: true,
+            paidAmountCents: true,
+            paidOn: true,
+            paymentMode: true,
+            reference: true,
+            notes: true
+          }
+        })
+      : Promise.resolve([] as TeacherSalaryPayoutRow[])
   ]);
 
   const profileByTeacherId = new Map(salaryProfiles.map((profile) => [profile.teacherUserId, profile]));

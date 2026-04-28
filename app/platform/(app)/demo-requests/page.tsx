@@ -1,8 +1,8 @@
 import Link from "next/link";
 import { Badge, Card, EmptyState, Input, SectionHeader, Select } from "@/components/ui";
-import { prisma } from "@/lib/db";
+import { db } from "@/lib/db";
+import type { DemoRequestStatus } from "@/lib/db-types";
 import { requirePlatformUser } from "@/lib/platform-require";
-import type { DemoRequestStatus, Prisma } from "@prisma/client";
 import { updateDemoRequestAction } from "./actions";
 
 const STATUS_OPTIONS: Array<{ value: "ALL" | DemoRequestStatus; label: string }> = [
@@ -28,6 +28,8 @@ function statusLabel(status: DemoRequestStatus): string {
   return "Not Available";
 }
 
+type DemoRequestWhereInput = NonNullable<Parameters<typeof db.demoRequest.findMany>[0]>["where"];
+
 export default async function PlatformDemoRequestsPage({
   searchParams,
 }: {
@@ -40,7 +42,7 @@ export default async function PlatformDemoRequestsPage({
   const statusFilter: "ALL" | DemoRequestStatus =
     status === "NEW" || status === "CONTACTED" || status === "CLOSED" || status === "NOT_AVAILABLE" || status === "ALL" ? status : "ALL";
 
-  const where: Prisma.DemoRequestWhereInput = {};
+  const where: DemoRequestWhereInput = {};
   if (statusFilter !== "ALL") {
     where.status = statusFilter;
   }
@@ -55,7 +57,7 @@ export default async function PlatformDemoRequestsPage({
   }
 
   const [requests, totalCount, newCount] = await Promise.all([
-    prisma.demoRequest.findMany({
+    db.demoRequest.findMany({
       where,
       orderBy: [{ status: "asc" }, { createdAt: "desc" }],
       take: 300,
@@ -75,8 +77,8 @@ export default async function PlatformDemoRequestsPage({
         reviewedBy: { select: { name: true, email: true } },
       },
     }),
-    prisma.demoRequest.count(),
-    prisma.demoRequest.count({ where: { status: "NEW" } }),
+    db.demoRequest.count(),
+    db.demoRequest.count({ where: { status: "NEW" } }),
   ]);
 
   return (

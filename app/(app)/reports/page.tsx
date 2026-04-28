@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Card, SectionHeader, Badge } from "@/components/ui";
-import { prisma } from "@/lib/db";
+import { db } from "@/lib/db";
 import { requireSession } from "@/lib/require";
 import { requirePermission } from "@/lib/require-permission";
 
@@ -35,48 +35,48 @@ export default async function ReportsPage() {
     // Gender breakdown
     genderCounts,
   ] = await Promise.all([
-    prisma.student.count({ where: { schoolId: session.schoolId } }),
-    prisma.user.count({ where: { schoolId: session.schoolId, schoolRole: { key: { in: ["TEACHER","CLASS_TEACHER"] } } } }),
-    prisma.user.count({ where: { schoolId: session.schoolId } }),
+    db.student.count({ where: { schoolId: session.schoolId } }),
+    db.user.count({ where: { schoolId: session.schoolId, schoolRole: { key: { in: ["TEACHER","CLASS_TEACHER"] } } } }),
+    db.user.count({ where: { schoolId: session.schoolId } }),
 
-    prisma.attendanceRecord.count({ where: { schoolId: session.schoolId, date: today, status: "PRESENT" } }),
-    prisma.attendanceRecord.count({ where: { schoolId: session.schoolId, date: today, status: "ABSENT" } }),
-    prisma.attendanceRecord.count({ where: { schoolId: session.schoolId, date: today, status: "LATE" } }),
+    db.attendanceRecord.count({ where: { schoolId: session.schoolId, date: today, status: "PRESENT" } }),
+    db.attendanceRecord.count({ where: { schoolId: session.schoolId, date: today, status: "ABSENT" } }),
+    db.attendanceRecord.count({ where: { schoolId: session.schoolId, date: today, status: "LATE" } }),
 
-    prisma.feeInvoice.aggregate({ where: { schoolId: session.schoolId }, _sum: { amountCents: true }, _count: { _all: true } }),
-    prisma.feeInvoice.aggregate({ where: { schoolId: session.schoolId, status: "PAID" }, _sum: { amountCents: true } }),
-    prisma.feeInvoice.aggregate({ where: { schoolId: session.schoolId, status: "OVERDUE" }, _sum: { amountCents: true }, _count: { _all: true } }),
+    db.feeInvoice.aggregate({ where: { schoolId: session.schoolId }, _sum: { amountCents: true }, _count: { _all: true } }),
+    db.feeInvoice.aggregate({ where: { schoolId: session.schoolId, status: "PAID" }, _sum: { amountCents: true } }),
+    db.feeInvoice.aggregate({ where: { schoolId: session.schoolId, status: "OVERDUE" }, _sum: { amountCents: true }, _count: { _all: true } }),
 
-    prisma.feePayment.aggregate({ where: { invoice: { schoolId: session.schoolId }, paidAt: { gte: monthStart } }, _sum: { amountCents: true } }),
-    prisma.feePayment.aggregate({ where: { invoice: { schoolId: session.schoolId }, paidAt: { gte: yearStart } }, _sum: { amountCents: true } }),
+    db.feePayment.aggregate({ where: { invoice: { schoolId: session.schoolId }, paidAt: { gte: monthStart } }, _sum: { amountCents: true } }),
+    db.feePayment.aggregate({ where: { invoice: { schoolId: session.schoolId }, paidAt: { gte: yearStart } }, _sum: { amountCents: true } }),
 
-    prisma.feeInvoice.findMany({
+    db.feeInvoice.findMany({
       where: { schoolId: session.schoolId, status: "OVERDUE" },
       include: { student: true },
       orderBy: { dueOn: "asc" },
       take: 10,
     }),
 
-    prisma.attendanceRecord.groupBy({
+    db.attendanceRecord.groupBy({
       by: ["date", "status"],
       where: { schoolId: session.schoolId, date: { gte: new Date(Date.now() - 30 * 86400000) } },
       _count: { _all: true },
       orderBy: { date: "asc" },
     }),
 
-    prisma.student.groupBy({
+    db.student.groupBy({
       by: ["classId"],
       where: { schoolId: session.schoolId },
       _count: { _all: true },
     }),
 
-    prisma.examResult.findMany({
+    db.examResult.findMany({
       where:   { schoolId: session.schoolId },
       orderBy: { createdAt: "desc" },
       take:    200,
     }),
 
-    prisma.student.groupBy({
+    db.student.groupBy({
       by: ["gender"],
       where: { schoolId: session.schoolId },
       _count: { _all: true },
@@ -86,7 +86,7 @@ export default async function ReportsPage() {
   // ── Class names lookup ────────────────────────────────
   const classIds   = classCounts.map(c => c.classId).filter(Boolean) as string[];
   const classes    = classIds.length
-    ? await prisma.class.findMany({ where: { id: { in: classIds } }, select: { id: true, name: true, section: true } })
+    ? await db.class.findMany({ where: { id: { in: classIds } }, select: { id: true, name: true, section: true } })
     : [];
   const classById  = new Map(classes.map(c => [c.id, `${c.name}${c.section ? `-${c.section}` : ""}`]));
 

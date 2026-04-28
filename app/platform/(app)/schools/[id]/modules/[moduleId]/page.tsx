@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Card } from "@/components/ui";
-import { prisma } from "@/lib/db";
+import { db } from "@/lib/db";
 import { requireSuperAdmin } from "@/lib/platform-require";
 import { SchoolModuleFieldSettingsForm } from "./ui";
 
@@ -14,13 +14,13 @@ export default async function PlatformSchoolModuleFieldsPage({
   const { id: schoolId, moduleId } = await params;
 
   const [school, module, fields, overrides] = await Promise.all([
-    prisma.school.findUnique({ where: { id: schoolId }, select: { id: true, name: true } }),
-    prisma.module.findUnique({ where: { id: moduleId }, select: { id: true, name: true, key: true } }),
-    prisma.moduleField.findMany({
+    db.school.findUnique({ where: { id: schoolId }, select: { id: true, name: true } }),
+    db.module.findUnique({ where: { id: moduleId }, select: { id: true, name: true, key: true } }),
+    db.moduleField.findMany({
       where: { moduleId, isActive: true },
       orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }]
     }),
-    prisma.schoolModuleField.findMany({
+    db.schoolModuleField.findMany({
       where: { schoolId, moduleField: { moduleId } },
       select: {
         moduleFieldId: true,

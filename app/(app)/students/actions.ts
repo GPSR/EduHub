@@ -1,6 +1,6 @@
 "use server";
 
-import { prisma } from "@/lib/db";
+import { db } from "@/lib/db";
 import { requirePermission } from "@/lib/require-permission";
 import { requireSession } from "@/lib/require";
 import { atLeastLevel, getEffectivePermissions } from "@/lib/permissions";
@@ -75,13 +75,13 @@ export async function createStudentAction(formData: FormData) {
 
   let classId: string | null = null;
   if (parsed.data.classId) {
-    const cls = await prisma.class.findFirst({
+    const cls = await db.class.findFirst({
       where: { id: parsed.data.classId, schoolId: session.schoolId },
       select: { id: true }
     });
     classId = cls?.id ?? null;
   } else if (parsed.data.className) {
-    const cls = await prisma.class.upsert({
+    const cls = await db.class.upsert({
       where: {
         schoolId_name_section: {
           schoolId: session.schoolId,
@@ -99,7 +99,7 @@ export async function createStudentAction(formData: FormData) {
     classId = cls.id;
   }
 
-  const student = await prisma.$transaction(async (tx) => {
+  const student = await db.$transaction(async (tx) => {
     const school = await tx.school.findUnique({ where: { id: session.schoolId } });
     if (!school) throw new Error("Unable to process request.");
 
@@ -214,7 +214,7 @@ export async function updateStudentAction(formData: FormData) {
   });
   if (!parsed.success) throw new Error("Unable to update student.");
 
-  const existing = await prisma.student.findFirst({
+  const existing = await db.student.findFirst({
     where:
       canEditStudents
         ? { id: parsed.data.id, schoolId: session.schoolId }
@@ -256,7 +256,7 @@ export async function updateStudentAction(formData: FormData) {
   let classId: string | null = existing.classId;
   if (canEditStudents) {
     if (parsed.data.className) {
-      const cls = await prisma.class.upsert({
+      const cls = await db.class.upsert({
         where: {
           schoolId_name_section: {
             schoolId: session.schoolId,
@@ -279,7 +279,7 @@ export async function updateStudentAction(formData: FormData) {
 
   let rollNumber = existing.rollNumber ?? undefined;
   if (canEditStudents && !rollNumber && classId) {
-    const classStrength = await prisma.student.count({
+    const classStrength = await db.student.count({
       where: { schoolId: session.schoolId, classId, id: { not: existing.id } }
     });
     rollNumber = String(classStrength + 1);
@@ -292,7 +292,7 @@ export async function updateStudentAction(formData: FormData) {
         : (existing.address ?? null))
     : normalizeOptional(formData.get("parentAddress"));
 
-  const updated = await prisma.student.update({
+  const updated = await db.student.update({
     where: { id: parsed.data.id },
     data: {
       // Identity + academic fields are admin-controlled.
@@ -349,7 +349,7 @@ export async function updateStudentAction(formData: FormData) {
   });
 
   if (!canEditStudents && session.roleKey === "PARENT") {
-    await prisma.user.update({
+    await db.user.update({
       where: { id: session.userId },
       data: {
         phoneNumber: firstCsvValue(updated.parentMobiles),
@@ -424,7 +424,7 @@ export async function uploadStudentPhotoAction(formData: FormData) {
   });
   const canEditStudents = perms["STUDENTS"] ? atLeastLevel(perms["STUDENTS"], "EDIT") : false;
 
-  const student = await prisma.student.findFirst({
+  const student = await db.student.findFirst({
     where: canEditStudents
       ? { id: studentId, schoolId: session.schoolId }
       : {
@@ -444,7 +444,7 @@ export async function uploadStudentPhotoAction(formData: FormData) {
   });
   if (!saved.ok) redirect(withQuery(returnTo, "photoError", "1"));
 
-  await prisma.student.update({
+  await db.student.update({
     where: { id: student.id },
     data: { photoUrl: saved.url }
   });
@@ -459,7 +459,7 @@ export async function uploadParentPhotoAction(formData: FormData) {
   const file = formData.get("photo");
   if (!studentId || !(file instanceof File)) redirect("/students");
 
-  const student = await prisma.student.findFirst({
+  const student = await db.student.findFirst({
     where: {
       id: studentId,
       schoolId: session.schoolId,

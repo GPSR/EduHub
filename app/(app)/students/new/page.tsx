@@ -2,7 +2,7 @@ import Link from "next/link";
 import { Card, Input, Label, Button, SectionHeader } from "@/components/ui";
 import { ConfirmableServerForm } from "@/components/confirmable-server-form";
 import { requirePermission } from "@/lib/require-permission";
-import { prisma } from "@/lib/db";
+import { db } from "@/lib/db";
 import { createStudentAction } from "../actions";
 import { getSchoolStudentDemographicsConfig } from "@/lib/student-demographics";
 import { formatSchoolId } from "@/lib/id-sequence";
@@ -10,7 +10,7 @@ import { formatSchoolId } from "@/lib/id-sequence";
 export default async function NewStudentPage() {
   const { session } = await requirePermission("STUDENTS", "EDIT");
   const [school, classes, demographicsConfig] = await Promise.all([
-    prisma.school.findUnique({
+    db.school.findUnique({
       where: { id: session.schoolId },
       select: {
         idSequencePad: true,
@@ -20,7 +20,7 @@ export default async function NewStudentPage() {
         admissionNoNext: true
       }
     }),
-    prisma.class.findMany({
+    db.class.findMany({
       where: { schoolId: session.schoolId },
       orderBy: [{ name: "asc" }, { section: "asc" }],
       select: { id: true, name: true, section: true }

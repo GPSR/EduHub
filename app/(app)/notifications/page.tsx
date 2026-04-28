@@ -1,5 +1,5 @@
 import { Card, Button, Badge, SectionHeader, EmptyState } from "@/components/ui";
-import { prisma } from "@/lib/db";
+import { db } from "@/lib/db";
 import { requireSession } from "@/lib/require";
 import { requirePermission } from "@/lib/require-permission";
 import { markAllReadAction, markNotificationReadAction } from "./actions";
@@ -18,7 +18,7 @@ function timeAgo(date: Date): string {
 export default async function NotificationsPage() {
   await requirePermission("NOTIFICATIONS", "VIEW");
   const session = await requireSession();
-  const notifications = await prisma.notification.findMany({
+  const notifications = await db.notification.findMany({
     where: { schoolId: session.schoolId, userId: session.userId },
     orderBy: { createdAt: "desc" },
     take: 100,
