@@ -20,14 +20,30 @@ function timeAgo(date: Date) {
   return `${Math.floor(hrs / 24)}d ago`;
 }
 
+function buildYouTubeLearningHref(args: {
+  classId?: string | null;
+  holiday?: boolean;
+  videoId?: string | null;
+  compose?: boolean;
+}) {
+  const params = new URLSearchParams();
+  if (args.classId) params.set("classId", args.classId);
+  if (args.holiday) params.set("holiday", "1");
+  if (args.videoId) params.set("videoId", args.videoId);
+  if (args.compose) params.set("compose", "1");
+  const query = params.toString();
+  return query ? `/youtube-learning?${query}` : "/youtube-learning";
+}
+
 export default async function YouTubeLearningPage({
   searchParams
 }: {
-  searchParams: Promise<{ classId?: string; holiday?: string; videoId?: string }>;
+  searchParams: Promise<{ classId?: string; holiday?: string; videoId?: string; compose?: string }>;
 }) {
   await requirePermission("YOUTUBE_LEARNING", "VIEW");
   const session = await requireSession();
-  const { classId: filterClassId, holiday, videoId } = await searchParams;
+  const { classId: filterClassId, holiday, videoId, compose } = await searchParams;
+  const composeOpen = compose === "1";
 
   const perms = await getEffectivePermissions({
     schoolId: session.schoolId,
@@ -101,11 +117,12 @@ export default async function YouTubeLearningPage({
   const selectedVideo = videos.find((entry) => entry.id === videoId) ?? null;
 
   function videoHref(targetVideoId: string) {
-    const params = new URLSearchParams();
-    if (hasClassFilter && filterClassId) params.set("classId", filterClassId);
-    if (holidayOnly) params.set("holiday", "1");
-    params.set("videoId", targetVideoId);
-    return `/youtube-learning?${params.toString()}`;
+    return buildYouTubeLearningHref({
+      classId: hasClassFilter && filterClassId ? filterClassId : null,
+      holiday: holidayOnly,
+      videoId: targetVideoId,
+      compose: composeOpen
+    });
   }
 
   const visibleClasses =
@@ -115,13 +132,30 @@ export default async function YouTubeLearningPage({
 
   return (
     <div className="space-y-5 animate-fade-up">
-      <SectionHeader
-        title="YouTube Learning"
-        subtitle="Class-wise useful video library for holiday learning and revision"
-      />
+      <div className="flex items-start justify-between gap-4">
+        <SectionHeader
+          title="YouTube Learning"
+          subtitle="Class-wise useful video library for holiday learning and revision"
+        />
+        {canCreate ? (
+          <Link
+            href={buildYouTubeLearningHref({
+              classId: hasClassFilter && filterClassId ? filterClassId : null,
+              holiday: holidayOnly,
+              videoId,
+              compose: !composeOpen
+            })}
+            aria-label={composeOpen ? "Close YouTube learning form" : "Add YouTube learning video"}
+            className="sm-btn min-h-0 mt-0.5 inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-[12px] bg-gradient-to-b from-[#67b4ff] to-[#4f8dfd] text-[26px] leading-none text-white shadow-[0_14px_30px_-18px_rgba(79,141,253,0.95)] transition hover:brightness-105 active:scale-[0.98]"
+            title={composeOpen ? "Close" : "Add video"}
+          >
+            {composeOpen ? "×" : "+"}
+          </Link>
+        ) : null}
+      </div>
 
       <div className="flex flex-wrap items-center gap-2">
-        <Link href="/youtube-learning">
+        <Link href={buildYouTubeLearningHref({ compose: composeOpen })}>
           <span
             className={[
               "inline-flex items-center rounded-full border px-3 py-1.5 text-[12px] font-medium transition",
@@ -137,10 +171,12 @@ export default async function YouTubeLearningPage({
         {visibleClasses.map((cls) => {
           const label = classLabel(cls.name, cls.section);
           const active = filterClassId === cls.id;
-          const suffix = holidayOnly ? "&holiday=1" : "";
 
           return (
-            <Link key={cls.id} href={`/youtube-learning?classId=${encodeURIComponent(cls.id)}${suffix}`}>
+            <Link
+              key={cls.id}
+              href={buildYouTubeLearningHref({ classId: cls.id, holiday: holidayOnly, compose: composeOpen })}
+            >
               <span
                 className={[
                   "inline-flex items-center rounded-full border px-3 py-1.5 text-[12px] font-medium transition",
@@ -155,7 +191,13 @@ export default async function YouTubeLearningPage({
           );
         })}
 
-        <Link href={holidayOnly ? "/youtube-learning" : "/youtube-learning?holiday=1"}>
+        <Link
+          href={buildYouTubeLearningHref({
+            classId: hasClassFilter && filterClassId ? filterClassId : null,
+            holiday: !holidayOnly,
+            compose: composeOpen
+          })}
+        >
           <span
             className={[
               "inline-flex items-center rounded-full border px-3 py-1.5 text-[12px] font-medium transition",
@@ -169,7 +211,9 @@ export default async function YouTubeLearningPage({
         </Link>
       </div>
 
-      {canCreate ? <CreateYouTubeLearningCard classes={visibleClasses} roleKey={session.roleKey} selectedClassId={filterClassId} /> : null}
+      {canCreate && composeOpen ? (
+        <CreateYouTubeLearningCard classes={visibleClasses} roleKey={session.roleKey} selectedClassId={filterClassId} />
+      ) : null}
 
       <Card
         title="Video Library"

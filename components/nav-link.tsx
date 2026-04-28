@@ -6,6 +6,7 @@ import { clsx } from "clsx";
 import type { MouseEvent } from "react";
 
 const NAV_ICONS: Record<string, string> = {
+  "/home":               "🏠",
   "/dashboard":          "◈",
   "/students":           "👥",
   "/fees":               "💳",
@@ -35,12 +36,14 @@ export function NavLink({
   href,
   label,
   icon,
-  badgeCount
+  badgeCount,
+  profileFallbackHref = "/dashboard"
 }: {
   href: string;
   label: string;
   icon?: string;
   badgeCount?: number;
+  profileFallbackHref?: string;
 }) {
   const pathname = usePathname();
   const router = useRouter();
@@ -54,7 +57,7 @@ export function NavLink({
       router.back();
       return;
     }
-    router.push("/dashboard");
+    router.push(profileFallbackHref);
   };
 
   return (

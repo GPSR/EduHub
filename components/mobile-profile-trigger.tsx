@@ -10,10 +10,12 @@ function initials(name: string) {
 
 export function MobileProfileTrigger({
   userName,
-  photoUrl
+  photoUrl,
+  fallbackHref = "/dashboard"
 }: {
   userName: string;
   photoUrl?: string;
+  fallbackHref?: string;
 }) {
   const avatar = initials(userName);
   const router = useRouter();
@@ -26,7 +28,7 @@ export function MobileProfileTrigger({
         router.back();
         return;
       }
-      router.push("/dashboard");
+      router.push(fallbackHref);
       return;
     }
     router.push("/profile");

@@ -92,7 +92,7 @@ function redirectToAuth(req: NextRequest, loginPath: "/login" | "/platform/login
 }
 
 function fallbackPathForRole(roleKey: string) {
-  return roleKey === "PARENT" ? "/students" : "/feed";
+  return roleKey === "ADMIN" ? "/dashboard" : "/home";
 }
 
 export function middleware(req: NextRequest) {

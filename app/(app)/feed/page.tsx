@@ -18,14 +18,23 @@ function timeAgo(date: Date): string {
   return date.toDateString();
 }
 
+function buildFeedHref(args: { classId?: string | null; compose?: boolean }) {
+  const params = new URLSearchParams();
+  if (args.classId) params.set("classId", args.classId);
+  if (args.compose) params.set("compose", "1");
+  const query = params.toString();
+  return query ? `/feed?${query}` : "/feed";
+}
+
 export default async function FeedPage({
   searchParams,
-}: { searchParams: Promise<{ classId?: string }> }) {
+}: { searchParams: Promise<{ classId?: string; compose?: string }> }) {
   await requirePermission("COMMUNICATION", "VIEW");
   const session = await requireSession();
-  const { classId: filterClassId } = await searchParams;
+  const { classId: filterClassId, compose } = await searchParams;
   const perms   = await getEffectivePermissions({ schoolId: session.schoolId, userId: session.userId, roleId: session.roleId });
   const canPost = perms["COMMUNICATION"] ? atLeastLevel(perms["COMMUNICATION"], "EDIT") : false;
+  const composeOpen = compose === "1";
 
   const classes = await db.class.findMany({
     where: { schoolId: session.schoolId }, orderBy: [{ name: "asc" }, { section: "asc" }],
@@ -66,14 +75,24 @@ export default async function FeedPage({
     <div className="space-y-5 animate-fade-up">
       <div className="flex items-start justify-between gap-4">
         <SectionHeader title="School Feed" subtitle="Announcements and updates" />
+        {canPost ? (
+          <Link
+            href={buildFeedHref({ classId: filterClassId, compose: !composeOpen })}
+            aria-label={composeOpen ? "Close new feed form" : "Create new feed post"}
+            className="sm-btn min-h-0 mt-0.5 inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-[12px] bg-gradient-to-b from-[#67b4ff] to-[#4f8dfd] text-[26px] leading-none text-white shadow-[0_14px_30px_-18px_rgba(79,141,253,0.95)] transition hover:brightness-105 active:scale-[0.98]"
+            title={composeOpen ? "Close" : "New post"}
+          >
+            {composeOpen ? "×" : "+"}
+          </Link>
+        ) : null}
       </div>
 
-      {canPost && <CreatePostCard classes={classes} />}
+      {canPost && composeOpen ? <CreatePostCard classes={classes} /> : null}
 
       {/* Class filter */}
       {classes.length > 0 && session.roleKey !== "PARENT" && (
         <div className="flex flex-wrap gap-2">
-          <Link href="/feed">
+          <Link href={buildFeedHref({ compose: composeOpen })}>
             <span className={`inline-flex items-center rounded-full px-3 py-1.5 text-[12px] font-medium border transition
               ${!filterClassId ? "bg-indigo-500/[0.18] border-indigo-400/30 text-white" : "border-white/[0.08] text-white/50 hover:text-white/80 hover:bg-white/[0.05]"}`}>
               📢 All
@@ -82,7 +101,7 @@ export default async function FeedPage({
           {classes.map(c => {
             const label = `${c.name}${c.section ? `-${c.section}` : ""}`;
             return (
-              <Link key={c.id} href={`/feed?classId=${c.id}`}>
+              <Link key={c.id} href={buildFeedHref({ classId: c.id, compose: composeOpen })}>
                 <span className={`inline-flex items-center rounded-full px-3 py-1.5 text-[12px] font-medium border transition
                   ${filterClassId === c.id ? "bg-indigo-500/[0.18] border-indigo-400/30 text-white" : "border-white/[0.08] text-white/50 hover:text-white/80 hover:bg-white/[0.05]"}`}>
                   {label}

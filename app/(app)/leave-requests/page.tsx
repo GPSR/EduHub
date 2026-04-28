@@ -30,16 +30,25 @@ function dateLabel(date: Date) {
   return date.toISOString().slice(0, 10);
 }
 
+function buildLeaveRequestsHref(args: { status?: "PENDING" | "APPROVED" | "REJECTED" | null; compose?: boolean }) {
+  const params = new URLSearchParams();
+  if (args.status) params.set("status", args.status);
+  if (args.compose) params.set("compose", "1");
+  const query = params.toString();
+  return query ? `/leave-requests?${query}` : "/leave-requests";
+}
+
 type LeaveRequestWhereInput = NonNullable<Parameters<typeof db.leaveRequest.findMany>[0]>["where"];
 
 export default async function LeaveRequestsPage({
   searchParams
 }: {
-  searchParams: Promise<{ status?: string }>;
+  searchParams: Promise<{ status?: string; compose?: string }>;
 }) {
   await requirePermission("LEAVE_REQUESTS", "VIEW");
   const session = await requireSession();
-  const { status } = await searchParams;
+  const { status, compose } = await searchParams;
+  const composeOpen = compose === "1";
 
   const statusFilter = status === "PENDING" || status === "APPROVED" || status === "REJECTED" ? status : null;
 
@@ -278,35 +287,47 @@ export default async function LeaveRequestsPage({
 
   return (
     <div className="space-y-5 animate-fade-up">
-      <SectionHeader
-        title="Leave Requests"
-        subtitle="Student and staff leave workflow with role-based approvals"
-      />
+      <div className="flex items-start justify-between gap-4">
+        <SectionHeader
+          title="Leave Requests"
+          subtitle="Student and staff leave workflow with role-based approvals"
+        />
+        {canCreateStudentRequest || canCreateStaffRequest ? (
+          <Link
+            href={buildLeaveRequestsHref({ status: statusFilter, compose: !composeOpen })}
+            aria-label={composeOpen ? "Close leave request form" : "Create new leave request"}
+            className="sm-btn min-h-0 mt-0.5 inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-[12px] bg-gradient-to-b from-[#67b4ff] to-[#4f8dfd] text-[26px] leading-none text-white shadow-[0_14px_30px_-18px_rgba(79,141,253,0.95)] transition hover:brightness-105 active:scale-[0.98]"
+            title={composeOpen ? "Close" : "New request"}
+          >
+            {composeOpen ? "×" : "+"}
+          </Link>
+        ) : null}
+      </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5">
         <MetricCard
-          href="/leave-requests"
+          href={buildLeaveRequestsHref({ compose: composeOpen })}
           label="Total"
           value={totalCount}
           tone="text-white/85"
           active={!statusFilter}
         />
         <MetricCard
-          href="/leave-requests?status=PENDING"
+          href={buildLeaveRequestsHref({ status: "PENDING", compose: composeOpen })}
           label="Pending"
           value={pendingCount}
           tone="text-amber-300"
           active={statusFilter === "PENDING"}
         />
         <MetricCard
-          href="/leave-requests?status=APPROVED"
+          href={buildLeaveRequestsHref({ status: "APPROVED", compose: composeOpen })}
           label="Approved"
           value={approvedCount}
           tone="text-emerald-300"
           active={statusFilter === "APPROVED"}
         />
         <MetricCard
-          href="/leave-requests?status=REJECTED"
+          href={buildLeaveRequestsHref({ status: "REJECTED", compose: composeOpen })}
           label="Rejected"
           value={rejectedCount}
           tone="text-rose-300"
@@ -315,13 +336,13 @@ export default async function LeaveRequestsPage({
       </div>
 
       <div className="flex flex-wrap gap-2">
-        <StatusChip href="/leave-requests" active={!statusFilter} label="All" />
-        <StatusChip href="/leave-requests?status=PENDING" active={statusFilter === "PENDING"} label="Pending" />
-        <StatusChip href="/leave-requests?status=APPROVED" active={statusFilter === "APPROVED"} label="Approved" />
-        <StatusChip href="/leave-requests?status=REJECTED" active={statusFilter === "REJECTED"} label="Rejected" />
+        <StatusChip href={buildLeaveRequestsHref({ compose: composeOpen })} active={!statusFilter} label="All" />
+        <StatusChip href={buildLeaveRequestsHref({ status: "PENDING", compose: composeOpen })} active={statusFilter === "PENDING"} label="Pending" />
+        <StatusChip href={buildLeaveRequestsHref({ status: "APPROVED", compose: composeOpen })} active={statusFilter === "APPROVED"} label="Approved" />
+        <StatusChip href={buildLeaveRequestsHref({ status: "REJECTED", compose: composeOpen })} active={statusFilter === "REJECTED"} label="Rejected" />
       </div>
 
-      {canCreateStudentRequest || canCreateStaffRequest ? (
+      {composeOpen && (canCreateStudentRequest || canCreateStaffRequest) ? (
         <LeaveRequestCreateCard
           canStudent={canCreateStudentRequest}
           canStaff={canCreateStaffRequest}

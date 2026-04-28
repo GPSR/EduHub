@@ -23,14 +23,25 @@ function classLabel(name: string, section: string) {
   return section ? `${name}-${section}` : name;
 }
 
+function buildTimetableHref(args: { teacherId?: string | null; classId?: string | null; day?: string | null; compose?: boolean }) {
+  const params = new URLSearchParams();
+  if (args.teacherId) params.set("teacherId", args.teacherId);
+  if (args.classId) params.set("classId", args.classId);
+  if (args.day) params.set("day", args.day);
+  if (args.compose) params.set("compose", "1");
+  const query = params.toString();
+  return query ? `/timetable?${query}` : "/timetable";
+}
+
 export default async function TimetablePage({
   searchParams
 }: {
-  searchParams: Promise<{ teacherId?: string; classId?: string; day?: string }>;
+  searchParams: Promise<{ teacherId?: string; classId?: string; day?: string; compose?: string }>;
 }) {
   await requirePermission("TIMETABLE", "VIEW");
   const session = await requireSession();
-  const { teacherId, classId, day } = await searchParams;
+  const { teacherId, classId, day, compose } = await searchParams;
+  const composeOpen = compose === "1";
 
   const dayFilter = Number.parseInt(String(day ?? ""), 10);
   const validDay = Number.isInteger(dayFilter) && dayFilter >= 1 && dayFilter <= 7 ? dayFilter : null;
@@ -109,13 +120,31 @@ export default async function TimetablePage({
 
   return (
     <div className="space-y-5 animate-fade-up">
-      <SectionHeader
-        title="Teacher Timetable"
-        subtitle="Class-wise teacher schedule with subject and timing"
-      />
+      <div className="flex items-start justify-between gap-4">
+        <SectionHeader
+          title="Teacher Timetable"
+          subtitle="Class-wise teacher schedule with subject and timing"
+        />
+        {canManage ? (
+          <Link
+            href={buildTimetableHref({
+              teacherId,
+              classId,
+              day: validDay ? String(validDay) : null,
+              compose: !composeOpen
+            })}
+            aria-label={composeOpen ? "Close timetable entry form" : "Add timetable entry"}
+            className="sm-btn min-h-0 mt-0.5 inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-[12px] bg-gradient-to-b from-[#67b4ff] to-[#4f8dfd] text-[26px] leading-none text-white shadow-[0_14px_30px_-18px_rgba(79,141,253,0.95)] transition hover:brightness-105 active:scale-[0.98]"
+            title={composeOpen ? "Close" : "Add entry"}
+          >
+            {composeOpen ? "×" : "+"}
+          </Link>
+        ) : null}
+      </div>
 
       <Card accent="indigo">
         <form action="/timetable" method="get" className="grid grid-cols-1 md:grid-cols-4 gap-3">
+          {composeOpen ? <input type="hidden" name="compose" value="1" /> : null}
           <div>
             <Label>Teacher</Label>
             <select
@@ -167,14 +196,14 @@ export default async function TimetablePage({
 
           <div className="flex items-end gap-2">
             <Button type="submit" variant="secondary" className="w-full">Apply filters</Button>
-            <Link href="/timetable" className="w-full">
+            <Link href={buildTimetableHref({ compose: composeOpen })} className="w-full">
               <Button type="button" variant="secondary" className="w-full">Reset</Button>
             </Link>
           </div>
         </form>
       </Card>
 
-      {canManage ? <CreateTimetableEntryCard teachers={teachers} classes={classes} /> : null}
+      {canManage && composeOpen ? <CreateTimetableEntryCard teachers={teachers} classes={classes} /> : null}
 
       <Card title="Weekly Schedule" description={`${rows.length} timetable row(s)`} accent="teal">
         {rows.length === 0 ? (
@@ -249,7 +278,7 @@ async function CreateTimetableEntryCard({
       description="School admin can map teacher schedule by day, time, class, and subject"
       accent="indigo"
     >
-      <details className="group rounded-[12px] border border-white/[0.10] bg-black/20">
+      <details open className="group rounded-[12px] border border-white/[0.10] bg-black/20">
         <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-3.5 py-2.5 text-[12px] font-semibold uppercase tracking-wider text-white/55">
           <span>Tap or click to add timetable entry</span>
           <span className="inline-flex items-center gap-1 rounded-full border border-white/[0.12] px-2 py-0.5 text-[10px] tracking-wide text-white/65">

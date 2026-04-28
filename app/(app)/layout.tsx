@@ -14,6 +14,7 @@ import { getUserProfileImageUrl } from "@/lib/uploads";
 import { getUnreadFeedCount } from "@/lib/feed-unread";
 import { getUnreadSupportConversationCount } from "@/lib/support-unread";
 import { getUnreadYouTubeLearningCount } from "@/lib/youtube-learning-unread";
+import { getDefaultSchoolHomePath } from "@/lib/default-school-home";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const { user, session } = await requireUser();
@@ -35,9 +36,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     const level = perms[moduleKey];
     return level ? atLeastLevel(level, "VIEW") : false;
   };
+  const defaultHomePath = getDefaultSchoolHomePath(session.roleKey);
 
   const desktopItems = [
-    canView("DASHBOARD") ? { href: "/dashboard", label: "Dashboard" } : null,
+    session.roleKey === "ADMIN" ? { href: "/dashboard", label: "Dashboard" } : { href: "/home", label: "Home" },
     canView("STUDENTS") ? { href: "/students", label: "Students" } : null,
     canView("FEES") ? { href: "/fees", label: "Fees" } : null,
     canView("ATTENDANCE") ? { href: "/attendance", label: "Attendance" } : null,
@@ -72,8 +74,12 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         <header className="header-safe sticky top-0 z-20 border-b border-white/[0.10] bg-[#0f1728]/80 backdrop-blur-2xl">
           <div className="mx-auto w-full max-w-[1320px] px-3 sm:px-4 md:px-6">
             <div className="relative flex h-[74px] items-center justify-between gap-3 md:hidden">
-              <MobileProfileTrigger userName={user.name} photoUrl={userPhotoUrl ?? undefined} />
-              <Link href="/dashboard" className="absolute left-1/2 -translate-x-1/2 inline-flex items-center justify-center">
+              <MobileProfileTrigger
+                userName={user.name}
+                photoUrl={userPhotoUrl ?? undefined}
+                fallbackHref={defaultHomePath}
+              />
+              <Link href={defaultHomePath} className="absolute left-1/2 -translate-x-1/2 inline-flex items-center justify-center">
                 {school?.brandingLogoUrl ? (
                   <Image
                     src={school.brandingLogoUrl}
@@ -102,7 +108,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
                     className="h-[40px] w-[40px] rounded-full object-contain bg-white/[0.04] p-0.5 border border-white/[0.16] shadow-[0_12px_24px_-16px_rgba(79,141,253,0.88)]"
                   />
                 ) : (
-                  <BrandIcon size={40} href="/dashboard" />
+                  <BrandIcon size={40} href={defaultHomePath} />
                 )}
                 <div className="h-6 w-px bg-white/[0.10]" />
                 <span className="inline-flex rounded-full border border-blue-400/35 bg-blue-500/18 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-widest text-blue-100/90">
@@ -111,7 +117,12 @@ export default async function AppLayout({ children }: { children: React.ReactNod
                 <span className="truncate text-[12px] text-white/45">{school?.name ?? "School"}</span>
               </div>
 
-              <UserMenu userName={user.name} userEmail={user.email} photoUrl={userPhotoUrl ?? undefined} />
+              <UserMenu
+                userName={user.name}
+                userEmail={user.email}
+                photoUrl={userPhotoUrl ?? undefined}
+                fallbackHref={defaultHomePath}
+              />
             </div>
           </div>
         </header>
@@ -170,7 +181,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
             <div className="mx-3 my-2 h-px bg-white/[0.07]" />
             <nav className="space-y-0.5">
-              <NavLink href="/profile" label="Profile" />
+              <NavLink href="/profile" label="Profile" profileFallbackHref={defaultHomePath} />
             </nav>
           </aside>
 

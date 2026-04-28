@@ -5,6 +5,8 @@ import { useActionState, useEffect, useLayoutEffect, useRef, useState, type Form
 import { BrandWordmark } from "@/components/brand";
 import { Badge, Card } from "@/components/ui";
 import { createDemoRequestAction, type DemoRequestState } from "@/app/demo-request/actions";
+import { isNative } from "@/lib/native";
+import { HomeShell } from "@/components/home-shell";
 
 const HERO_STATS = [
   { value: "20+", label: "School modules" },
@@ -189,8 +191,9 @@ const MENU_ITEMS = [
   { href: "#contact", label: "Contact Us" }
 ] as const;
 
-function marketingPrimaryLabel(isSignedIn: boolean) {
-  return isSignedIn ? "Open dashboard" : "Request demo";
+function marketingPrimaryLabel(isSignedIn: boolean, defaultHomeHref: string) {
+  if (!isSignedIn) return "Request demo";
+  return defaultHomeHref === "/home" ? "Open home" : "Open dashboard";
 }
 
 type DemoFieldElement = HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement;
@@ -221,16 +224,24 @@ function clearDemoFieldValidationMessage(event: FormEvent<DemoFieldElement>) {
 type ProductHomePageProps = {
   isSignedIn: boolean;
   userName?: string | null;
+  forceMobileAppLayout?: boolean;
+  defaultHomeHref?: string;
 };
 
 const initialDemoRequestState: DemoRequestState = { ok: true, message: "", fieldErrors: {} };
 
-export function ProductHomePage({ isSignedIn, userName }: ProductHomePageProps) {
+export function ProductHomePage({
+  isSignedIn,
+  userName,
+  forceMobileAppLayout = false,
+  defaultHomeHref = "/dashboard"
+}: ProductHomePageProps) {
   const [demoRequestOpen, setDemoRequestOpen] = useState(false);
   const [demoState, demoAction, demoPending] = useActionState(createDemoRequestAction, initialDemoRequestState);
   const [pauseModuleCatalogAutoscroll, setPauseModuleCatalogAutoscroll] = useState(false);
   const [showAllModules, setShowAllModules] = useState(false);
   const [allModulesOpenToken, setAllModulesOpenToken] = useState(0);
+  const [useMobileAppLayout, setUseMobileAppLayout] = useState(forceMobileAppLayout);
   const [selectedCountryCode, setSelectedCountryCode] = useState("+1");
   const [showCountryNameInDropdown, setShowCountryNameInDropdown] = useState(false);
   const demoFormRef = useRef<HTMLFormElement | null>(null);
@@ -263,7 +274,39 @@ export function ProductHomePage({ isSignedIn, userName }: ProductHomePageProps) 
   }, [demoState]);
 
   useEffect(() => {
+    const syncNativeLayout = () => {
+      if (typeof window === "undefined") return;
+      const byRuntime = isNative();
+      const byClass =
+        document.documentElement.classList.contains("native-shell") ||
+        document.body.classList.contains("native-shell");
+      const byUserAgent = /capacitor/i.test(window.navigator.userAgent);
+      const byViewport = window.matchMedia("(max-width: 767px)").matches;
+      setUseMobileAppLayout(forceMobileAppLayout || byRuntime || byClass || byUserAgent || byViewport);
+    };
+
+    syncNativeLayout();
+
+    const observer = new MutationObserver(syncNativeLayout);
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
+    observer.observe(document.body, { attributes: true, attributeFilter: ["class"] });
+    window.addEventListener("resize", syncNativeLayout);
+    window.addEventListener("orientationchange", syncNativeLayout);
+    window.addEventListener("focus", syncNativeLayout);
+    window.addEventListener("app-foreground", syncNativeLayout);
+
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", syncNativeLayout);
+      window.removeEventListener("orientationchange", syncNativeLayout);
+      window.removeEventListener("focus", syncNativeLayout);
+      window.removeEventListener("app-foreground", syncNativeLayout);
+    };
+  }, [forceMobileAppLayout]);
+
+  useEffect(() => {
     if (typeof window === "undefined") return;
+    if (useMobileAppLayout) return;
     if (window.matchMedia("(max-width: 767px)").matches) return;
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
 
@@ -295,7 +338,7 @@ export function ProductHomePage({ isSignedIn, userName }: ProductHomePageProps) 
     return () => {
       window.cancelAnimationFrame(rafId);
     };
-  }, [pauseModuleCatalogAutoscroll]);
+  }, [pauseModuleCatalogAutoscroll, useMobileAppLayout]);
 
   useLayoutEffect(() => {
     if (!showAllModules) return;
@@ -338,11 +381,17 @@ export function ProductHomePage({ isSignedIn, userName }: ProductHomePageProps) 
     };
   }, [showAllModules, allModulesOpenToken]);
 
+  if (useMobileAppLayout) {
+    return <HomeShell isSignedIn={isSignedIn} userName={userName} defaultHomeHref={defaultHomeHref} />;
+  }
+
   return (
     <main className="relative min-h-dvh md:min-h-screen overflow-x-clip pb-[max(2rem,env(safe-area-inset-bottom))]">
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_0%_0%,rgba(103,180,255,0.2),transparent_42%),radial-gradient(circle_at_100%_0%,rgba(14,165,233,0.16),transparent_38%),radial-gradient(circle_at_50%_100%,rgba(79,141,253,0.14),transparent_55%)]" />
 
-      <div className="relative mx-auto w-full max-w-[1240px] px-4 sm:px-6 lg:px-8 pt-[max(1rem,env(safe-area-inset-top))] space-y-5 md:space-y-6">
+      <div
+        className="relative mx-auto w-full max-w-[1240px] px-4 sm:px-6 lg:px-8 pt-[max(1rem,env(safe-area-inset-top))] space-y-5 md:space-y-6"
+      >
         <header className="rounded-[22px] border border-white/[0.12] bg-[#0c1527]/82 px-4 py-3 sm:px-5 backdrop-blur-xl">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <BrandWordmark size="sm" className="mx-auto sm:mx-0" />
@@ -359,10 +408,10 @@ export function ProductHomePage({ isSignedIn, userName }: ProductHomePageProps) 
               {isSignedIn ? (
                 <>
                   <Link
-                    href="/dashboard"
+                    href={defaultHomeHref}
                     className="inline-flex items-center justify-center rounded-[12px] bg-gradient-to-b from-[#67b4ff] to-[#4f8dfd] px-4 py-2 text-sm font-semibold text-white shadow-[0_12px_26px_-16px_rgba(79,141,253,0.85)] transition hover:from-[#7ac0ff] hover:to-[#5a95ff]"
                   >
-                    Open dashboard
+                    {marketingPrimaryLabel(isSignedIn, defaultHomeHref)}
                   </Link>
                   <Link
                     href="/support"
@@ -427,10 +476,10 @@ export function ProductHomePage({ isSignedIn, userName }: ProductHomePageProps) 
               <div className="flex flex-wrap items-center gap-2.5">
                 {isSignedIn ? (
                   <Link
-                    href="/dashboard"
+                    href={defaultHomeHref}
                     className="inline-flex items-center justify-center rounded-[13px] bg-gradient-to-b from-[#67b4ff] to-[#4f8dfd] px-5 py-2.5 text-[14px] font-semibold text-white shadow-[0_14px_30px_-18px_rgba(79,141,253,0.88)] transition hover:from-[#7ac0ff] hover:to-[#5a95ff]"
                   >
-                    {marketingPrimaryLabel(isSignedIn)}
+                    {marketingPrimaryLabel(isSignedIn, defaultHomeHref)}
                   </Link>
                 ) : (
                   <button
@@ -438,11 +487,11 @@ export function ProductHomePage({ isSignedIn, userName }: ProductHomePageProps) 
                     onClick={() => setDemoRequestOpen(true)}
                     className="inline-flex items-center justify-center rounded-[13px] bg-gradient-to-b from-[#67b4ff] to-[#4f8dfd] px-5 py-2.5 text-[14px] font-semibold text-white shadow-[0_14px_30px_-18px_rgba(79,141,253,0.88)] transition hover:from-[#7ac0ff] hover:to-[#5a95ff]"
                   >
-                    {marketingPrimaryLabel(isSignedIn)}
+                    {marketingPrimaryLabel(isSignedIn, defaultHomeHref)}
                   </button>
                 )}
                 <Link
-                  href={isSignedIn ? "/dashboard" : "#features"}
+                  href={isSignedIn ? defaultHomeHref : "#features"}
                   className="inline-flex items-center justify-center rounded-[13px] border border-white/[0.14] bg-white/[0.03] px-5 py-2.5 text-[14px] font-semibold text-white/88 transition hover:bg-white/[0.08]"
                 >
                   {isSignedIn ? "Continue where you left off" : "Explore all features"}

@@ -54,7 +54,7 @@ export default async function DashboardPage({
 }) {
   await requirePermission("DASHBOARD", "VIEW");
   const session = await requireSession();
-  if (session.roleKey !== "ADMIN") redirect("/students");
+  if (session.roleKey !== "ADMIN") redirect("/home");
   const { q, fees } = await searchParams;
   const query = (q ?? "").trim();
   const feeView = fees === "paid" || fees === "pending" ? fees : null;

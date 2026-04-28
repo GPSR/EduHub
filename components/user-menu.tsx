@@ -11,7 +11,17 @@ function initials(name: string) {
   return ((parts[0]?.[0] ?? "") + (parts.length > 1 ? parts[parts.length - 1]?.[0] ?? "" : "")).toUpperCase();
 }
 
-export function UserMenu({ userName, userEmail, photoUrl }: { userName: string; userEmail: string; photoUrl?: string }) {
+export function UserMenu({
+  userName,
+  userEmail,
+  photoUrl,
+  fallbackHref = "/dashboard"
+}: {
+  userName: string;
+  userEmail: string;
+  photoUrl?: string;
+  fallbackHref?: string;
+}) {
   const [open, setOpen] = useState(false);
   const panelRef = useRef<HTMLDivElement | null>(null);
   const avatar = useMemo(() => initials(userName), [userName]);
@@ -27,7 +37,7 @@ export function UserMenu({ userName, userEmail, photoUrl }: { userName: string; 
       router.back();
       return;
     }
-    router.push("/dashboard");
+    router.push(fallbackHref);
   };
 
   useEffect(() => {

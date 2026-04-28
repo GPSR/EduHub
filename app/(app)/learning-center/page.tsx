@@ -19,6 +19,14 @@ function timeAgo(date: Date) {
   return `${Math.floor(hrs / 24)}d ago`;
 }
 
+function buildLearningCenterHref(args: { classId?: string | null; compose?: boolean }) {
+  const params = new URLSearchParams();
+  if (args.classId) params.set("classId", args.classId);
+  if (args.compose) params.set("compose", "1");
+  const query = params.toString();
+  return query ? `/learning-center?${query}` : "/learning-center";
+}
+
 const RESOURCE_BADGE_TONE = {
   NOTE: "info",
   VIDEO: "success",
@@ -36,11 +44,12 @@ const RESOURCE_ICONS = {
 export default async function LearningCenterPage({
   searchParams
 }: {
-  searchParams: Promise<{ classId?: string }>;
+  searchParams: Promise<{ classId?: string; compose?: string }>;
 }) {
   await requirePermission("LEARNING_CENTER", "VIEW");
   const session = await requireSession();
-  const { classId: filterClassId } = await searchParams;
+  const { classId: filterClassId, compose } = await searchParams;
+  const composeOpen = compose === "1";
 
   const perms = await getEffectivePermissions({
     schoolId: session.schoolId,
@@ -110,13 +119,25 @@ export default async function LearningCenterPage({
 
   return (
     <div className="space-y-5 animate-fade-up">
-      <SectionHeader
-        title="Learning Center"
-        subtitle="Class-based resources, notes, videos, and documents"
-      />
+      <div className="flex items-start justify-between gap-4">
+        <SectionHeader
+          title="Learning Center"
+          subtitle="Class-based resources, notes, videos, and documents"
+        />
+        {canCreate ? (
+          <Link
+            href={buildLearningCenterHref({ classId: filterClassId, compose: !composeOpen })}
+            aria-label={composeOpen ? "Close learning resource form" : "Add learning resource"}
+            className="sm-btn min-h-0 mt-0.5 inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-[12px] bg-gradient-to-b from-[#67b4ff] to-[#4f8dfd] text-[26px] leading-none text-white shadow-[0_14px_30px_-18px_rgba(79,141,253,0.95)] transition hover:brightness-105 active:scale-[0.98]"
+            title={composeOpen ? "Close" : "Add resource"}
+          >
+            {composeOpen ? "×" : "+"}
+          </Link>
+        ) : null}
+      </div>
 
       <div className="flex flex-wrap gap-2">
-        <Link href="/learning-center">
+        <Link href={buildLearningCenterHref({ compose: composeOpen })}>
           <span
             className={[
               "inline-flex items-center rounded-full border px-3 py-1.5 text-[12px] font-medium transition",
@@ -132,7 +153,7 @@ export default async function LearningCenterPage({
           const label = classLabel(cls.name, cls.section);
           const active = filterClassId === cls.id;
           return (
-            <Link key={cls.id} href={`/learning-center?classId=${encodeURIComponent(cls.id)}`}>
+            <Link key={cls.id} href={buildLearningCenterHref({ classId: cls.id, compose: composeOpen })}>
               <span
                 className={[
                   "inline-flex items-center rounded-full border px-3 py-1.5 text-[12px] font-medium transition",
@@ -148,7 +169,7 @@ export default async function LearningCenterPage({
         })}
       </div>
 
-      {canCreate ? (
+      {canCreate && composeOpen ? (
         <CreateLearningResourceCard
           classes={visibleClasses}
           roleKey={session.roleKey}

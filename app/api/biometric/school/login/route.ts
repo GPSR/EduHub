@@ -13,6 +13,7 @@ import {
 } from "@/lib/auth-cookie";
 import { buildRateLimitKey, consumeRateLimitAttempt, readRequestIp } from "@/lib/rate-limit";
 import { isJsonRequest, isTrustedMutationRequest } from "@/lib/request-security";
+import { getDefaultSchoolHomePath } from "@/lib/default-school-home";
 
 const BiometricLoginSchema = z.object({
   token: z.string().min(24),
@@ -93,7 +94,11 @@ export async function POST(req: Request) {
     passwordHash: user.passwordHash,
   });
 
-  const res = NextResponse.json({ ok: true, redirectTo: "/dashboard", token: refreshedBiometricToken });
+  const res = NextResponse.json({
+    ok: true,
+    redirectTo: getDefaultSchoolHomePath(role.key),
+    token: refreshedBiometricToken
+  });
   const primaryName = getPrimarySessionCookieName("school");
   res.cookies.set(primaryName, sessionToken, getSessionCookieOptions("school"));
   const clearOptions = getExpiredSessionCookieOptions();

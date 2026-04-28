@@ -148,13 +148,7 @@ export function BiometricLockSettings() {
         </button>
       )}
     >
-      {enabled ? (
-        <div className="flex items-center">
-          <span className="w-fit rounded-full border border-[#67b4ff]/45 bg-[#67b4ff]/14 px-2 py-0.5 text-[11px] font-semibold text-[#67b4ff]">
-            Enabled
-          </span>
-        </div>
-      ) : null}
+      {null}
     </Card>
   );
 }

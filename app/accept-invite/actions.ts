@@ -3,6 +3,7 @@
 import { db } from "@/lib/db";
 import { hashPassword } from "@/lib/password";
 import { createSessionCookie } from "@/lib/session";
+import { getDefaultSchoolHomePath } from "@/lib/default-school-home";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 
@@ -54,5 +55,5 @@ export async function acceptInviteAction(
   const role = await db.schoolRole.findUnique({ where: { id: invite.schoolRoleId } });
   if (!role) return { ok: false, message: "Invite is misconfigured (missing role)." };
   await createSessionCookie({ userId: user.id, schoolId: invite.schoolId, roleId: role.id, roleKey: role.key });
-  redirect("/dashboard");
+  redirect(getDefaultSchoolHomePath(role.key));
 }

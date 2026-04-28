@@ -6,6 +6,7 @@ import { createSessionCookie } from "@/lib/session";
 import { auditLog } from "@/lib/audit";
 import { ensureSchoolSubscriptionActive } from "@/lib/subscription";
 import { buildRateLimitKey, consumeRateLimitAttempt, readRequestIp } from "@/lib/rate-limit";
+import { getDefaultSchoolHomePath } from "@/lib/default-school-home";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 
@@ -78,5 +79,5 @@ export async function loginAction(_prev: LoginState, formData: FormData): Promis
   const role = await db.schoolRole.findUnique({ where: { id: user.schoolRoleId } });
   if (!role) return { ok: false, message: "Account is misconfigured (missing role)." };
   await createSessionCookie({ userId: user.id, schoolId: school.id, roleId: role.id, roleKey: role.key });
-  redirect(sanitizeNextPath(formData.get("next")) ?? "/dashboard");
+  redirect(sanitizeNextPath(formData.get("next")) ?? getDefaultSchoolHomePath(role.key));
 }

@@ -9,6 +9,7 @@ import { MOBILE_BOTTOM_PRIMARY_LIMIT } from "@/lib/mobile-nav-config";
 type NavItem = { href: string; label: string; activeStartsWith?: boolean };
 
 const ICONS: Record<string, string> = {
+  "/home":                     "🏠",
   "/dashboard":                "◈",
   "/students":                 "👥",
   "/fees":                     "💳",
@@ -39,7 +40,15 @@ function isActive(pathname: string, item: NavItem) {
 }
 
 export function MobileNav({
-  userName, userEmail, items, moreItems, unreadCount = 0, feedUnreadCount = 0, supportUnreadCount = 0, youtubeUnreadCount = 0,
+  role,
+  userName,
+  userEmail,
+  items,
+  moreItems,
+  unreadCount = 0,
+  feedUnreadCount = 0,
+  supportUnreadCount = 0,
+  youtubeUnreadCount = 0,
 }: {
   role: string; userName: string; userEmail: string;
   items: NavItem[]; moreItems: NavItem[];
@@ -47,6 +56,7 @@ export function MobileNav({
 }) {
   const pathname = usePathname();
   const router = useRouter();
+  const fallbackHomePath = role === "ADMIN" ? "/dashboard" : "/home";
   const [open, setOpen] = useState(false);
   const [showUserInfo, setShowUserInfo] = useState(false);
 
@@ -111,7 +121,7 @@ export function MobileNav({
       router.back();
       return;
     }
-    router.push("/dashboard");
+    router.push(fallbackHomePath);
   }
 
   return (

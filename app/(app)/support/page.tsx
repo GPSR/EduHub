@@ -229,24 +229,20 @@ export default async function SupportPage({
       <div className="md:hidden space-y-3 pb-[calc(6rem+env(safe-area-inset-bottom))]">
         {!mobileThreadOpen ? (
           <>
-            <section className="rounded-[22px] border border-white/[0.12] bg-[#0f1728]/90 p-3.5 text-white/90">
-              <h1 className="text-[34px] font-semibold leading-none tracking-[-0.02em]">Chat Support</h1>
+            <section className="rounded-[22px] border border-white/[0.12] bg-[linear-gradient(180deg,rgba(255,255,255,0.07),rgba(255,255,255,0.025))] p-3.5 text-white/90 backdrop-blur-xl">
+              <div className="flex items-center justify-between gap-2">
+                <h1 className="text-lg sm:text-xl font-semibold tracking-tight text-white/95">Chat Support</h1>
+                <Link
+                  href={buildSupportHref({ tab: currentTab, compose: !composeOpen })}
+                  aria-label={composeOpen ? "Close new support form" : "Start support chat"}
+                  className="sm-btn min-h-0 inline-flex h-10 w-10 items-center justify-center rounded-[12px] bg-gradient-to-b from-[#67b4ff] to-[#4f8dfd] text-[26px] leading-none text-white shadow-[0_14px_30px_-18px_rgba(79,141,253,0.95)] transition hover:brightness-105 active:scale-[0.98]"
+                  title={composeOpen ? "Close new chat" : "New chat"}
+                >
+                  {composeOpen ? "×" : "+"}
+                </Link>
+              </div>
 
-              <form method="get" action="/support" className="mt-3">
-                {currentTab !== "all" ? <input type="hidden" name="tab" value={currentTab} /> : null}
-                <label className="relative block">
-                  <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-white/35 text-lg">⌕</span>
-                  <input
-                    type="search"
-                    name="q"
-                    defaultValue={currentQuery}
-                    placeholder="Search conversations"
-                    className="h-12 w-full rounded-[16px] border border-white/[0.12] bg-[#101a2d]/95 px-10 text-[15px] text-white/90 placeholder:text-white/35 outline-none transition focus:border-blue-300/70 focus:ring-4 focus:ring-blue-500/22"
-                  />
-                </label>
-              </form>
-
-              <div className="mt-3 grid grid-cols-4 gap-2">
+              <div className="mt-2.5 grid grid-cols-4 gap-2">
                 {([
                   { key: "all", label: "All" },
                   { key: "active", label: "Active" },
@@ -257,7 +253,7 @@ export default async function SupportPage({
                   return (
                     <Link
                       key={tabItem.key}
-                      href={buildSupportHref({ q: currentQuery, tab: tabItem.key, compose: composeOpen })}
+                      href={buildSupportHref({ tab: tabItem.key, compose: composeOpen })}
                       className={[
                         "inline-flex h-10 items-center justify-center rounded-[14px] border text-[14px] font-semibold transition",
                         isActive
@@ -290,27 +286,26 @@ export default async function SupportPage({
             {composeOpen ? <div className="space-y-3">{composeCards}</div> : null}
 
             {visibleConversationRows.length === 0 ? (
-              <div className="rounded-[18px] border border-white/[0.12] bg-[#0f1728]/90 p-4">
+              <div className="rounded-[18px] border border-white/[0.12] bg-[linear-gradient(180deg,rgba(255,255,255,0.07),rgba(255,255,255,0.025))] p-4 backdrop-blur-xl">
                 <p className="text-[14px] font-semibold text-white/90">No conversations found</p>
                 <p className="mt-1 text-[12px] text-white/52">
                   Start a new support chat or change filters.
                 </p>
               </div>
             ) : (
-              <section className="overflow-hidden rounded-[18px] border border-white/[0.12] bg-[#0f1728]/90">
+              <section className="overflow-hidden rounded-[18px] border border-white/[0.12] bg-[linear-gradient(180deg,rgba(255,255,255,0.07),rgba(255,255,255,0.025))] backdrop-blur-xl">
                 {visibleConversationRows.map((row, index) => (
                   <Link
                     key={row.conversation.id}
                     href={buildSupportHref({
                       conversationId: row.conversation.id,
-                      q: currentQuery,
                       tab: currentTab,
                       compose: composeOpen
                     })}
                     className={[
                       "flex items-start gap-3 px-3.5 py-3 transition",
                       index !== visibleConversationRows.length - 1 ? "border-b border-white/[0.08]" : "",
-                      selectedConversation?.id === row.conversation.id ? "bg-blue-500/[0.14]" : "hover:bg-white/[0.05]"
+                      selectedConversation?.id === row.conversation.id ? "bg-white/[0.08]" : "hover:bg-white/[0.05]"
                     ].join(" ")}
                   >
                     <div className="relative mt-0.5 h-11 w-11 shrink-0 rounded-full bg-gradient-to-b from-[#67b4ff] to-[#4f8dfd] text-white grid place-items-center text-[18px]">
@@ -323,7 +318,7 @@ export default async function SupportPage({
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0">
                           <p className="truncate text-[14px] font-semibold text-white/92">{row.conversation.subject}</p>
-                          <p className="truncate text-[12px] text-cyan-200/85">{row.targetLabel}</p>
+                          <p className="truncate text-[12px] text-white/62">{row.targetLabel}</p>
                         </div>
                         <p className="shrink-0 text-[12px] text-white/40">{listTimeAgo(row.lastAt)}</p>
                       </div>
@@ -336,21 +331,13 @@ export default async function SupportPage({
               </section>
             )}
 
-            <Link
-              href={buildSupportHref({ q: currentQuery, tab: currentTab, compose: !composeOpen })}
-              aria-label={composeOpen ? "Close new support form" : "Start support chat"}
-              className="fixed right-4 z-[65] inline-flex h-14 w-14 items-center justify-center rounded-[16px] bg-gradient-to-b from-[#67b4ff] to-[#4f8dfd] text-[34px] leading-none text-white shadow-[0_18px_36px_-20px_rgba(79,141,253,0.95)] transition hover:brightness-105 active:scale-[0.98]"
-              style={{ bottom: "calc(5.5rem + env(safe-area-inset-bottom, 0px))" }}
-            >
-              {composeOpen ? "×" : "+"}
-            </Link>
           </>
         ) : (
           <>
-            <section className="rounded-[18px] border border-white/[0.12] bg-[#0f1728]/90 p-3.5">
+            <section className="rounded-[18px] border border-white/[0.12] bg-[linear-gradient(180deg,rgba(255,255,255,0.07),rgba(255,255,255,0.025))] p-3.5 backdrop-blur-xl">
               <div className="flex items-center justify-between gap-2">
                 <Link
-                  href={buildSupportHref({ q: currentQuery, tab: currentTab, compose: composeOpen })}
+                  href={buildSupportHref({ tab: currentTab, compose: composeOpen })}
                   className="inline-flex h-8 items-center rounded-[10px] border border-white/[0.12] bg-[#101a2d] px-2.5 text-[12px] font-semibold text-white/80"
                 >
                   ← Back
@@ -363,7 +350,7 @@ export default async function SupportPage({
               <h2 className="mt-2 text-[18px] font-semibold text-white/92">{selectedConversation?.subject ?? "Conversation"}</h2>
             </section>
 
-            <section className="rounded-[18px] border border-white/[0.12] bg-[#0f1728]/90 p-3.5">
+            <section className="rounded-[18px] border border-white/[0.12] bg-[linear-gradient(180deg,rgba(255,255,255,0.07),rgba(255,255,255,0.025))] p-3.5 backdrop-blur-xl">
               <div className="max-h-[46vh] space-y-2 overflow-y-auto pr-1">
                 {messages.map((message) => {
                   const mine = message.senderType === "SCHOOL_USER" && message.senderSchoolUserId === session.userId;
@@ -378,7 +365,7 @@ export default async function SupportPage({
                       className={[
                         "max-w-[92%] rounded-[14px] border px-3 py-2.5",
                         mine
-                          ? "ml-auto border-blue-300/40 bg-blue-500/[0.18] text-white"
+                          ? "ml-auto border-[#67b4ff]/40 bg-[#4f8dfd]/20 text-white"
                           : "mr-auto border-white/[0.12] bg-white/[0.05] text-white/88"
                       ].join(" ")}
                     >
@@ -406,36 +393,20 @@ export default async function SupportPage({
       </div>
 
       <div className="hidden md:block space-y-4">
-        <section className="rounded-[24px] border border-white/[0.12] bg-[#0f1728]/90 p-4 text-white/90">
+        <section className="rounded-[24px] border border-white/[0.12] bg-[linear-gradient(180deg,rgba(255,255,255,0.07),rgba(255,255,255,0.025))] p-4 text-white/90 backdrop-blur-xl">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <h2 className="text-[34px] font-semibold leading-none tracking-[-0.02em]">Chat Support</h2>
-              <p className="mt-1 text-[13px] text-white/58">Thread-based support for school and platform conversations.</p>
-            </div>
+            <h2 className="text-lg sm:text-xl font-semibold tracking-tight text-white/95">Chat Support</h2>
             <Link
-              href={buildSupportHref({ q: currentQuery, tab: currentTab, compose: !composeOpen, conversationId })}
-              className="inline-flex h-11 items-center justify-center rounded-[14px] bg-gradient-to-b from-[#67b4ff] to-[#4f8dfd] px-4 text-[14px] font-semibold text-white shadow-[0_16px_28px_-18px_rgba(79,141,253,0.95)] transition hover:brightness-105"
+              href={buildSupportHref({ tab: currentTab, compose: !composeOpen, conversationId })}
+              aria-label={composeOpen ? "Close new support form" : "Start support chat"}
+              className="sm-btn min-h-0 inline-flex h-10 w-10 items-center justify-center rounded-[12px] bg-gradient-to-b from-[#67b4ff] to-[#4f8dfd] text-[26px] leading-none text-white shadow-[0_14px_30px_-18px_rgba(79,141,253,0.95)] transition hover:brightness-105 active:scale-[0.98]"
+              title={composeOpen ? "Close new chat" : "New chat"}
             >
-              {composeOpen ? "Close New Chat" : "+ New Chat"}
+              {composeOpen ? "×" : "+"}
             </Link>
           </div>
 
-          <div className="mt-3 grid grid-cols-1 gap-3 xl:grid-cols-[1fr_auto]">
-            <form method="get" action="/support" className="min-w-0">
-              {currentTab !== "all" ? <input type="hidden" name="tab" value={currentTab} /> : null}
-              {composeOpen ? <input type="hidden" name="compose" value="1" /> : null}
-              <label className="relative block">
-                <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-white/35 text-lg">⌕</span>
-                <input
-                  type="search"
-                  name="q"
-                  defaultValue={currentQuery}
-                  placeholder="Search conversations"
-                  className="h-12 w-full rounded-[16px] border border-white/[0.12] bg-[#101a2d]/95 px-10 text-[15px] text-white/90 placeholder:text-white/35 outline-none transition focus:border-blue-300/70 focus:ring-4 focus:ring-blue-500/22"
-                />
-              </label>
-            </form>
-
+          <div className="mt-3">
             <div className="grid grid-cols-4 gap-2 xl:min-w-[460px]">
               {([
                 { key: "all", label: "All" },
@@ -447,7 +418,7 @@ export default async function SupportPage({
                 return (
                   <Link
                     key={tabItem.key}
-                    href={buildSupportHref({ q: currentQuery, tab: tabItem.key, compose: composeOpen, conversationId })}
+                    href={buildSupportHref({ tab: tabItem.key, compose: composeOpen, conversationId })}
                     className={[
                       "inline-flex h-10 items-center justify-center rounded-[14px] border text-[14px] font-semibold transition",
                       isActive
@@ -481,7 +452,7 @@ export default async function SupportPage({
         {composeOpen ? <div className="space-y-3">{composeCards}</div> : null}
 
         <div className="grid grid-cols-1 xl:grid-cols-[360px_1fr] gap-4">
-          <section className="overflow-hidden rounded-[20px] border border-white/[0.12] bg-[#0f1728]/90">
+          <section className="overflow-hidden rounded-[20px] border border-white/[0.12] bg-[linear-gradient(180deg,rgba(255,255,255,0.07),rgba(255,255,255,0.025))] backdrop-blur-xl">
             <div className="border-b border-white/[0.08] px-4 py-3">
               <p className="text-[13px] font-semibold text-white/80">{visibleConversationRows.length} conversation(s)</p>
             </div>
@@ -495,11 +466,11 @@ export default async function SupportPage({
                 {visibleConversationRows.map((row, index) => (
                   <Link
                     key={row.conversation.id}
-                    href={buildSupportHref({ conversationId: row.conversation.id, q: currentQuery, tab: currentTab, compose: composeOpen })}
+                    href={buildSupportHref({ conversationId: row.conversation.id, tab: currentTab, compose: composeOpen })}
                     className={[
                       "flex items-start gap-3 px-3.5 py-3 transition",
                       index !== visibleConversationRows.length - 1 ? "border-b border-white/[0.08]" : "",
-                      selectedConversation?.id === row.conversation.id ? "bg-blue-500/[0.14]" : "hover:bg-white/[0.05]"
+                      selectedConversation?.id === row.conversation.id ? "bg-white/[0.08]" : "hover:bg-white/[0.05]"
                     ].join(" ")}
                   >
                     <div className="relative mt-0.5 h-11 w-11 shrink-0 rounded-full bg-gradient-to-b from-[#67b4ff] to-[#4f8dfd] text-white grid place-items-center text-[18px]">
@@ -512,7 +483,7 @@ export default async function SupportPage({
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0">
                           <p className="truncate text-[14px] font-semibold text-white/92">{row.conversation.subject}</p>
-                          <p className="truncate text-[12px] text-cyan-200/85">{row.targetLabel}</p>
+                          <p className="truncate text-[12px] text-white/62">{row.targetLabel}</p>
                         </div>
                         <p className="shrink-0 text-[12px] text-white/40">{listTimeAgo(row.lastAt)}</p>
                       </div>
@@ -524,7 +495,7 @@ export default async function SupportPage({
             )}
           </section>
 
-          <section className="rounded-[20px] border border-white/[0.12] bg-[#0f1728]/90 p-4">
+          <section className="rounded-[20px] border border-white/[0.12] bg-[linear-gradient(180deg,rgba(255,255,255,0.07),rgba(255,255,255,0.025))] p-4 backdrop-blur-xl">
             {!selectedConversation ? (
               <EmptyState icon="💬" title="Select a conversation" description="Choose a conversation from the list." />
             ) : (
@@ -558,7 +529,7 @@ export default async function SupportPage({
                         className={[
                           "max-w-[92%] rounded-[14px] border px-3 py-2.5",
                           mine
-                            ? "ml-auto border-blue-300/40 bg-blue-500/[0.18] text-white"
+                            ? "ml-auto border-[#67b4ff]/40 bg-[#4f8dfd]/20 text-white"
                             : "mr-auto border-white/[0.12] bg-white/[0.05] text-white/88"
                         ].join(" ")}
                       >

@@ -194,7 +194,15 @@ function clearDemoFieldValidationMessage(event: FormEvent<DemoFieldElement>) {
 
 const initialDemoRequestState: DemoRequestState = { ok: true, message: "", fieldErrors: {} };
 
-export function HomeShell({ isSignedIn, userName }: { isSignedIn: boolean; userName?: string | null }) {
+export function HomeShell({
+  isSignedIn,
+  userName,
+  defaultHomeHref = "/dashboard"
+}: {
+  isSignedIn: boolean;
+  userName?: string | null;
+  defaultHomeHref?: string;
+}) {
   const [onboarded, setOnboarded] = useState<boolean | null>(null);
   const [slug, setSlug] = useState<string | undefined>(undefined);
   const [showDesktopAllModulesPage, setShowDesktopAllModulesPage] = useState(false);
@@ -326,6 +334,7 @@ export function HomeShell({ isSignedIn, userName }: { isSignedIn: boolean; userN
   const liveChatHref = isSignedIn ? "/support" : loginHref;
   const preferredName = (userName ?? "").trim();
   const welcomeTitle = preferredName ? `Welcome back, ${preferredName}` : "Welcome back";
+  const homeButtonLabel = defaultHomeHref === "/home" ? "Open home →" : "Open dashboard →";
 
   /* Skeleton while checking localStorage */
   if (onboarded === null && !isSignedIn) {
@@ -606,17 +615,17 @@ export function HomeShell({ isSignedIn, userName }: { isSignedIn: boolean; userN
           </div>
           <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-center">
             <Link
-              href="/dashboard"
+              href={defaultHomeHref}
               className="inline-flex w-full justify-center items-center gap-2 px-5 py-2.5 rounded-[13px] sm:w-auto
                          bg-gradient-to-b from-[#67b4ff] to-[#4f8dfd] text-white text-sm font-medium
                          shadow-[0_10px_28px_-12px_rgba(79,141,253,0.72)]
                          hover:from-[#7ac0ff] hover:to-[#5a95ff] transition-colors"
             >
-              Open dashboard →
+              {homeButtonLabel}
             </Link>
             <Link
               href="/support"
-              className="hidden md:inline-flex justify-center items-center gap-2 px-4 py-2.5 rounded-[13px]
+              className="inline-flex justify-center items-center gap-2 px-4 py-2.5 rounded-[13px]
                          border border-cyan-300/35 bg-cyan-500/18 text-cyan-100 text-sm font-semibold
                          hover:bg-cyan-500/26 transition-colors"
             >
