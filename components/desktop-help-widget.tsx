@@ -24,6 +24,7 @@ export function DesktopHelpWidget({
   isSignedIn = false
 }: DesktopHelpWidgetProps) {
   const [open, setOpen] = useState(false);
+  const [blinkCta, setBlinkCta] = useState(false);
   const [state, action, pending] = useActionState(createQuickChatLeadAction, initialQuickChatState);
   const rootRef = useRef<HTMLDivElement | null>(null);
   const formRef = useRef<HTMLFormElement | null>(null);
@@ -42,7 +43,11 @@ export function DesktopHelpWidget({
     if (typeof window === "undefined") return;
     const seenKey = "eduhub_ai_chat_intro_seen_v1";
     const alreadySeen = window.sessionStorage.getItem(seenKey) === "1";
-    if (alreadySeen) return;
+    if (alreadySeen) {
+      setBlinkCta(true);
+      const blinkTimer = window.setTimeout(() => setBlinkCta(false), 5000);
+      return () => window.clearTimeout(blinkTimer);
+    }
     const timer = window.setTimeout(() => {
       setOpen(true);
       window.sessionStorage.setItem(seenKey, "1");
@@ -206,10 +211,16 @@ export function DesktopHelpWidget({
 
       <button
         type="button"
-        onClick={() => setOpen((prev) => !prev)}
+        onClick={() => {
+          setBlinkCta(false);
+          setOpen((prev) => !prev);
+        }}
         aria-expanded={open}
         aria-label={open ? "Close AI chat" : "Open AI chat"}
-        className="inline-flex items-center gap-2 rounded-full border border-cyan-300/40 bg-[#0e1931]/95 px-3.5 py-1.5 md:px-4 md:py-2 text-[11px] md:text-[12px] font-semibold text-cyan-100 shadow-[0_20px_35px_-25px_rgba(0,0,0,0.95)] transition hover:bg-[#142446]"
+        className={[
+          "inline-flex items-center gap-2 rounded-full border border-cyan-300/40 bg-[#0e1931]/95 px-3.5 py-1.5 md:px-4 md:py-2 text-[11px] md:text-[12px] font-semibold text-cyan-100 shadow-[0_20px_35px_-25px_rgba(0,0,0,0.95)] transition hover:bg-[#142446]",
+          blinkCta && !open ? "animate-pulse border-cyan-200/80 shadow-[0_0_0_3px_rgba(103,180,255,0.35),0_20px_35px_-25px_rgba(0,0,0,0.95)]" : ""
+        ].join(" ")}
       >
         <span className="inline-flex h-2 w-2 rounded-full bg-emerald-400" />
         AI Chat
