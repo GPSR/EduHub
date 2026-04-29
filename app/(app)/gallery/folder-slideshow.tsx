@@ -71,11 +71,15 @@ function triggerFileDownload(blob: Blob, fileName: string) {
 export function FolderSlideshow({
   folderId,
   folderName,
-  items
+  items,
+  autoPlay = false,
+  autoPlayIntervalMs = 3200
 }: {
   folderId: string;
   folderName: string;
   items: SlideItem[];
+  autoPlay?: boolean;
+  autoPlayIntervalMs?: number;
 }) {
   const [index, setIndex] = useState(0);
   const [feedback, setFeedback] = useState<string | null>(null);
@@ -121,6 +125,16 @@ export function FolderSlideshow({
       document.documentElement.style.overflow = previousHtmlOverflow;
     };
   }, [fullViewOpen, items.length]);
+
+  useEffect(() => {
+    if (!autoPlay || items.length <= 1) return;
+    const delay = Math.max(1500, Math.round(autoPlayIntervalMs));
+    const timer = window.setInterval(() => {
+      if (document.hidden || fullViewOpen) return;
+      setIndex((current) => (current + 1) % items.length);
+    }, delay);
+    return () => window.clearInterval(timer);
+  }, [autoPlay, autoPlayIntervalMs, fullViewOpen, items.length]);
 
   if (!active) return null;
 

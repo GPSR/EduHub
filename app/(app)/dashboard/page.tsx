@@ -371,6 +371,8 @@ export default async function DashboardPage({
             folderId={latestSlideshow.folderId}
             folderName={latestSlideshow.folderName}
             items={latestSlideshow.items}
+            autoPlay
+            autoPlayIntervalMs={3000}
           />
         </Card>
       ) : null}

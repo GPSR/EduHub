@@ -27,10 +27,24 @@ export function CapacitorInit() {
       // Light status bar text/icons for dark app backgrounds
       await setStatusBar("light");
 
-      // Wait for a painted frame, then hide splash to avoid black gaps
-      // on slower iOS startups while hosted content hydrates.
+      // Keep native splash visible until the hosted app is actually loaded.
+      // This avoids transient black screens on slower iOS/Android startups.
       await new Promise<void>((resolve) => {
-        requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+        let done = false;
+        const finish = () => {
+          if (done) return;
+          done = true;
+          resolve();
+        };
+
+        if (document.readyState === "complete") {
+          finish();
+          return;
+        }
+
+        window.addEventListener("load", finish, { once: true });
+        // Fallback so splash cannot get stuck forever on load failures.
+        setTimeout(finish, 5000);
       });
       await hideSplash();
 
