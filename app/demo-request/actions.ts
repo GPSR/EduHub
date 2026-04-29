@@ -117,6 +117,155 @@ export type DemoRequestState = {
   >;
 };
 
+const QUICK_CHAT_NAME_REGEX = /^[A-Za-z][A-Za-z '.-]{1,79}$/;
+const QUICK_CHAT_PHONE_REGEX = /^\+?[0-9][0-9()\-\s]{6,19}$/;
+
+const QuickChatLeadSchema = z.object({
+  name: z.preprocess(
+    normalizeTextValue,
+    z
+      .string({ required_error: "Please enter your name.", invalid_type_error: "Please enter your name." })
+      .min(2, "Name should be at least 2 characters.")
+      .max(80, "Name cannot exceed 80 characters.")
+      .regex(QUICK_CHAT_NAME_REGEX, "Use letters only. You may include space, apostrophe, dot, or hyphen.")
+  ),
+  schoolName: z.preprocess(
+    normalizeTextValue,
+    z
+      .string({ required_error: "Please enter your school name.", invalid_type_error: "Please enter your school name." })
+      .min(2, "School name should be at least 2 characters.")
+      .max(120, "School name cannot exceed 120 characters.")
+      .regex(SCHOOL_NAME_REGEX, "School name can include letters, numbers, spaces, and basic punctuation.")
+  ),
+  email: z.preprocess(
+    normalizeTextValue,
+    z
+      .string({ required_error: "Please enter your email.", invalid_type_error: "Please enter your email." })
+      .max(120, "Email address cannot exceed 120 characters.")
+      .email("Please enter a valid email address, like name@school.com.")
+      .transform((value) => value.toLowerCase())
+  ),
+  phone: z.preprocess(
+    normalizeTextValue,
+    z
+      .string({ required_error: "Please enter your mobile number.", invalid_type_error: "Please enter your mobile number." })
+      .regex(QUICK_CHAT_PHONE_REGEX, "Use numbers only. You can include +, spaces, hyphen, or parentheses.")
+  )
+});
+
+export type QuickChatLeadState = {
+  ok: boolean;
+  message?: string;
+  fieldErrors?: Partial<Record<"name" | "schoolName" | "email" | "phone", string>>;
+};
+
+function splitQuickChatName(fullName: string) {
+  const parts = fullName.replace(NORMALIZE_SPACES_REGEX, " ").trim().split(" ").filter(Boolean);
+  const firstName = parts[0] ?? "EduHub";
+  const lastName = parts.length > 1 ? parts.slice(1).join(" ") : "Contact";
+  return { firstName, lastName };
+}
+
+export async function createQuickChatLeadAction(
+  _prev: QuickChatLeadState,
+  formData: FormData
+): Promise<QuickChatLeadState> {
+  const parsed = QuickChatLeadSchema.safeParse({
+    name: formData.get("name"),
+    schoolName: formData.get("schoolName"),
+    email: formData.get("email"),
+    phone: formData.get("phone")
+  });
+
+  if (!parsed.success) {
+    const flat = parsed.error.flatten().fieldErrors;
+    return {
+      ok: false,
+      message: "Please share valid contact details.",
+      fieldErrors: {
+        name: flat.name?.[0],
+        schoolName: flat.schoolName?.[0],
+        email: flat.email?.[0],
+        phone: flat.phone?.[0]
+      }
+    };
+  }
+
+  const digits = parsed.data.phone.replace(/\D/g, "");
+  if (digits.length < 6 || digits.length > 15) {
+    return {
+      ok: false,
+      message: "Please share valid contact details.",
+      fieldErrors: { phone: "Mobile number should contain 6 to 15 digits." }
+    };
+  }
+
+  const { firstName, lastName } = splitQuickChatName(parsed.data.name);
+
+  try {
+    const recentCandidates = await db.demoRequest.findMany({
+      where: {
+        email: parsed.data.email,
+        createdAt: { gte: new Date(Date.now() - 30 * 60 * 1000) }
+      },
+      select: { id: true, schoolName: true },
+      orderBy: { createdAt: "desc" },
+      take: 10
+    });
+
+    const schoolNameKey = parsed.data.schoolName.trim().toLowerCase();
+    const duplicate = recentCandidates.find((candidate) => candidate.schoolName.trim().toLowerCase() === schoolNameKey);
+    if (duplicate) {
+      return {
+        ok: true,
+        message: "Welcome to EduHub. We already received your details. Our team will get back to you within 2 hours.",
+        fieldErrors: {}
+      };
+    }
+
+    await db.demoRequest.create({
+      data: {
+        firstName,
+        lastName,
+        jobTitle: "AI Chat Lead",
+        schoolName: parsed.data.schoolName,
+        isUsingEdumerge: null,
+        hearAboutUs: "AI chat widget",
+        address: "Shared via AI chat widget on landing page.",
+        email: parsed.data.email,
+        mobileNumber: parsed.data.phone,
+        bestTimeToReach: "Anytime during business hours (EST)"
+      }
+    });
+
+    try {
+      revalidatePath("/platform/demo-requests");
+      revalidatePath("/platform");
+    } catch (revalidateError) {
+      console.warn("createQuickChatLeadAction revalidate failed:", revalidateError);
+    }
+
+    return {
+      ok: true,
+      message: "Welcome to EduHub. Thanks for sharing your details. Our team will get back to you within 2 hours.",
+      fieldErrors: {}
+    };
+  } catch (error) {
+    console.error("createQuickChatLeadAction failed:", error);
+    const dbErrorCode = getDbErrorCode(error);
+    if (dbErrorCode && ["P1001", "P1002", "P1017"].includes(dbErrorCode)) {
+      return {
+        ok: false,
+        message: "We are unable to connect right now. Please try again in a minute."
+      };
+    }
+    return {
+      ok: false,
+      message: "Unable to submit your details right now. Please try again in a few minutes."
+    };
+  }
+}
+
 export async function createDemoRequestAction(_prev: DemoRequestState, formData: FormData): Promise<DemoRequestState> {
   const parsed = DemoRequestSchema.safeParse({
     firstName: formData.get("firstName"),
