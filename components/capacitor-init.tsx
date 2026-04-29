@@ -24,11 +24,15 @@ export function CapacitorInit() {
       };
       setKeyboardOffset(0);
 
-      // Hide splash immediately so startup work never blocks first paint.
-      await hideSplash();
-
       // Light status bar text/icons for dark app backgrounds
       await setStatusBar("light");
+
+      // Wait for a painted frame, then hide splash to avoid black gaps
+      // on slower iOS startups while hosted content hydrates.
+      await new Promise<void>((resolve) => {
+        requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+      });
+      await hideSplash();
 
       // Cache cleanup is helpful for stale hosted bundles, but run it in background
       // with a timeout so iOS startup never gets stuck.
