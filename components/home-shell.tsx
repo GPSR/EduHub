@@ -710,14 +710,14 @@ export function HomeShell({
         </div>
       ) : null}
       {demoRequestOpen ? (
-        <div className="fixed inset-0 z-[180] flex items-center justify-center bg-black/70 backdrop-blur-sm px-4">
+        <div className="fixed inset-0 z-[180] flex items-start sm:items-center justify-center bg-black/70 backdrop-blur-sm px-2 sm:px-4 pt-[max(0.75rem,env(safe-area-inset-top))] pb-[max(0.75rem,env(safe-area-inset-bottom))] overflow-y-auto overscroll-contain">
           <button
             type="button"
             aria-label="Close demo request form"
             onClick={() => setDemoRequestOpen(false)}
             className="absolute inset-0"
           />
-          <div className="relative w-full max-w-[560px] rounded-[20px] border border-white/[0.14] bg-[#0e172a]/95 p-4 sm:p-5 shadow-[0_28px_70px_-30px_rgba(0,0,0,0.95)]">
+          <div className="relative w-full max-w-[560px] max-h-[calc(100dvh-1.5rem)] sm:max-h-[calc(100dvh-2rem)] overflow-y-auto rounded-[20px] border border-white/[0.14] bg-[#0e172a]/95 p-4 sm:p-5 shadow-[0_28px_70px_-30px_rgba(0,0,0,0.95)]">
             <div className="flex items-start justify-between gap-3">
               <div>
                 <p className="text-[12px] font-semibold uppercase tracking-[0.14em] text-cyan-200/75">Demo Request</p>
