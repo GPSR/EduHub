@@ -50,7 +50,9 @@ export default async function PlatformDemoRequestsPage({
     where.OR = [
       { firstName: { contains: query, mode: "insensitive" } },
       { lastName: { contains: query, mode: "insensitive" } },
+      { jobTitle: { contains: query, mode: "insensitive" } },
       { schoolName: { contains: query, mode: "insensitive" } },
+      { hearAboutUs: { contains: query, mode: "insensitive" } },
       { email: { contains: query, mode: "insensitive" } },
       { mobileNumber: { contains: query } },
     ];
@@ -65,7 +67,10 @@ export default async function PlatformDemoRequestsPage({
         id: true,
         firstName: true,
         lastName: true,
+        jobTitle: true,
         schoolName: true,
+        isUsingEdumerge: true,
+        hearAboutUs: true,
         address: true,
         email: true,
         mobileNumber: true,
@@ -97,7 +102,7 @@ export default async function PlatformDemoRequestsPage({
             <Input
               name="q"
               defaultValue={query}
-              placeholder="Search by name, school, email or mobile"
+              placeholder="Search by name, title, school, source, email or mobile"
               autoComplete="off"
             />
           </div>
@@ -142,7 +147,10 @@ export default async function PlatformDemoRequestsPage({
                     <p className="text-[15px] font-semibold text-white/92">
                       {request.firstName} {request.lastName}
                     </p>
-                    <p className="mt-0.5 text-[12px] text-white/55">{request.schoolName}</p>
+                    <p className="mt-0.5 text-[12px] text-white/55">
+                      {request.jobTitle ? `${request.jobTitle} · ` : ""}
+                      {request.schoolName}
+                    </p>
                     <div className="mt-1.5 flex flex-wrap items-center gap-2 text-[12px] text-white/45">
                       <a href={`mailto:${request.email}`} className="hover:text-cyan-200 transition">{request.email}</a>
                       <span>·</span>
@@ -151,6 +159,11 @@ export default async function PlatformDemoRequestsPage({
                       </a>
                       <span>·</span>
                       <span>{request.bestTimeToReach}</span>
+                    </div>
+                    <div className="mt-1.5 flex flex-wrap items-center gap-2 text-[11px] text-white/48">
+                      <span>Using EduHub: {request.isUsingEdumerge === null ? "Not shared" : request.isUsingEdumerge ? "Yes" : "No"}</span>
+                      <span>·</span>
+                      <span>Source: {request.hearAboutUs ?? "Not shared"}</span>
                     </div>
                   </div>
                   <div className="flex flex-col items-end gap-1">

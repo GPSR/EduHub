@@ -659,16 +659,8 @@ export function HomeShell({
           />
           <div
             ref={mobileAllModulesPanelRef}
-            className="relative w-full h-dvh rounded-none border border-white/[0.14] bg-[#0b1426]/98 shadow-[0_28px_70px_-28px_rgba(0,0,0,0.95)] overflow-hidden"
+            className="relative w-full h-[100vh] [height:100dvh] rounded-none border border-white/[0.14] bg-[#0b1426]/98 shadow-[0_28px_70px_-28px_rgba(0,0,0,0.95)] overflow-hidden"
           >
-            <button
-              type="button"
-              onClick={() => setShowMobileAllModules(false)}
-              className="absolute right-3 top-[max(0.65rem,env(safe-area-inset-top))] z-30 inline-flex h-9 items-center justify-center rounded-[11px] border border-blue-300/40 bg-blue-500/24 px-3 text-[12px] font-semibold text-blue-100 shadow-[0_14px_28px_-18px_rgba(79,141,253,0.9)]"
-              aria-label="Close all modules"
-            >
-              Close
-            </button>
             <div className="flex items-center justify-between gap-3 border-b border-white/[0.08] px-4 py-[max(0.75rem,env(safe-area-inset-top))]">
               <div>
                 <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-cyan-100/80">All Modules</p>
@@ -677,17 +669,17 @@ export function HomeShell({
               <button
                 type="button"
                 onClick={() => setShowMobileAllModules(false)}
-                className="inline-flex h-8 w-8 items-center justify-center rounded-[10px] border border-white/[0.14] bg-white/[0.03] text-white/75 transition hover:bg-white/[0.09] hover:text-white"
+                className="inline-flex h-9 items-center justify-center rounded-[11px] border border-blue-300/40 bg-blue-500/24 px-3 text-[12px] font-semibold text-blue-100 shadow-[0_14px_28px_-18px_rgba(79,141,253,0.9)] transition hover:bg-blue-500/32"
                 aria-label="Close"
               >
-                ✕
+                Close
               </button>
             </div>
 
             <div
               key={`mobile-all-modules-${mobileAllModulesOpenToken}`}
               ref={mobileAllModulesScrollRef}
-              className="h-[calc(100dvh-72px)] overflow-y-auto px-3 py-3.5 pb-[max(5.5rem,calc(env(safe-area-inset-bottom)+5.5rem))] [overflow-anchor:none]"
+              className="h-[calc(100vh-72px)] [height:calc(100dvh-72px)] overflow-y-auto px-3 py-3.5 pb-[max(4.5rem,calc(env(safe-area-inset-bottom)+4.5rem))] [overflow-anchor:none]"
             >
               <div className="grid grid-cols-1 gap-2.5">
                 {ALL_MODULES.map((module, idx) => (
@@ -706,15 +698,14 @@ export function HomeShell({
                 ))}
               </div>
             </div>
-            <div className="pointer-events-none absolute inset-x-0 bottom-0 z-20 px-3 pb-[max(0.85rem,env(safe-area-inset-bottom))]">
-              <button
-                type="button"
-                onClick={() => setShowMobileAllModules(false)}
-                className="pointer-events-auto inline-flex h-11 w-full items-center justify-center rounded-[13px] border border-white/[0.18] bg-[#0f1728]/95 text-[13px] font-semibold text-white/90 shadow-[0_16px_26px_-20px_rgba(0,0,0,0.9)]"
-              >
-                Close
-              </button>
-            </div>
+            <button
+              type="button"
+              onClick={() => setShowMobileAllModules(false)}
+              className="absolute bottom-[max(0.9rem,env(safe-area-inset-bottom))] right-3 z-30 inline-flex h-11 items-center justify-center rounded-[13px] border border-blue-300/40 bg-blue-500/24 px-4 text-[12px] font-semibold text-blue-100 shadow-[0_14px_28px_-16px_rgba(79,141,253,0.9)] transition hover:bg-blue-500/32"
+              aria-label="Close all modules"
+            >
+              Close
+            </button>
           </div>
         </div>
       ) : null}
@@ -797,31 +788,107 @@ export function HomeShell({
                 </label>
               </div>
 
-              <label className="space-y-1 block">
-                <span className="text-[12px] font-medium text-white/75">School Name</span>
-                <input
-                  name="schoolName"
-                  required
-                  minLength={2}
-                  maxLength={120}
-                  pattern="^[A-Za-z0-9][A-Za-z0-9 '&().,-]{1,119}$"
-                  title="Use letters, numbers, spaces, and basic punctuation only."
-                  autoComplete="organization"
-                  placeholder="Enter school name"
-                  data-msg-required="Please enter your school name."
-                  data-msg-pattern="Use letters, numbers, spaces, and basic punctuation only."
-                  data-msg-min="School name should be at least 2 characters."
-                  data-msg-max="School name cannot exceed 120 characters."
-                  onInvalid={setDemoFieldValidationMessage}
-                  onInput={clearDemoFieldValidationMessage}
-                  aria-invalid={demoState.fieldErrors?.schoolName ? true : undefined}
-                  disabled={demoPending}
-                  className="w-full rounded-[12px] border border-white/[0.14] bg-[#101a2d]/90 px-3 py-2.5 text-sm text-white outline-none transition focus:border-cyan-300/65 focus:ring-4 focus:ring-cyan-500/22"
-                />
-                {demoState.fieldErrors?.schoolName ? (
-                  <p className="text-[11px] text-rose-300">{demoState.fieldErrors.schoolName}</p>
-                ) : null}
-              </label>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <label className="space-y-1">
+                  <span className="text-[12px] font-medium text-white/75">Job Title</span>
+                  <input
+                    name="jobTitle"
+                    required
+                    minLength={2}
+                    maxLength={80}
+                    autoComplete="organization-title"
+                    placeholder="Principal"
+                    pattern="^[A-Za-z][A-Za-z0-9 '&().,/+-]{1,79}$"
+                    data-msg-required="Please enter your job title."
+                    data-msg-pattern="Use letters, numbers, spaces, and basic punctuation."
+                    data-msg-min="Job title should be at least 2 characters."
+                    data-msg-max="Job title cannot exceed 80 characters."
+                    onInvalid={setDemoFieldValidationMessage}
+                    onInput={clearDemoFieldValidationMessage}
+                    aria-invalid={demoState.fieldErrors?.jobTitle ? true : undefined}
+                    disabled={demoPending}
+                    className="w-full rounded-[12px] border border-white/[0.14] bg-[#101a2d]/90 px-3 py-2.5 text-sm text-white outline-none transition focus:border-cyan-300/65 focus:ring-4 focus:ring-cyan-500/22"
+                  />
+                  {demoState.fieldErrors?.jobTitle ? (
+                    <p className="text-[11px] text-rose-300">{demoState.fieldErrors.jobTitle}</p>
+                  ) : null}
+                </label>
+
+                <label className="space-y-1">
+                  <span className="text-[12px] font-medium text-white/75">Name of Institution</span>
+                  <input
+                    name="schoolName"
+                    required
+                    minLength={2}
+                    maxLength={120}
+                    pattern="^[A-Za-z0-9][A-Za-z0-9 '&().,-]{1,119}$"
+                    title="Use letters, numbers, spaces, and basic punctuation only."
+                    autoComplete="organization"
+                    placeholder="Enter institution name"
+                    data-msg-required="Please enter your institution name."
+                    data-msg-pattern="Use letters, numbers, spaces, and basic punctuation only."
+                    data-msg-min="Institution name should be at least 2 characters."
+                    data-msg-max="Institution name cannot exceed 120 characters."
+                    onInvalid={setDemoFieldValidationMessage}
+                    onInput={clearDemoFieldValidationMessage}
+                    aria-invalid={demoState.fieldErrors?.schoolName ? true : undefined}
+                    disabled={demoPending}
+                    className="w-full rounded-[12px] border border-white/[0.14] bg-[#101a2d]/90 px-3 py-2.5 text-sm text-white outline-none transition focus:border-cyan-300/65 focus:ring-4 focus:ring-cyan-500/22"
+                  />
+                  {demoState.fieldErrors?.schoolName ? (
+                    <p className="text-[11px] text-rose-300">{demoState.fieldErrors.schoolName}</p>
+                  ) : null}
+                </label>
+              </div>
+
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <label className="space-y-1 block">
+                  <span className="text-[12px] font-medium text-white/75">Are you using EduHub?</span>
+                  <select
+                    name="usingEdumerge"
+                    required
+                    defaultValue=""
+                    data-msg-required="Please tell us whether you are using EduHub."
+                    onInvalid={setDemoFieldValidationMessage}
+                    onChange={clearDemoFieldValidationMessage}
+                    aria-invalid={demoState.fieldErrors?.usingEdumerge ? true : undefined}
+                    disabled={demoPending}
+                    className="w-full rounded-[12px] border border-white/[0.14] bg-[#101a2d]/90 px-3 py-2.5 text-sm text-white outline-none transition focus:border-cyan-300/65 focus:ring-4 focus:ring-cyan-500/22"
+                  >
+                    <option value="" disabled>
+                      Select one
+                    </option>
+                    <option value="Yes">Yes</option>
+                    <option value="No">No</option>
+                  </select>
+                  {demoState.fieldErrors?.usingEdumerge ? (
+                    <p className="text-[11px] text-rose-300">{demoState.fieldErrors.usingEdumerge}</p>
+                  ) : null}
+                </label>
+
+                <label className="space-y-1">
+                  <span className="text-[12px] font-medium text-white/75">How did you hear about us?</span>
+                  <input
+                    name="hearAboutUs"
+                    required
+                    minLength={2}
+                    maxLength={120}
+                    autoComplete="off"
+                    placeholder="Google search, referral, social media..."
+                    data-msg-required="Please tell us how you heard about us."
+                    data-msg-min="Please share at least 2 characters."
+                    data-msg-max="This response cannot exceed 120 characters."
+                    onInvalid={setDemoFieldValidationMessage}
+                    onInput={clearDemoFieldValidationMessage}
+                    aria-invalid={demoState.fieldErrors?.hearAboutUs ? true : undefined}
+                    disabled={demoPending}
+                    className="w-full rounded-[12px] border border-white/[0.14] bg-[#101a2d]/90 px-3 py-2.5 text-sm text-white outline-none transition focus:border-cyan-300/65 focus:ring-4 focus:ring-cyan-500/22"
+                  />
+                  {demoState.fieldErrors?.hearAboutUs ? (
+                    <p className="text-[11px] text-rose-300">{demoState.fieldErrors.hearAboutUs}</p>
+                  ) : null}
+                </label>
+              </div>
 
               <label className="space-y-1 block">
                 <span className="text-[12px] font-medium text-white/75">Address</span>

@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 
 const NAME_REGEX = /^[A-Za-z][A-Za-z '.-]{1,59}$/;
+const JOB_TITLE_REGEX = /^[A-Za-z][A-Za-z0-9 '&().,/+-]{1,79}$/;
 const SCHOOL_NAME_REGEX = /^[A-Za-z0-9][A-Za-z0-9 '&().,-]{1,119}$/;
 const COUNTRY_CODE_REGEX = /^\+\d{1,4}$/;
 const LOCAL_PHONE_REGEX = /^[0-9][0-9()\-\s]{5,18}$/;
@@ -38,6 +39,14 @@ const DemoRequestSchema = z.object({
       .max(60, "Last name cannot exceed 60 characters.")
       .regex(NAME_REGEX, "Use letters only. You may include space, apostrophe, dot, or hyphen.")
   ),
+  jobTitle: z.preprocess(
+    normalizeTextValue,
+    z
+      .string({ required_error: "Please enter your job title.", invalid_type_error: "Please enter your job title." })
+      .min(2, "Job title should be at least 2 characters.")
+      .max(80, "Job title cannot exceed 80 characters.")
+      .regex(JOB_TITLE_REGEX, "Use letters, numbers, spaces, and basic punctuation.")
+  ),
   schoolName: z.preprocess(
     normalizeTextValue,
     z
@@ -45,6 +54,19 @@ const DemoRequestSchema = z.object({
       .min(2, "School name should be at least 2 characters.")
       .max(120, "School name cannot exceed 120 characters.")
       .regex(SCHOOL_NAME_REGEX, "School name can include letters, numbers, spaces, and basic punctuation.")
+  ),
+  usingEdumerge: z.enum(["Yes", "No"], {
+    message: "Please tell us whether you are using EduHub.",
+  }),
+  hearAboutUs: z.preprocess(
+    normalizeTextValue,
+    z
+      .string({
+        required_error: "Please tell us how you heard about us.",
+        invalid_type_error: "Please tell us how you heard about us.",
+      })
+      .min(2, "Please share at least 2 characters.")
+      .max(120, "This response cannot exceed 120 characters.")
   ),
   address: z.preprocess(
     normalizeTextValue,
@@ -87,14 +109,22 @@ const DemoRequestSchema = z.object({
 export type DemoRequestState = {
   ok: boolean;
   message?: string;
-  fieldErrors?: Partial<Record<"firstName" | "lastName" | "schoolName" | "address" | "email" | "countryCode" | "mobileNumber" | "bestTime", string>>;
+  fieldErrors?: Partial<
+    Record<
+      "firstName" | "lastName" | "jobTitle" | "schoolName" | "usingEdumerge" | "hearAboutUs" | "address" | "email" | "countryCode" | "mobileNumber" | "bestTime",
+      string
+    >
+  >;
 };
 
 export async function createDemoRequestAction(_prev: DemoRequestState, formData: FormData): Promise<DemoRequestState> {
   const parsed = DemoRequestSchema.safeParse({
     firstName: formData.get("firstName"),
     lastName: formData.get("lastName"),
+    jobTitle: formData.get("jobTitle"),
     schoolName: formData.get("schoolName"),
+    usingEdumerge: formData.get("usingEdumerge"),
+    hearAboutUs: formData.get("hearAboutUs"),
     address: formData.get("address"),
     email: formData.get("email"),
     countryCode: formData.get("countryCode"),
@@ -110,7 +140,10 @@ export async function createDemoRequestAction(_prev: DemoRequestState, formData:
       fieldErrors: {
         firstName: flat.firstName?.[0],
         lastName: flat.lastName?.[0],
+        jobTitle: flat.jobTitle?.[0],
         schoolName: flat.schoolName?.[0],
+        usingEdumerge: flat.usingEdumerge?.[0],
+        hearAboutUs: flat.hearAboutUs?.[0],
         address: flat.address?.[0],
         email: flat.email?.[0],
         countryCode: flat.countryCode?.[0],
@@ -132,7 +165,10 @@ export async function createDemoRequestAction(_prev: DemoRequestState, formData:
   const normalized = {
     firstName: parsed.data.firstName,
     lastName: parsed.data.lastName,
+    jobTitle: parsed.data.jobTitle,
     schoolName: parsed.data.schoolName,
+    isUsingEdumerge: parsed.data.usingEdumerge === "Yes",
+    hearAboutUs: parsed.data.hearAboutUs,
     address: parsed.data.address,
     email: parsed.data.email,
     mobileNumber: `${parsed.data.countryCode} ${parsed.data.mobileNumber}`.replace(NORMALIZE_SPACES_REGEX, " ").trim(),

@@ -1,6 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { CheckboxBulkActions } from "@/components/checkbox-bulk-actions";
+import { ConfirmableServerForm } from "@/components/confirmable-server-form";
 import { Badge, Button, Card, EmptyState, Input, Label, SectionHeader, Textarea } from "@/components/ui";
 import { db } from "@/lib/db";
 import { atLeastLevel, getEffectivePermissions } from "@/lib/permissions";
@@ -41,6 +42,7 @@ export default async function GalleryPage({
   });
   const galleryLevel = perms.GALLERY;
   const canUpload = session.roleKey === "ADMIN" && (galleryLevel ? atLeastLevel(galleryLevel, "EDIT") : false);
+  const canDelete = canUpload;
   const canManageFolders =
     session.roleKey === "ADMIN" || (galleryLevel ? atLeastLevel(galleryLevel, "APPROVE") : false);
   const roleVisibilityWhere =
@@ -103,6 +105,7 @@ export default async function GalleryPage({
         take: 140
       })
     : [];
+  const { deleteGalleryItemAction } = await import("./actions");
 
   return (
     <div className="space-y-5 animate-fade-up">
@@ -220,6 +223,22 @@ export default async function GalleryPage({
                       sizes="(min-width: 1024px) 16vw, (min-width: 640px) 22vw, 31vw"
                       className="object-cover"
                     />
+                    {canDelete ? (
+                      <ConfirmableServerForm
+                        action={deleteGalleryItemAction}
+                        className="absolute right-1.5 top-1.5 z-10"
+                        confirmMessage="Are you sure you want to delete this photo?"
+                      >
+                        <input type="hidden" name="itemId" value={item.id} />
+                        <input type="hidden" name="folderId" value={item.folderId} />
+                        <button
+                          type="submit"
+                          className="inline-flex h-6 items-center justify-center rounded-[8px] border border-rose-300/45 bg-[#250d17]/90 px-2 text-[10px] font-semibold text-rose-100 transition hover:bg-[#3a1222]"
+                        >
+                          Delete
+                        </button>
+                      </ConfirmableServerForm>
+                    ) : null}
                   </div>
                   <div className="space-y-0.5 px-2 py-1.5">
                     <p className="line-clamp-1 text-[11px] font-semibold text-white/90">{item.title}</p>

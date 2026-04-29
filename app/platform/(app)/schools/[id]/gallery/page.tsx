@@ -1,6 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { CheckboxBulkActions } from "@/components/checkbox-bulk-actions";
+import { ConfirmableServerForm } from "@/components/confirmable-server-form";
 import { Badge, Button, Card, EmptyState, Input, Label, SectionHeader, Textarea } from "@/components/ui";
 import { db } from "@/lib/db";
 import { requirePlatformSchoolAccess } from "@/lib/platform-require";
@@ -32,6 +33,7 @@ export default async function PlatformSchoolGalleryPage({
   const { folderId, uploadStatus, uploadMessage } = await searchParams;
   const { user } = await requirePlatformSchoolAccess(id);
   const canUpload = user.role === "SUPER_ADMIN";
+  const canDelete = canUpload;
 
   const [school, roles, folders] = await Promise.all([
     db.school.findUnique({ where: { id }, select: { id: true, name: true, slug: true } }),
@@ -73,6 +75,7 @@ export default async function PlatformSchoolGalleryPage({
         take: 140
       })
     : [];
+  const { deletePlatformGalleryItemAction } = await import("./actions");
 
   return (
     <div className="space-y-5 animate-fade-up">
@@ -185,6 +188,23 @@ export default async function PlatformSchoolGalleryPage({
                       sizes="(min-width: 1024px) 28vw, (min-width: 640px) 44vw, 94vw"
                       className="object-cover"
                     />
+                    {canDelete ? (
+                      <ConfirmableServerForm
+                        action={deletePlatformGalleryItemAction}
+                        className="absolute right-2 top-2 z-10"
+                        confirmMessage="Are you sure you want to delete this photo?"
+                      >
+                        <input type="hidden" name="schoolId" value={school.id} />
+                        <input type="hidden" name="itemId" value={item.id} />
+                        <input type="hidden" name="folderId" value={item.folderId} />
+                        <button
+                          type="submit"
+                          className="inline-flex h-7 items-center justify-center rounded-[9px] border border-rose-300/45 bg-[#250d17]/90 px-2.5 text-[11px] font-semibold text-rose-100 transition hover:bg-[#3a1222]"
+                        >
+                          Delete
+                        </button>
+                      </ConfirmableServerForm>
+                    ) : null}
                   </div>
                   <div className="space-y-1 px-3 py-3">
                     <p className="text-[13px] font-semibold text-white/90">{item.title}</p>

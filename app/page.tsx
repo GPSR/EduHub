@@ -2,6 +2,7 @@ import { getSession } from "@/lib/session";
 import { db } from "@/lib/db";
 import { resolveActiveSchoolSession } from "@/lib/auth-session";
 import { ProductHomePage } from "@/components/product-home-page";
+import { DesktopHelpWidget } from "@/components/desktop-help-widget";
 import { headers } from "next/headers";
 import { getDefaultSchoolHomePath } from "@/lib/default-school-home";
 
@@ -19,11 +20,14 @@ export default async function HomePage() {
     : null;
 
   return (
-    <ProductHomePage
-      isSignedIn={Boolean(session)}
-      userName={user?.name ?? null}
-      forceMobileAppLayout={isNativeShell}
-      defaultHomeHref={defaultHomeHref}
-    />
+    <>
+      <ProductHomePage
+        isSignedIn={Boolean(session)}
+        userName={user?.name ?? null}
+        forceMobileAppLayout={isNativeShell}
+        defaultHomeHref={defaultHomeHref}
+      />
+      <DesktopHelpWidget isSignedIn={Boolean(session)} />
+    </>
   );
 }

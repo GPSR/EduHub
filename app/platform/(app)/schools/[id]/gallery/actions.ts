@@ -4,7 +4,7 @@ import { z } from "zod";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { requirePlatformSchoolAccess } from "@/lib/platform-require";
-import { saveUploadedImage } from "@/lib/uploads";
+import { deleteUploadedImageByUrl, saveUploadedImage } from "@/lib/uploads";
 
 const CreatePlatformGalleryFolderSchema = z.object({
   schoolId: z.string().min(1),
@@ -18,6 +18,12 @@ const UploadPlatformGalleryItemSchema = z.object({
   folderId: z.string().min(1),
   title: z.string().trim().min(2).max(120).optional(),
   caption: z.string().trim().max(600).optional()
+});
+
+const DeletePlatformGalleryItemSchema = z.object({
+  schoolId: z.string().min(1),
+  itemId: z.string().min(1),
+  folderId: z.string().min(1).optional()
 });
 
 function redirectPlatformGalleryUploadResult({
@@ -227,5 +233,68 @@ export async function uploadPlatformGalleryItemAction(formData: FormData) {
     folderId: folder.id,
     status: "success",
     message: `Uploaded ${uploadedCount} image${uploadedCount === 1 ? "" : "s"} successfully.`
+  });
+}
+
+export async function deletePlatformGalleryItemAction(formData: FormData) {
+  const requestedSchoolId = String(formData.get("schoolId") ?? "").trim() || undefined;
+  const requestedFolderId = String(formData.get("folderId") ?? "").trim() || undefined;
+
+  const parsed = DeletePlatformGalleryItemSchema.safeParse({
+    schoolId: formData.get("schoolId"),
+    itemId: formData.get("itemId"),
+    folderId: requestedFolderId
+  });
+
+  if (!parsed.success) {
+    redirectPlatformGalleryUploadResult({
+      schoolId: requestedSchoolId,
+      folderId: requestedFolderId,
+      status: "error",
+      message: "Unable to delete photo right now."
+    });
+  }
+
+  const { user } = await requirePlatformSchoolAccess(parsed.data.schoolId);
+  if (user.role !== "SUPER_ADMIN") {
+    redirectPlatformGalleryUploadResult({
+      schoolId: parsed.data.schoolId,
+      folderId: parsed.data.folderId,
+      status: "error",
+      message: "Only platform super admin can delete photos."
+    });
+  }
+
+  const item = await db.schoolGalleryItem.findFirst({
+    where: {
+      id: parsed.data.itemId,
+      schoolId: parsed.data.schoolId
+    },
+    select: {
+      id: true,
+      imageUrl: true,
+      folderId: true
+    }
+  });
+
+  if (!item) {
+    redirectPlatformGalleryUploadResult({
+      schoolId: parsed.data.schoolId,
+      folderId: parsed.data.folderId,
+      status: "error",
+      message: "Photo not found."
+    });
+  }
+
+  await db.schoolGalleryItem.delete({
+    where: { id: item.id }
+  });
+  await deleteUploadedImageByUrl(item.imageUrl);
+
+  redirectPlatformGalleryUploadResult({
+    schoolId: parsed.data.schoolId,
+    folderId: item.folderId,
+    status: "success",
+    message: "Photo deleted successfully."
   });
 }

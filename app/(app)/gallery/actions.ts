@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { atLeastLevel } from "@/lib/permissions";
 import { requirePermission } from "@/lib/require-permission";
-import { saveUploadedImage } from "@/lib/uploads";
+import { deleteUploadedImageByUrl, saveUploadedImage } from "@/lib/uploads";
 
 const CreateGalleryFolderSchema = z.object({
   name: z.string().trim().min(2).max(80),
@@ -17,6 +17,11 @@ const UploadGalleryItemSchema = z.object({
   folderId: z.string().min(1),
   title: z.string().trim().min(2).max(120).optional(),
   caption: z.string().trim().max(600).optional()
+});
+
+const DeleteGalleryItemSchema = z.object({
+  itemId: z.string().min(1),
+  folderId: z.string().min(1).optional()
 });
 
 function redirectGalleryUploadResult({
@@ -231,5 +236,61 @@ export async function uploadGalleryItemAction(formData: FormData) {
     folderId: folder.id,
     status: "success",
     message: `Uploaded ${uploadedCount} image${uploadedCount === 1 ? "" : "s"} successfully.`
+  });
+}
+
+export async function deleteGalleryItemAction(formData: FormData) {
+  const { session } = await requirePermission("GALLERY", "EDIT");
+  const parsed = DeleteGalleryItemSchema.safeParse({
+    itemId: formData.get("itemId"),
+    folderId: String(formData.get("folderId") ?? "").trim() || undefined
+  });
+
+  const fallbackFolderId = parsed.success ? parsed.data.folderId : undefined;
+  if (session.roleKey !== "ADMIN") {
+    redirectGalleryUploadResult({
+      folderId: fallbackFolderId,
+      status: "error",
+      message: "Only school admin can delete gallery photos."
+    });
+  }
+
+  if (!parsed.success) {
+    redirectGalleryUploadResult({
+      folderId: fallbackFolderId,
+      status: "error",
+      message: "Unable to delete photo right now."
+    });
+  }
+
+  const item = await db.schoolGalleryItem.findFirst({
+    where: {
+      id: parsed.data.itemId,
+      schoolId: session.schoolId
+    },
+    select: {
+      id: true,
+      imageUrl: true,
+      folderId: true
+    }
+  });
+
+  if (!item) {
+    redirectGalleryUploadResult({
+      folderId: parsed.data.folderId,
+      status: "error",
+      message: "Photo not found."
+    });
+  }
+
+  await db.schoolGalleryItem.delete({
+    where: { id: item.id }
+  });
+  await deleteUploadedImageByUrl(item.imageUrl);
+
+  redirectGalleryUploadResult({
+    folderId: item.folderId,
+    status: "success",
+    message: "Photo deleted successfully."
   });
 }
