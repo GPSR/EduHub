@@ -9,11 +9,11 @@ import { getAcademicYearContext } from "@/lib/academic-year";
 function scoreColor(score: number, max: number) {
   const pct = max > 0 ? (score / max) * 100 : 0;
   if (pct >= 75) return { bar: "bg-emerald-500", tone: "success" as const };
-  if (pct >= 50) return { bar: "bg-amber-500",   tone: "warning" as const };
-  return                { bar: "bg-rose-500",     tone: "danger"  as const };
+  if (pct >= 50) return { bar: "bg-amber-500", tone: "warning" as const };
+  return { bar: "bg-rose-500", tone: "danger" as const };
 }
 
-export default async function ExamResultsPage({
+export default async function ProgressCardPage({
   searchParams
 }: {
   searchParams: Promise<{ ay?: string }>;
@@ -27,7 +27,7 @@ export default async function ExamResultsPage({
   const perms = await getEffectivePermissions({
     schoolId: session.schoolId,
     userId: session.userId,
-    roleId: session.roleId,
+    roleId: session.roleId
   });
   const progressCardLevel = perms["PROGRESS_CARD"] ?? perms["ACADEMICS"];
   const canWrite = isYearWritable && (progressCardLevel ? atLeastLevel(progressCardLevel, "EDIT") : false);
@@ -42,13 +42,13 @@ export default async function ExamResultsPage({
           },
           include: { student: true },
           orderBy: { createdAt: "desc" },
-          take: 200,
+          take: 200
         })
       : await db.examResult.findMany({
           where: { schoolId: session.schoolId, academicYearId: selectedYear.id },
           include: { student: true },
           orderBy: { createdAt: "desc" },
-          take: 200,
+          take: 200
         });
 
   const students =
@@ -60,20 +60,20 @@ export default async function ExamResultsPage({
     <div className="space-y-5 animate-fade-up">
       {!isYearWritable ? (
         <div className="rounded-[14px] border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
-          Academic year {selectedYear.name} is closed. Exam results are read-only.
+          Academic year {selectedYear.name} is closed. Progress card is read-only.
         </div>
       ) : null}
       <div className="flex items-start justify-between gap-4">
         <div className="flex items-center gap-3">
           <Link href="/academics" className="text-sm text-white/40 hover:text-white/70 transition">Academics</Link>
           <span className="text-white/20">/</span>
-          <SectionHeader title="Exam Results" subtitle={`${results.length} result${results.length !== 1 ? "s" : ""} · ${selectedYear.name}`} />
+          <SectionHeader title="Progress Card" subtitle={`${results.length} result${results.length !== 1 ? "s" : ""} · ${selectedYear.name}`} />
         </div>
       </div>
 
       <Card>
         {results.length === 0 ? (
-          <EmptyState icon="📊" title="No exam results yet" description="Add your first result below." />
+          <EmptyState icon="🎓" title="No progress card entries yet" description="Add your first progress entry below." />
         ) : (
           <div className="divide-y divide-white/[0.06]">
             {results.map((r, i) => {
@@ -102,7 +102,6 @@ export default async function ExamResultsPage({
                       <p className="text-[12px] text-white/40 mt-1">{r.score}/{r.maxScore}</p>
                     </div>
                   </div>
-                  {/* Score bar */}
                   <div className="mt-3 h-1 w-full rounded-full bg-white/[0.07] overflow-hidden">
                     <div className={`h-full rounded-full ${cfg.bar} transition-all`} style={{ width: `${pct}%` }} />
                   </div>
@@ -113,26 +112,24 @@ export default async function ExamResultsPage({
         )}
       </Card>
 
-      {canWrite && <CreateResultCard students={students} academicYearId={selectedYear.id} returnTo="/academics/exams" />}
+      {canWrite ? <CreateProgressCardEntry students={students} academicYearId={selectedYear.id} /> : null}
     </div>
   );
 }
 
-async function CreateResultCard({
+async function CreateProgressCardEntry({
   students,
-  academicYearId,
-  returnTo
+  academicYearId
 }: {
   students: { id: string; fullName: string }[];
   academicYearId: string;
-  returnTo: "/academics/exams" | "/academics/progress-card";
 }) {
-  const { createExamResultAction } = await import("./actions");
+  const { createExamResultAction } = await import("../exams/actions");
   return (
-    <Card title="Add Exam Result" accent="teal">
+    <Card title="Add Progress Card Entry" accent="teal">
       <form action={createExamResultAction} className="grid grid-cols-1 gap-3 sm:gap-4">
         <input type="hidden" name="academicYearId" value={academicYearId} />
-        <input type="hidden" name="returnTo" value={returnTo} />
+        <input type="hidden" name="returnTo" value="/academics/progress-card" />
         <div className="md:col-span-2">
           <Label required>Student</Label>
           <select
@@ -141,20 +138,20 @@ async function CreateResultCard({
             required
           >
             <option value="" disabled>Select student</option>
-            {students.map(s => <option key={s.id} value={s.id}>{s.fullName}</option>)}
+            {students.map((s) => <option key={s.id} value={s.id}>{s.fullName}</option>)}
           </select>
         </div>
         <div>
           <Label required>Exam name</Label>
-          <Input name="examName" placeholder="Mid Term" required />
+          <Input name="examName" placeholder="Final Term" required />
         </div>
         <div>
           <Label required>Subject</Label>
-          <Input name="subject" placeholder="Mathematics" required />
+          <Input name="subject" placeholder="Science" required />
         </div>
         <div>
           <Label required>Score</Label>
-          <Input name="score" type="number" step="0.01" min="0" placeholder="85" required />
+          <Input name="score" type="number" step="0.01" min="0" placeholder="88" required />
         </div>
         <div>
           <Label required>Max score</Label>
@@ -162,12 +159,13 @@ async function CreateResultCard({
         </div>
         <div className="md:col-span-2">
           <Label>Remarks</Label>
-          <Textarea name="remarks" rows={3} placeholder="Optional teacher comments…" />
+          <Textarea name="remarks" rows={3} placeholder="Optional remarks for progress card." />
         </div>
         <div className="md:col-span-2 flex justify-end">
-          <Button type="submit">Save result</Button>
+          <Button type="submit">Save progress entry</Button>
         </div>
       </form>
     </Card>
   );
 }
+

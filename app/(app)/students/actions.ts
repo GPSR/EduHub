@@ -9,6 +9,7 @@ import { z } from "zod";
 import { formatSchoolId } from "@/lib/id-sequence";
 import { auditLog } from "@/lib/audit";
 import { clearUserProfileImages, deleteUploadedImageByUrl, saveUploadedImage, saveUserProfileImage } from "@/lib/uploads";
+import { ensureActiveAcademicYearForSchool } from "@/lib/academic-year";
 
 const StudentCreateSchema = z.object({
   fullName: z.string().min(2),
@@ -56,6 +57,7 @@ const StudentUpdateSchema = z.object({
 
 export async function createStudentAction(formData: FormData) {
   const { session } = await requirePermission("STUDENTS", "EDIT");
+  const activeYear = await ensureActiveAcademicYearForSchool(session.schoolId);
 
   const parsed = StudentCreateSchema.safeParse({
     fullName: formData.get("fullName"),
@@ -120,7 +122,7 @@ export async function createStudentAction(formData: FormData) {
       rollNumber = String(classStrength + 1);
     }
 
-    return tx.student.create({
+    const createdStudent = await tx.student.create({
       data: {
         schoolId: session.schoolId,
         studentId,
@@ -138,6 +140,32 @@ export async function createStudentAction(formData: FormData) {
         medicalNotes: parsed.data.medicalNotes || undefined
       }
     });
+
+    await tx.studentAcademicYear.upsert({
+      where: {
+        academicYearId_studentId: {
+          academicYearId: activeYear.id,
+          studentId: createdStudent.id
+        }
+      },
+      update: {
+        classId,
+        rollNumber: createdStudent.rollNumber,
+        status: "ACTIVE",
+        graduatedAt: null,
+        promotedAt: null
+      },
+      create: {
+        schoolId: session.schoolId,
+        academicYearId: activeYear.id,
+        studentId: createdStudent.id,
+        classId,
+        rollNumber: createdStudent.rollNumber,
+        status: "ACTIVE"
+      }
+    });
+
+    return createdStudent;
   });
 
   redirect(`/students/${student.id}`);
@@ -347,6 +375,30 @@ export async function updateStudentAction(formData: FormData) {
       pickupAuthDetails: true
     }
   });
+
+  if (canEditStudents) {
+    const activeYear = await ensureActiveAcademicYearForSchool(session.schoolId);
+    await db.studentAcademicYear.upsert({
+      where: {
+        academicYearId_studentId: {
+          academicYearId: activeYear.id,
+          studentId: existing.id
+        }
+      },
+      update: {
+        classId,
+        rollNumber: updated.rollNumber ?? null
+      },
+      create: {
+        schoolId: session.schoolId,
+        academicYearId: activeYear.id,
+        studentId: existing.id,
+        classId,
+        rollNumber: updated.rollNumber ?? null,
+        status: "ACTIVE"
+      }
+    });
+  }
 
   if (!canEditStudents && session.roleKey === "PARENT") {
     await db.user.update({

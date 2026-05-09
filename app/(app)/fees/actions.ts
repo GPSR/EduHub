@@ -2,6 +2,7 @@
 
 import { db } from "@/lib/db";
 import { requirePermission } from "@/lib/require-permission";
+import { getAcademicYearContext, requireWritableAcademicYear, withAcademicYearParam } from "@/lib/academic-year";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 
@@ -45,7 +46,8 @@ const CreateInvoiceSchema = z.object({
   studentId: z.string().min(1),
   title: z.string().min(2),
   amount: z.coerce.number().positive(),
-  dueOn: z.string().optional()
+  dueOn: z.string().optional(),
+  academicYearId: z.string().optional()
 });
 
 export async function createInvoiceAction(formData: FormData) {
@@ -55,9 +57,14 @@ export async function createInvoiceAction(formData: FormData) {
     studentId: formData.get("studentId"),
     title: formData.get("title"),
     amount: formData.get("amount"),
-    dueOn: formData.get("dueOn") || undefined
+    dueOn: formData.get("dueOn") || undefined,
+    academicYearId: String(formData.get("academicYearId") ?? "").trim() || undefined
   });
   if (!parsed.success) throw new Error("Unable to process request.");
+  const year = await requireWritableAcademicYear({
+    schoolId: session.schoolId,
+    requestedYearId: parsed.data.academicYearId
+  });
 
   const student = await db.student.findFirst({
     where: { id: parsed.data.studentId, schoolId: session.schoolId },
@@ -68,6 +75,7 @@ export async function createInvoiceAction(formData: FormData) {
   const invoice = await db.feeInvoice.create({
     data: {
       schoolId: session.schoolId,
+      academicYearId: year.id,
       studentId: student.id,
       title: parsed.data.title,
       amountCents: Math.round(parsed.data.amount * 100),
@@ -77,10 +85,10 @@ export async function createInvoiceAction(formData: FormData) {
 
   await notifyParentsForStudent(session.schoolId, student.id, {
     title: `Fee reminder: ${invoice.title}`,
-    body: `New fee invoice created for ${student.fullName}.\nLINK:/fees/${invoice.id}`
+    body: `New fee invoice created for ${student.fullName}.\nLINK:${withAcademicYearParam(`/fees/${invoice.id}`, year.id)}`
   });
 
-  redirect(`/fees/${invoice.id}`);
+  redirect(withAcademicYearParam(`/fees/${invoice.id}`, year.id));
 }
 
 const AddPaymentSchema = z.object({
@@ -103,9 +111,12 @@ export async function addPaymentAction(formData: FormData) {
 
   const invoice = await db.feeInvoice.findFirst({
     where: { id: parsed.data.invoiceId, schoolId: session.schoolId },
-    include: { payments: true }
+    include: { payments: true, academicYear: { select: { id: true, name: true, status: true } } }
   });
   if (!invoice) throw new Error("Unable to process request.");
+  if (invoice.academicYear.status === "CLOSED") {
+    throw new Error(`Academic year ${invoice.academicYear.name} is closed and this invoice is read-only.`);
+  }
 
   await db.feePayment.create({
     data: {
@@ -127,10 +138,10 @@ export async function addPaymentAction(formData: FormData) {
 
   await notifyParentsForStudent(session.schoolId, invoice.studentId, {
     title: newStatus === "PAID" ? "Fee payment completed" : "Fee payment updated",
-    body: `Invoice ${invoice.title} is now ${newStatus}.\nLINK:/fees/${invoice.id}`
+    body: `Invoice ${invoice.title} is now ${newStatus}.\nLINK:${withAcademicYearParam(`/fees/${invoice.id}`, invoice.academicYearId)}`
   });
 
-  redirect(`/fees/${invoice.id}`);
+  redirect(withAcademicYearParam(`/fees/${invoice.id}`, invoice.academicYearId));
 }
 
 const SendInvoiceReminderSchema = z.object({
@@ -154,7 +165,7 @@ export async function sendInvoiceReminderAction(formData: FormData) {
 
   const paidCents = invoice.payments.reduce((sum, payment) => sum + payment.amountCents, 0);
   const pendingCents = Math.max(0, invoice.amountCents - paidCents);
-  const returnTo = normalizeReturnPath(parsed.data.returnTo, `/fees/${invoice.id}`);
+  const returnTo = normalizeReturnPath(parsed.data.returnTo, withAcademicYearParam(`/fees/${invoice.id}`, invoice.academicYearId));
 
   if (pendingCents <= 0) {
     redirect(appendQuery(returnTo, "reminder", "already_paid"));
@@ -162,26 +173,33 @@ export async function sendInvoiceReminderAction(formData: FormData) {
 
   await notifyParentsForStudent(session.schoolId, invoice.student.id, {
     title: `Fee reminder: ${invoice.title}`,
-    body: `Pending amount ${centsToUsd(pendingCents)} for ${invoice.student.fullName}.\nLINK:/fees/${invoice.id}`
+    body: `Pending amount ${centsToUsd(pendingCents)} for ${invoice.student.fullName}.\nLINK:${withAcademicYearParam(`/fees/${invoice.id}`, invoice.academicYearId)}`
   });
 
   redirect(appendQuery(returnTo, "reminder", "sent"));
 }
 
 const SendPendingFeeRemindersSchema = z.object({
-  returnTo: z.string().optional()
+  returnTo: z.string().optional(),
+  academicYearId: z.string().optional()
 });
 
 export async function sendPendingFeeRemindersAction(formData: FormData) {
   const { session } = await requirePermission("FEES", "EDIT");
   const parsed = SendPendingFeeRemindersSchema.safeParse({
-    returnTo: formData.get("returnTo") || undefined
+    returnTo: formData.get("returnTo") || undefined,
+    academicYearId: String(formData.get("academicYearId") ?? "").trim() || undefined
   });
   if (!parsed.success) throw new Error("Unable to process reminder.");
 
-  const returnTo = normalizeReturnPath(parsed.data.returnTo, "/fees");
+  const context = await getAcademicYearContext({
+    schoolId: session.schoolId,
+    requestedYearId: parsed.data.academicYearId
+  });
+  const selectedYearId = context.selectedYear.id;
+  const returnTo = normalizeReturnPath(parsed.data.returnTo, withAcademicYearParam("/fees", selectedYearId));
   const pendingInvoices = await db.feeInvoice.findMany({
-    where: { schoolId: session.schoolId, status: { not: "PAID" } },
+    where: { schoolId: session.schoolId, academicYearId: selectedYearId, status: { not: "PAID" } },
     include: {
       student: { select: { id: true, fullName: true } },
       payments: { select: { amountCents: true } }
@@ -233,7 +251,7 @@ export async function sendPendingFeeRemindersAction(formData: FormData) {
         schoolId: session.schoolId,
         userId: link.userId,
         title: `Fee reminder: ${info.studentName}`,
-        body: `${info.invoiceCount} pending invoice${info.invoiceCount > 1 ? "s" : ""}. Pending amount ${centsToUsd(info.pendingCents)}.\nLINK:/fees`
+        body: `${info.invoiceCount} pending invoice${info.invoiceCount > 1 ? "s" : ""}. Pending amount ${centsToUsd(info.pendingCents)}.\nLINK:${withAcademicYearParam("/fees", selectedYearId)}`
       };
     })
     .filter((item): item is { schoolId: string; userId: string; title: string; body: string } => Boolean(item));
@@ -249,18 +267,28 @@ export async function sendPendingFeeRemindersAction(formData: FormData) {
 
 const SendStudentFeeReminderSchema = z.object({
   studentId: z.string().min(1),
-  returnTo: z.string().optional()
+  returnTo: z.string().optional(),
+  academicYearId: z.string().optional()
 });
 
 export async function sendStudentFeeReminderAction(formData: FormData) {
   const { session } = await requirePermission("FEES", "EDIT");
   const parsed = SendStudentFeeReminderSchema.safeParse({
     studentId: formData.get("studentId"),
-    returnTo: formData.get("returnTo") || undefined
+    returnTo: formData.get("returnTo") || undefined,
+    academicYearId: String(formData.get("academicYearId") ?? "").trim() || undefined
   });
   if (!parsed.success) throw new Error("Unable to process reminder.");
 
-  const returnTo = normalizeReturnPath(parsed.data.returnTo, `/students/${parsed.data.studentId}`);
+  const context = await getAcademicYearContext({
+    schoolId: session.schoolId,
+    requestedYearId: parsed.data.academicYearId
+  });
+  const selectedYearId = context.selectedYear.id;
+  const returnTo = normalizeReturnPath(
+    parsed.data.returnTo,
+    withAcademicYearParam(`/students/${parsed.data.studentId}`, selectedYearId)
+  );
   const student = await db.student.findFirst({
     where: { id: parsed.data.studentId, schoolId: session.schoolId },
     select: { id: true, fullName: true }
@@ -268,7 +296,7 @@ export async function sendStudentFeeReminderAction(formData: FormData) {
   if (!student) throw new Error("Student not found.");
 
   const pendingInvoices = await db.feeInvoice.findMany({
-    where: { schoolId: session.schoolId, studentId: student.id, status: { not: "PAID" } },
+    where: { schoolId: session.schoolId, studentId: student.id, academicYearId: selectedYearId, status: { not: "PAID" } },
     include: { payments: { select: { amountCents: true } } },
     take: 200
   });
@@ -285,7 +313,7 @@ export async function sendStudentFeeReminderAction(formData: FormData) {
 
   await notifyParentsForStudent(session.schoolId, student.id, {
     title: `Fee reminder: ${student.fullName}`,
-    body: `${pendingInvoices.length} pending invoice${pendingInvoices.length > 1 ? "s" : ""}. Pending amount ${centsToUsd(pendingTotal)}.\nLINK:/fees`
+    body: `${pendingInvoices.length} pending invoice${pendingInvoices.length > 1 ? "s" : ""}. Pending amount ${centsToUsd(pendingTotal)}.\nLINK:${withAcademicYearParam("/fees", selectedYearId)}`
   });
 
   redirect(appendQuery(returnTo, "reminder", "sent"));

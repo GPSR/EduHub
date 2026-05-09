@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { atLeastLevel } from "@/lib/permissions";
 import { requirePermission } from "@/lib/require-permission";
 import { eachDayInclusive, formatMonthKey, monthWindow, parseDateOnlyInput, parseMonthKey } from "@/lib/leave-utils";
+import { getAcademicYearContext } from "@/lib/academic-year";
 import { CalendarMonthGrid } from "./calendar-month-grid";
 import { CalendarMonthNav } from "./calendar-month-nav";
 
@@ -52,10 +53,12 @@ function formatRange(start: Date, end: Date) {
 export default async function CalendarPage({
   searchParams
 }: {
-  searchParams: Promise<{ month?: string; add?: string }>;
+  searchParams: Promise<{ month?: string; add?: string; ay?: string }>;
 }) {
   const { session, level } = await requirePermission("SCHOOL_CALENDAR", "VIEW");
-  const { month, add } = await searchParams;
+  const { month, add, ay } = await searchParams;
+  const yearContext = await getAcademicYearContext({ schoolId: session.schoolId, requestedYearId: ay });
+  const selectedYear = yearContext.selectedYear;
 
   const monthStart = parseMonthKey(month) ?? startOfMonth(new Date());
   const activeMonthKey = formatMonthKey(monthStart);
@@ -69,6 +72,8 @@ export default async function CalendarPage({
 
   const canManage = atLeastLevel(level, "EDIT");
   const canAdminManage = session.roleKey === "ADMIN";
+  const canManageYear = canManage && selectedYear.status !== "CLOSED";
+  const canAdminManageYear = canAdminManage && selectedYear.status !== "CLOSED";
   const canViewAllClassEvents = new Set(["ADMIN", "HEAD_MASTER", "PRINCIPAL", "CORRESPONDENT"]).has(session.roleKey);
   const isTeacherRole = session.roleKey === "TEACHER" || session.roleKey === "CLASS_TEACHER";
 
@@ -138,6 +143,7 @@ export default async function CalendarPage({
     db.schoolCalendarEvent.findMany({
       where: {
         schoolId: session.schoolId,
+        academicYearId: selectedYear.id,
         startsOn: { lte: monthRangeEnd },
         endsOn: { gte: monthRangeStart },
         ...(audienceFilter ?? {})
@@ -159,6 +165,7 @@ export default async function CalendarPage({
     db.schoolCalendarEvent.findMany({
       where: {
         schoolId: session.schoolId,
+        academicYearId: selectedYear.id,
         startsOn: { gte: new Date() },
         ...(audienceFilter ?? {})
       },
@@ -217,8 +224,13 @@ export default async function CalendarPage({
     <div className="space-y-5 animate-fade-up">
       <SectionHeader
         title="School Calendar"
-        subtitle="School-level holidays, functions, exams, and important events"
+        subtitle={`School-level holidays, functions, exams, and important events · ${selectedYear.name}${selectedYear.status === "CLOSED" ? " (Read-only)" : ""}`}
       />
+      {selectedYear.status === "CLOSED" ? (
+        <div className="rounded-[14px] border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
+          This academic year is closed. Event creation, edit, and delete are locked.
+        </div>
+      ) : null}
 
       <Card accent="indigo">
         <div className="flex flex-wrap items-center justify-between gap-3">
@@ -229,15 +241,16 @@ export default async function CalendarPage({
             <p className="text-[12px] text-white/50">{monthEvents.length} event(s) this month</p>
           </div>
 
-          <CalendarMonthNav previousMonth={previousMonth} nextMonth={nextMonth} />
+          <CalendarMonthNav previousMonth={previousMonth} nextMonth={nextMonth} academicYearId={selectedYear.id} />
         </div>
       </Card>
 
       <CalendarMonthGrid
-        canManage={canManage}
-        canAdminManage={canAdminManage}
+        canManage={canManageYear}
+        canAdminManage={canAdminManageYear}
         activeMonthKey={activeMonthKey}
         monthLabel={monthStart.toLocaleDateString("en-US", { month: "long", year: "numeric" })}
+        academicYearId={selectedYear.id}
         initialAddDate={createPrefillDateKey}
         days={monthGridDayData}
         classes={createClasses}

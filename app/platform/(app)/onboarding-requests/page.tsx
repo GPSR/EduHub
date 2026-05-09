@@ -1,7 +1,7 @@
 import { Badge, SectionHeader, EmptyState } from "@/components/ui";
 import { db } from "@/lib/db";
 import { requireSuperAdmin } from "@/lib/platform-require";
-import { RequestApprovalForm } from "./ui";
+import { ManageSchoolAdminPasswordPopup, RequestApprovalForm } from "./ui";
 import { ensureBaseModules } from "@/lib/permissions";
 
 export default async function PlatformOnboardingRequestsPage() {
@@ -16,6 +16,7 @@ export default async function PlatformOnboardingRequestsPage() {
         id: true,
         schoolName: true,
         schoolSlug: true,
+        schoolId: true,
         adminName: true,
         adminEmail: true,
         status: true,
@@ -30,6 +31,46 @@ export default async function PlatformOnboardingRequestsPage() {
   const defaultEnabled = new Set(schoolModules.map(m => m.moduleId));
   const pending  = requests.filter(r => r.status === "PENDING");
   const history  = requests.filter(r => r.status !== "PENDING");
+  const approvedRequestSchoolIds = history
+    .filter((r) => r.status === "APPROVED" && Boolean(r.schoolId))
+    .map((r) => r.schoolId as string);
+  const approvedRequestSchoolSlugs = history
+    .filter((r) => r.status === "APPROVED")
+    .map((r) => r.schoolSlug);
+  const approvedSchools =
+    approvedRequestSchoolIds.length === 0 && approvedRequestSchoolSlugs.length === 0
+      ? []
+      : await db.school.findMany({
+          where: {
+            OR: [
+              ...(approvedRequestSchoolIds.length > 0 ? [{ id: { in: approvedRequestSchoolIds } }] : []),
+              ...(approvedRequestSchoolSlugs.length > 0 ? [{ slug: { in: approvedRequestSchoolSlugs } }] : [])
+            ]
+          },
+          select: { id: true, slug: true }
+        });
+  const approvedSchoolIdBySlug = new Map(approvedSchools.map((school) => [school.slug, school.id]));
+  const approvedSchoolIds = approvedSchools.map((school) => school.id);
+  const approvedSchoolAdmins =
+    approvedSchoolIds.length === 0
+      ? []
+      : await db.user.findMany({
+          where: {
+            schoolId: { in: approvedSchoolIds },
+            schoolRole: { key: "ADMIN" }
+          },
+          select: { id: true, schoolId: true, name: true, email: true },
+          orderBy: { createdAt: "asc" }
+        });
+  const approvedAdminsBySchoolId = new Map<
+    string,
+    Array<{ id: string; name: string; email: string }>
+  >();
+  for (const admin of approvedSchoolAdmins) {
+    const existing = approvedAdminsBySchoolId.get(admin.schoolId) ?? [];
+    existing.push({ id: admin.id, name: admin.name, email: admin.email });
+    approvedAdminsBySchoolId.set(admin.schoolId, existing);
+  }
 
   return (
     <div className="space-y-5 animate-fade-up">
@@ -82,21 +123,35 @@ export default async function PlatformOnboardingRequestsPage() {
             <p className="text-[13px] font-semibold text-white/55 uppercase tracking-wider">Processed</p>
           </div>
           <div className="divide-y divide-white/[0.06]">
-            {history.map((r, i) => (
-              <div key={r.id} className={`flex items-start justify-between gap-4 px-5 py-4
-                                           ${i === history.length - 1 ? "rounded-b-[22px]" : ""}`}>
-                <div>
-                  <p className="text-[14px] font-semibold text-white/85">{r.schoolName}</p>
-                  <div className="text-[12px] text-white/40 mt-0.5 flex flex-wrap gap-2">
-                    <span>Slug: <code className="text-white/55">{r.schoolSlug}</code></span>
-                    <span>·</span>
-                    <span>{r.adminEmail}</span>
-                    {r.note && <><span>·</span><span className="italic">{r.note}</span></>}
+            {history.map((r, i) => {
+              const resolvedSchoolId =
+                r.schoolId ?? (r.status === "APPROVED" ? approvedSchoolIdBySlug.get(r.schoolSlug) : undefined);
+              return (
+                <div key={r.id} className={`flex items-start justify-between gap-4 px-5 py-4
+                                             ${i === history.length - 1 ? "rounded-b-[22px]" : ""}`}>
+                  <div>
+                    <p className="text-[14px] font-semibold text-white/85">{r.schoolName}</p>
+                    <div className="text-[12px] text-white/40 mt-0.5 flex flex-wrap gap-2">
+                      <span>Slug: <code className="text-white/55">{r.schoolSlug}</code></span>
+                      <span>·</span>
+                      <span>{r.adminEmail}</span>
+                      {r.note && <><span>·</span><span className="italic">{r.note}</span></>}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0 self-start">
+                    {r.status === "APPROVED" && resolvedSchoolId ? (
+                      <ManageSchoolAdminPasswordPopup
+                        schoolId={resolvedSchoolId}
+                        schoolName={r.schoolName}
+                        admins={approvedAdminsBySchoolId.get(resolvedSchoolId) ?? []}
+                        triggerVariant="chip"
+                      />
+                    ) : null}
+                    <Badge tone={r.status === "APPROVED" ? "success" : r.status === "HOLD" ? "warning" : "danger"}>{r.status}</Badge>
                   </div>
                 </div>
-                <Badge tone={r.status === "APPROVED" ? "success" : r.status === "HOLD" ? "warning" : "danger"}>{r.status}</Badge>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}

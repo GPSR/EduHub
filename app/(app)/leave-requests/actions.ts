@@ -258,6 +258,18 @@ export async function decideLeaveRequestAction(formData: FormData) {
 
   const nextStatus = parsed.data.decision === "APPROVE" ? "APPROVED" : "REJECTED";
   const approvedAt = nextStatus === "APPROVED" ? new Date() : null;
+  const overlappingAcademicYears =
+    nextStatus === "APPROVED" && leaveRequest.requesterType === "STUDENT"
+      ? await db.academicYear.findMany({
+          where: {
+            schoolId: session.schoolId,
+            startsOn: { lte: leaveRequest.toDate },
+            endsOn: { gte: leaveRequest.fromDate }
+          },
+          orderBy: [{ startsOn: "desc" }],
+          select: { id: true, name: true, status: true, startsOn: true, endsOn: true }
+        })
+      : [];
 
   await db.$transaction(async (tx) => {
     await tx.leaveRequest.update({
@@ -272,20 +284,33 @@ export async function decideLeaveRequestAction(formData: FormData) {
 
     if (nextStatus === "APPROVED" && leaveRequest.requesterType === "STUDENT" && leaveRequest.studentId) {
       for (const day of eachDayInclusive(leaveRequest.fromDate, leaveRequest.toDate)) {
+        const yearForDay =
+          overlappingAcademicYears.find((year) => day >= year.startsOn && day <= year.endsOn) ??
+          overlappingAcademicYears[0];
+        if (!yearForDay) {
+          throw new Error("No academic year configured for selected leave dates.");
+        }
+        if (yearForDay.status === "CLOSED") {
+          throw new Error(`Academic year ${yearForDay.name} is closed and cannot be edited.`);
+        }
+
         await tx.attendanceRecord.upsert({
           where: {
-            studentId_date: {
+            studentId_academicYearId_date: {
               studentId: leaveRequest.studentId,
+              academicYearId: yearForDay.id,
               date: day
             }
           },
           update: {
             status: "LEAVE",
             notedById: session.userId,
-            schoolId: session.schoolId
+            schoolId: session.schoolId,
+            academicYearId: yearForDay.id
           },
           create: {
             schoolId: session.schoolId,
+            academicYearId: yearForDay.id,
             studentId: leaveRequest.studentId,
             date: day,
             status: "LEAVE",

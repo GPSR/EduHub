@@ -296,7 +296,6 @@ export async function resetPlatformUserPasswordAction(
 
   const target = await db.platformUser.findUnique({ where: { id: parsed.data.platformUserId } });
   if (!target) return { ok: false, message: "Platform user not found." };
-  if (target.role === "SUPER_ADMIN") return { ok: false, message: "Cannot reset super admin password in this flow." };
   const tokenRow = await createPasswordResetToken({
     subjectType: "PLATFORM_USER",
     platformUserId: target.id,
@@ -348,7 +347,6 @@ export async function updatePlatformUserPasswordAction(
     select: { id: true, role: true }
   });
   if (!target) return { ok: false, message: "Platform user not found." };
-  if (target.role === "SUPER_ADMIN") return { ok: false, message: "Cannot update super admin password in this flow." };
 
   const passwordHash = await hashPassword(parsed.data.newPassword);
   const now = new Date();

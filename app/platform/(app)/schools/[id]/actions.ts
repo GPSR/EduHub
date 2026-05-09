@@ -8,6 +8,7 @@ import { ensureBaseModules } from "@/lib/permissions";
 import { ensureSchoolSubscriptionActive } from "@/lib/subscription";
 import { hashPassword } from "@/lib/password";
 import { auditLog } from "@/lib/audit";
+import { createPasswordResetToken, sendPasswordResetEmail } from "@/lib/password-reset";
 import { sendOnboardingApprovalNotifications } from "@/lib/approval-notify";
 import { resolveSchoolAppBaseUrl } from "@/lib/app-env";
 import { revalidatePath } from "next/cache";
@@ -24,6 +25,7 @@ export type InviteState = {
 };
 export type PlatformSchoolModulesState = { ok: boolean; message?: string };
 export type UpdateSchoolAdminPasswordState = { ok: boolean; message?: string };
+export type ResetSchoolAdminPasswordState = { ok: boolean; message?: string };
 
 const InviteSchema = z.object({
   schoolId: z.string().min(1),
@@ -244,4 +246,62 @@ export async function updateSchoolAdminPasswordAction(
 
   revalidatePath(`/platform/schools/${parsed.data.schoolId}`);
   return { ok: true, message: "School admin password updated successfully." };
+}
+
+const ResetSchoolAdminPasswordSchema = z.object({
+  schoolId: z.string().min(1),
+  userId: z.string().min(1)
+});
+
+export async function resetSchoolAdminPasswordAction(
+  _prev: ResetSchoolAdminPasswordState,
+  formData: FormData
+): Promise<ResetSchoolAdminPasswordState> {
+  const { session } = await requireSuperAdmin();
+  const parsed = ResetSchoolAdminPasswordSchema.safeParse({
+    schoolId: formData.get("schoolId"),
+    userId: formData.get("userId")
+  });
+  if (!parsed.success) return { ok: false, message: parsed.error.issues[0]?.message ?? "Invalid request." };
+
+  const target = await db.user.findFirst({
+    where: { id: parsed.data.userId, schoolId: parsed.data.schoolId },
+    select: { id: true, schoolId: true, name: true, email: true, isActive: true, schoolRole: { select: { key: true } } }
+  });
+  if (!target) return { ok: false, message: "School admin user not found." };
+  if (target.schoolRole.key !== "ADMIN") {
+    return { ok: false, message: "Only school admin users can be reset in this flow." };
+  }
+  if (!target.isActive) {
+    return { ok: false, message: "Cannot send reset link to inactive school admin." };
+  }
+
+  const tokenRow = await createPasswordResetToken({
+    subjectType: "SCHOOL_USER",
+    userId: target.id,
+    schoolId: target.schoolId,
+    email: target.email
+  });
+  const sent = await sendPasswordResetEmail({
+    subjectType: "SCHOOL_USER",
+    toEmail: target.email,
+    recipientName: target.name,
+    resetToken: tokenRow.token,
+    expiresAt: tokenRow.expiresAt
+  });
+
+  await auditLog({
+    actor: { type: "PLATFORM_USER", id: session.platformUserId },
+    action: "SCHOOL_ADMIN_PASSWORD_RESET_EMAIL_SENT_BY_SUPER_ADMIN",
+    entityType: "User",
+    entityId: target.id,
+    schoolId: target.schoolId,
+    metadata: { emailSent: sent.sent, expiresAt: tokenRow.expiresAt.toISOString() }
+  });
+
+  revalidatePath(`/platform/schools/${parsed.data.schoolId}`);
+  return {
+    ok: sent.sent,
+    message: sent.sent ? "Reset password email sent to school admin." : "Email provider is not configured."
+  };
 }

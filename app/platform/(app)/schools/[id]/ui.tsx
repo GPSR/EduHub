@@ -1,14 +1,15 @@
 "use client";
 
-import { useActionState } from "react";
-import { useState } from "react";
+import { useActionState, useMemo, useState } from "react";
 import { Button, Input, Label } from "@/components/ui";
 import { CheckboxBulkActions } from "@/components/checkbox-bulk-actions";
 import {
   createAdminInviteAction,
+  resetSchoolAdminPasswordAction,
   updateSchoolAdminPasswordAction,
   updatePlatformSchoolModulesAction,
   type InviteState,
+  type ResetSchoolAdminPasswordState,
   type PlatformSchoolModulesState,
   type UpdateSchoolAdminPasswordState
 } from "./actions";
@@ -16,10 +17,49 @@ import {
 const initialState: InviteState = { ok: true };
 const initialModulesState: PlatformSchoolModulesState = { ok: true };
 const initialPasswordState: UpdateSchoolAdminPasswordState = { ok: true };
+const initialResetPasswordState: ResetSchoolAdminPasswordState = { ok: true };
 
 export function PlatformInviteForm({ schoolId }: { schoolId: string }) {
   const [state, action, pending] = useActionState(createAdminInviteAction, initialState);
   const [copied, setCopied] = useState(false);
+  const [shareState, setShareState] = useState<"idle" | "shared" | "copied">("idle");
+  const share = useMemo(() => {
+    if (!state.ok || !state.inviteUrl) return null;
+    const subject = encodeURIComponent("EduHub Admin Invite");
+    const bodyText = `You are invited to join EduHub as school admin.\n\nUse this secure invite link:\n${state.inviteUrl}\n\nThis link expires in 30 minutes.`;
+    const encodedBody = encodeURIComponent(bodyText);
+    return {
+      bodyText,
+      emailHref: `mailto:?subject=${subject}&body=${encodedBody}`,
+      smsHref: `sms:?&body=${encodedBody}`,
+      waHref: `https://wa.me/?text=${encodedBody}`
+    };
+  }, [state.ok, state.inviteUrl]);
+
+  async function handleShareInvite() {
+    if (!state.inviteUrl || !share) return;
+    const shareData = {
+      title: "EduHub Admin Invite",
+      text: share.bodyText,
+      url: state.inviteUrl
+    };
+    const nav = navigator as Navigator & {
+      share?: (data: { title?: string; text?: string; url?: string }) => Promise<void>;
+    };
+    if (typeof nav.share === "function") {
+      try {
+        await nav.share(shareData);
+        setShareState("shared");
+        setTimeout(() => setShareState("idle"), 1600);
+        return;
+      } catch {
+        return;
+      }
+    }
+    await navigator.clipboard.writeText(state.inviteUrl);
+    setShareState("copied");
+    setTimeout(() => setShareState("idle"), 1600);
+  }
 
   return (
     <form action={action} className="space-y-3">
@@ -55,6 +95,14 @@ export function PlatformInviteForm({ schoolId }: { schoolId: string }) {
                 >
                   {copied ? "Copied" : "Copy invite link"}
                 </Button>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  onClick={handleShareInvite}
+                >
+                  {shareState === "shared" ? "Shared" : shareState === "copied" ? "Copied" : "Share link"}
+                </Button>
                 <a
                   href={state.inviteUrl}
                   target="_blank"
@@ -62,6 +110,28 @@ export function PlatformInviteForm({ schoolId }: { schoolId: string }) {
                   className="inline-flex items-center justify-center gap-2 rounded-[10px] border border-white/[0.10] bg-white/[0.07] px-3 py-1.5 text-[13px] font-medium text-white/90 hover:bg-white/[0.12] hover:border-white/[0.18] transition-all"
                 >
                   Open link
+                </a>
+              </div>
+              <div className="flex flex-wrap items-center gap-2 pt-1">
+                <a
+                  href={share?.emailHref}
+                  className="inline-flex items-center justify-center gap-2 rounded-[10px] border border-white/[0.10] bg-white/[0.07] px-3 py-1.5 text-[12px] font-medium text-white/90 hover:bg-white/[0.12] hover:border-white/[0.18] transition-all"
+                >
+                  Email
+                </a>
+                <a
+                  href={share?.smsHref}
+                  className="inline-flex items-center justify-center gap-2 rounded-[10px] border border-white/[0.10] bg-white/[0.07] px-3 py-1.5 text-[12px] font-medium text-white/90 hover:bg-white/[0.12] hover:border-white/[0.18] transition-all"
+                >
+                  SMS
+                </a>
+                <a
+                  href={share?.waHref}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center justify-center gap-2 rounded-[10px] border border-white/[0.10] bg-white/[0.07] px-3 py-1.5 text-[12px] font-medium text-white/90 hover:bg-white/[0.12] hover:border-white/[0.18] transition-all"
+                >
+                  WhatsApp
                 </a>
               </div>
               <p className="text-[11px] text-white/70">
@@ -142,40 +212,78 @@ export function PlatformSchoolAdminPasswordForm({
   userId: string;
 }) {
   const [state, action, pending] = useActionState(updateSchoolAdminPasswordAction, initialPasswordState);
+  const [resetState, resetAction, resetPending] = useActionState(resetSchoolAdminPasswordAction, initialResetPasswordState);
+  const [showPassword, setShowPassword] = useState(false);
 
   return (
-    <form action={action} className="space-y-3 rounded-2xl border border-white/10 bg-white/[0.03] p-3">
-      <input type="hidden" name="schoolId" value={schoolId} />
-      <input type="hidden" name="userId" value={userId} />
-      <div className="text-xs text-white/65">Set a new password directly for this school admin.</div>
-
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <div>
-          <Label required>New password</Label>
-          <Input name="newPassword" type="password" minLength={8} required autoComplete="new-password" />
+    <div className="space-y-2">
+      <form action={action} className="space-y-3 rounded-2xl border border-white/10 bg-white/[0.03] p-3">
+        <input type="hidden" name="schoolId" value={schoolId} />
+        <input type="hidden" name="userId" value={userId} />
+        <div className="space-y-1">
+          <div className="text-xs text-white/65">Set a new password directly for this school admin.</div>
+          <div className="text-[11px] text-white/45">For security, saved passwords are never shown after update.</div>
         </div>
-        <div>
-          <Label required>Confirm password</Label>
-          <Input name="confirmPassword" type="password" minLength={8} required autoComplete="new-password" />
-        </div>
-      </div>
 
-      {state.message ? (
-        <div
-          className={
-            "rounded-2xl border p-3 text-sm " +
-            (state.ok ? "border-emerald-500/25 bg-emerald-500/10 text-emerald-100" : "border-white/10 bg-white/[0.04] text-white/80")
-          }
-        >
-          {state.message}
-        </div>
-      ) : null}
+        <label className="inline-flex items-center gap-2 text-xs text-white/70">
+          <input
+            type="checkbox"
+            checked={showPassword}
+            onChange={(event) => setShowPassword(event.target.checked)}
+            className="h-4 w-4 accent-indigo-500"
+          />
+          Show password while typing
+        </label>
 
-      <div className="flex justify-end">
-        <Button type="submit" size="sm" variant="secondary" disabled={pending}>
-          {pending ? "Updating..." : "Update password"}
-        </Button>
-      </div>
-    </form>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <Label required>New password</Label>
+            <Input name="newPassword" type={showPassword ? "text" : "password"} minLength={8} required autoComplete="new-password" />
+          </div>
+          <div>
+            <Label required>Confirm password</Label>
+            <Input name="confirmPassword" type={showPassword ? "text" : "password"} minLength={8} required autoComplete="new-password" />
+          </div>
+        </div>
+
+        {state.message ? (
+          <div
+            className={
+              "rounded-2xl border p-3 text-sm " +
+              (state.ok ? "border-emerald-500/25 bg-emerald-500/10 text-emerald-100" : "border-white/10 bg-white/[0.04] text-white/80")
+            }
+          >
+            {state.message}
+          </div>
+        ) : null}
+
+        <div className="flex justify-end">
+          <Button type="submit" size="sm" variant="secondary" disabled={pending}>
+            {pending ? "Updating..." : "Update password"}
+          </Button>
+        </div>
+      </form>
+
+      <form action={resetAction} className="space-y-2 rounded-2xl border border-white/10 bg-white/[0.02] p-3">
+        <input type="hidden" name="schoolId" value={schoolId} />
+        <input type="hidden" name="userId" value={userId} />
+        <div className="text-xs text-white/65">Or send a secure reset link to school admin email.</div>
+        {resetState.message ? (
+          <div
+            className={
+              "rounded-2xl border p-3 text-sm " +
+              (resetState.ok ? "border-emerald-500/25 bg-emerald-500/10 text-emerald-100" : "border-white/10 bg-white/[0.04] text-white/80")
+            }
+          >
+            {resetState.message}
+          </div>
+        ) : null}
+        <div className="flex justify-end">
+          <Button type="submit" size="sm" disabled={resetPending}>
+            {resetPending ? "Sending..." : "Send reset email"}
+          </Button>
+        </div>
+      </form>
+    </div>
   );
 }

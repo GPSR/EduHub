@@ -5,6 +5,7 @@ import { requireSession } from "@/lib/require";
 import { atLeastLevel, getEffectivePermissions } from "@/lib/permissions";
 import { requirePermission } from "@/lib/require-permission";
 import { eachDayInclusive, formatMonthKey, monthWindow, parseDateOnlyInput, parseMonthKey } from "@/lib/leave-utils";
+import { getAcademicYearContext, withAcademicYearParam } from "@/lib/academic-year";
 
 function isoDate(d: Date) {
   const year = d.getFullYear();
@@ -67,11 +68,17 @@ function statusConfig(status: string) {
 export default async function AttendancePage({
   searchParams,
 }: {
-  searchParams: Promise<{ date?: string; month?: string }>;
+  searchParams: Promise<{ date?: string; month?: string; ay?: string }>;
 }) {
   await requirePermission("ATTENDANCE", "VIEW");
   const session = await requireSession();
-  const { date: dateParam, month: monthParam } = await searchParams;
+  const { date: dateParam, month: monthParam, ay } = await searchParams;
+  const yearContext = await getAcademicYearContext({
+    schoolId: session.schoolId,
+    requestedYearId: ay
+  });
+  const selectedYear = yearContext.selectedYear;
+  const isYearWritable = selectedYear.status !== "CLOSED";
   const date = parseDateOnlyInput(String(dateParam ?? "").trim()) ?? startOfDay(new Date());
   const monthStart = parseMonthKey(monthParam) ?? startOfMonth(date);
   const previousMonthKey = formatMonthKey(addMonths(monthStart, -1));
@@ -88,7 +95,7 @@ export default async function AttendancePage({
     const students = await db.student.findMany({
       where: { schoolId: session.schoolId, parents: { some: { userId: session.userId } } },
       orderBy: { fullName: "asc" },
-      include: { attendance: { where: { date }, orderBy: { date: "desc" } } },
+      include: { attendance: { where: { date, academicYearId: selectedYear.id }, orderBy: { date: "desc" } } },
     });
     const studentIds = students.map((s) => s.id);
     const monthRecords =
@@ -96,6 +103,7 @@ export default async function AttendancePage({
         ? await db.attendanceRecord.findMany({
             where: {
               schoolId: session.schoolId,
+              academicYearId: selectedYear.id,
               studentId: { in: studentIds },
               date: { gte: monthRangeStart, lte: monthRangeEnd }
             },
@@ -106,7 +114,12 @@ export default async function AttendancePage({
 
     return (
       <div className="space-y-5 animate-fade-up">
-        <DateHeader date={date} isToday={isToday} />
+        {!isYearWritable ? (
+          <div className="rounded-[14px] border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
+            Academic year {selectedYear.name} is closed. Attendance is read-only.
+          </div>
+        ) : null}
+        <DateHeader date={date} isToday={isToday} academicYearName={selectedYear.name} academicYearId={selectedYear.id} />
         <Card title="Attendance" description="Your children's attendance for the selected date">
           {students.length === 0 ? (
             <EmptyState icon="👨‍👩‍👧" title="No linked students" />
@@ -131,6 +144,7 @@ export default async function AttendancePage({
           description="Full month details for your linked students."
           previousMonthKey={previousMonthKey}
           nextMonthKey={nextMonthKey}
+          academicYearId={selectedYear.id}
           monthStart={monthStart}
           monthDays={monthDays}
           students={students.map((s) => ({ id: s.id, fullName: s.fullName }))}
@@ -147,7 +161,7 @@ export default async function AttendancePage({
     take: 200,
   });
   const existing = await db.attendanceRecord.findMany({
-    where: { schoolId: session.schoolId, date },
+    where: { schoolId: session.schoolId, academicYearId: selectedYear.id, date },
     select: { studentId: true, status: true },
   });
   const statusMap = new Map(existing.map(r => [r.studentId, r.status]));
@@ -157,7 +171,7 @@ export default async function AttendancePage({
     userId: session.userId,
     roleId: session.roleId,
   });
-  const canMark = perms["ATTENDANCE"] ? atLeastLevel(perms["ATTENDANCE"], "EDIT") : false;
+  const canMark = isYearWritable && (perms["ATTENDANCE"] ? atLeastLevel(perms["ATTENDANCE"], "EDIT") : false);
 
   const markedCount = existing.length;
   const presentCount = existing.filter(r => r.status === "PRESENT").length;
@@ -171,6 +185,7 @@ export default async function AttendancePage({
     const records = await db.attendanceRecord.findMany({
       where: {
         schoolId: session.schoolId,
+        academicYearId: selectedYear.id,
         studentId: { in: scopedStudentIds },
         date: { gte: trendStart, lte: addDays(trendEnd, 1) }
       },
@@ -209,6 +224,7 @@ export default async function AttendancePage({
       ? await db.attendanceRecord.findMany({
           where: {
             schoolId: session.schoolId,
+            academicYearId: selectedYear.id,
             studentId: { in: scopedStudentIds },
             date: { gte: monthRangeStart, lte: monthRangeEnd }
           },
@@ -219,7 +235,12 @@ export default async function AttendancePage({
 
   return (
     <div className="space-y-5 animate-fade-up">
-      <DateHeader date={date} isToday={isToday} />
+      {!isYearWritable ? (
+        <div className="rounded-[14px] border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
+          Academic year {selectedYear.name} is closed. Attendance is read-only.
+        </div>
+      ) : null}
+      <DateHeader date={date} isToday={isToday} academicYearName={selectedYear.name} academicYearId={selectedYear.id} />
 
       {/* Summary */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
@@ -241,6 +262,7 @@ export default async function AttendancePage({
         description="Monthly view across all students and all days."
         previousMonthKey={previousMonthKey}
         nextMonthKey={nextMonthKey}
+        academicYearId={selectedYear.id}
         monthStart={monthStart}
         monthDays={monthDays}
         students={students.map((s) => ({ id: s.id, fullName: s.fullName }))}
@@ -301,6 +323,7 @@ export default async function AttendancePage({
                 key={s.id}
                 date={dateStr}
                 studentId={s.id}
+                academicYearId={selectedYear.id}
                 name={s.fullName}
                 current={statusMap.get(s.id) ?? "NOT_MARKED"}
                 isFirst={i === 0}
@@ -319,6 +342,7 @@ function MonthlyAttendanceGrid({
   description,
   previousMonthKey,
   nextMonthKey,
+  academicYearId,
   monthStart,
   monthDays,
   students,
@@ -328,6 +352,7 @@ function MonthlyAttendanceGrid({
   description: string;
   previousMonthKey: string;
   nextMonthKey: string;
+  academicYearId: string;
   monthStart: Date;
   monthDays: Date[];
   students: Array<{ id: string; fullName: string }>;
@@ -348,13 +373,13 @@ function MonthlyAttendanceGrid({
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Link href={`/attendance?month=${encodeURIComponent(previousMonthKey)}&date=${encodeURIComponent(`${previousMonthKey}-01`)}`}>
+          <Link href={withAcademicYearParam(`/attendance?month=${encodeURIComponent(previousMonthKey)}&date=${encodeURIComponent(`${previousMonthKey}-01`)}`, academicYearId)}>
             <Button variant="secondary" size="sm">← Prev</Button>
           </Link>
-          <Link href={`/attendance?month=${encodeURIComponent(formatMonthKey(new Date()))}&date=${encodeURIComponent(isoDate(new Date()))}`}>
+          <Link href={withAcademicYearParam(`/attendance?month=${encodeURIComponent(formatMonthKey(new Date()))}&date=${encodeURIComponent(isoDate(new Date()))}`, academicYearId)}>
             <Button variant="secondary" size="sm">Today</Button>
           </Link>
-          <Link href={`/attendance?month=${encodeURIComponent(nextMonthKey)}&date=${encodeURIComponent(`${nextMonthKey}-01`)}`}>
+          <Link href={withAcademicYearParam(`/attendance?month=${encodeURIComponent(nextMonthKey)}&date=${encodeURIComponent(`${nextMonthKey}-01`)}`, academicYearId)}>
             <Button variant="secondary" size="sm">Next →</Button>
           </Link>
         </div>
@@ -443,7 +468,17 @@ function TrendMetric({ label, value, tone }: { label: string; value: number; ton
   );
 }
 
-function DateHeader({ date, isToday }: { date: Date; isToday: boolean }) {
+function DateHeader({
+  date,
+  isToday,
+  academicYearName,
+  academicYearId
+}: {
+  date: Date;
+  isToday: boolean;
+  academicYearName: string;
+  academicYearId: string;
+}) {
   const dateStr = isoDate(date);
   const prev = new Date(date); prev.setDate(prev.getDate() - 1);
   const next = new Date(date); next.setDate(next.getDate() + 1);
@@ -453,13 +488,14 @@ function DateHeader({ date, isToday }: { date: Date; isToday: boolean }) {
     <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
       <SectionHeader
         title="Daily Attendance"
-        subtitle={`${date.toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}${isToday ? " · Today" : ""}`}
+        subtitle={`${date.toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}${isToday ? " · Today" : ""} · ${academicYearName}`}
       />
       <div className="flex flex-wrap items-center gap-2">
-        <Link href={`/attendance?date=${isoDate(prev)}`}>
+        <Link href={withAcademicYearParam(`/attendance?date=${isoDate(prev)}`, academicYearId)}>
           <Button variant="secondary" size="sm">←</Button>
         </Link>
         <form action="/attendance" method="get" className="flex items-center gap-2">
+          <input type="hidden" name="ay" value={academicYearId} />
           <input
             type="date"
             name="date"
@@ -469,11 +505,11 @@ function DateHeader({ date, isToday }: { date: Date; isToday: boolean }) {
           <Button type="submit" variant="secondary" size="sm">Go</Button>
         </form>
         {!isToday && (
-          <Link href={`/attendance?date=${today}`}>
+          <Link href={withAcademicYearParam(`/attendance?date=${today}`, academicYearId)}>
             <Button variant="secondary" size="sm">Today</Button>
           </Link>
         )}
-        <Link href={`/attendance?date=${isoDate(next)}`}>
+        <Link href={withAcademicYearParam(`/attendance?date=${isoDate(next)}`, academicYearId)}>
           <Button variant="secondary" size="sm">→</Button>
         </Link>
       </div>
@@ -483,8 +519,10 @@ function DateHeader({ date, isToday }: { date: Date; isToday: boolean }) {
 
 async function AttendanceRow({
   date, studentId, name, current, isFirst, isLast,
+  academicYearId,
 }: {
   date: string; studentId: string; name: string; current: string;
+  academicYearId: string;
   isFirst: boolean; isLast: boolean;
 }) {
   const { markAttendanceAction } = await import("./actions");
@@ -503,6 +541,7 @@ async function AttendanceRow({
       <form action={markAttendanceAction} className="flex items-center gap-2 w-full sm:w-auto sm:shrink-0 mt-2 sm:mt-0">
         <input type="hidden" name="date" value={date} />
         <input type="hidden" name="studentId" value={studentId} />
+        <input type="hidden" name="academicYearId" value={academicYearId} />
         <select
           name="status"
           defaultValue={current === "NOT_MARKED" ? "PRESENT" : current}

@@ -6,6 +6,7 @@ import { db } from "@/lib/db";
 import { requirePermission } from "@/lib/require-permission";
 import { atLeastLevel } from "@/lib/permissions";
 import { formatMonthKey, parseDateOnlyInput } from "@/lib/leave-utils";
+import { requireWritableAcademicYear, withAcademicYearParam } from "@/lib/academic-year";
 
 const CreateCalendarEventSchema = z.object({
   title: z.string().trim().min(2).max(140),
@@ -14,7 +15,8 @@ const CreateCalendarEventSchema = z.object({
   audienceScope: z.enum(["SCHOOL_WIDE", "CLASS_WISE"]),
   classIds: z.array(z.string().min(1)).default([]),
   startsOn: z.string().min(1),
-  endsOn: z.string().optional()
+  endsOn: z.string().optional(),
+  academicYearId: z.string().optional()
 });
 
 function parseCalendarEventInput(formData: FormData) {
@@ -31,7 +33,8 @@ function parseCalendarEventInput(formData: FormData) {
     audienceScope: formData.get("audienceScope"),
     classIds,
     startsOn: formData.get("startsOn"),
-    endsOn: String(formData.get("endsOn") ?? "").trim() || undefined
+    endsOn: String(formData.get("endsOn") ?? "").trim() || undefined,
+    academicYearId: String(formData.get("academicYearId") ?? "").trim() || undefined
   });
   if (!parsed.success) {
     throw new Error(parsed.error.issues[0]?.message ?? "Unable to process request.");
@@ -49,7 +52,8 @@ function parseCalendarEventInput(formData: FormData) {
     audienceScope: parsed.data.audienceScope,
     startsOn,
     endsOn,
-    classIds: [...new Set(parsed.data.classIds)]
+    classIds: [...new Set(parsed.data.classIds)],
+    academicYearId: parsed.data.academicYearId
   };
 }
 
@@ -92,6 +96,10 @@ export async function createSchoolCalendarEventAction(formData: FormData) {
     throw new Error("Only users with calendar edit access can add events.");
   }
   const input = parseCalendarEventInput(formData);
+  const year = await requireWritableAcademicYear({
+    schoolId: session.schoolId,
+    requestedYearId: input.academicYearId
+  });
   const validTargetClassIds = await resolveValidClassIds({
     schoolId: session.schoolId,
     userId: session.userId,
@@ -104,6 +112,7 @@ export async function createSchoolCalendarEventAction(formData: FormData) {
     const event = await tx.schoolCalendarEvent.create({
       data: {
         schoolId: session.schoolId,
+        academicYearId: year.id,
         title: input.title,
         description: input.description,
         eventType: input.eventType,
@@ -127,7 +136,7 @@ export async function createSchoolCalendarEventAction(formData: FormData) {
     }
   });
 
-  redirect(`/calendar?month=${formatMonthKey(input.startsOn)}`);
+  redirect(withAcademicYearParam(`/calendar?month=${formatMonthKey(input.startsOn)}`, year.id));
 }
 
 export async function updateSchoolCalendarEventAction(formData: FormData) {
@@ -140,9 +149,12 @@ export async function updateSchoolCalendarEventAction(formData: FormData) {
   if (!eventId) throw new Error("Event id is required.");
   const event = await db.schoolCalendarEvent.findFirst({
     where: { id: eventId, schoolId: session.schoolId },
-    select: { id: true }
+    select: { id: true, academicYearId: true, academicYear: { select: { name: true, status: true } } }
   });
   if (!event) throw new Error("Event not found.");
+  if (event.academicYear.status === "CLOSED") {
+    throw new Error(`Academic year ${event.academicYear.name} is closed and this calendar is read-only.`);
+  }
 
   const input = parseCalendarEventInput(formData);
   const validTargetClassIds = await resolveValidClassIds({
@@ -181,7 +193,7 @@ export async function updateSchoolCalendarEventAction(formData: FormData) {
     }
   });
 
-  redirect(`/calendar?month=${formatMonthKey(input.startsOn)}`);
+  redirect(withAcademicYearParam(`/calendar?month=${formatMonthKey(input.startsOn)}`, event.academicYearId));
 }
 
 export async function deleteSchoolCalendarEventAction(formData: FormData) {
@@ -194,12 +206,15 @@ export async function deleteSchoolCalendarEventAction(formData: FormData) {
   if (!eventId) throw new Error("Event id is required.");
   const event = await db.schoolCalendarEvent.findFirst({
     where: { id: eventId, schoolId: session.schoolId },
-    select: { id: true, startsOn: true }
+    select: { id: true, startsOn: true, academicYearId: true, academicYear: { select: { name: true, status: true } } }
   });
   if (!event) throw new Error("Event not found.");
+  if (event.academicYear.status === "CLOSED") {
+    throw new Error(`Academic year ${event.academicYear.name} is closed and this calendar is read-only.`);
+  }
   await db.schoolCalendarEvent.delete({ where: { id: event.id } });
 
   const monthKeyRaw = String(formData.get("monthKey") ?? "").trim();
   const monthKey = /^\d{4}-\d{2}$/.test(monthKeyRaw) ? monthKeyRaw : formatMonthKey(event.startsOn);
-  redirect(`/calendar?month=${monthKey}`);
+  redirect(withAcademicYearParam(`/calendar?month=${monthKey}`, event.academicYearId));
 }

@@ -3,6 +3,7 @@ import { Card, SectionHeader, Badge } from "@/components/ui";
 import { db } from "@/lib/db";
 import { requireSession } from "@/lib/require";
 import { requirePermission } from "@/lib/require-permission";
+import { getAcademicYearContext, withAcademicYearParam } from "@/lib/academic-year";
 
 function fmt(cents: number) {
   return `$${(cents / 100).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -11,12 +12,19 @@ function pct(n: number, total: number) {
   return total > 0 ? Math.round((n / total) * 100) : 0;
 }
 
-export default async function ReportsPage() {
+export default async function ReportsPage({
+  searchParams
+}: {
+  searchParams: Promise<{ ay?: string }>;
+}) {
   await requirePermission("REPORTS", "VIEW");
   const session = await requireSession();
+  const { ay } = await searchParams;
+  const yearContext = await getAcademicYearContext({ schoolId: session.schoolId, requestedYearId: ay });
+  const selectedYear = yearContext.selectedYear;
   const today     = new Date(); today.setHours(0, 0, 0, 0);
   const monthStart = new Date(); monthStart.setDate(1); monthStart.setHours(0, 0, 0, 0);
-  const yearStart  = new Date(today.getFullYear(), 0, 1);
+  const yearStart  = selectedYear.startsOn;
 
   // ── Core counts ──────────────────────────────────────
   const [
@@ -39,19 +47,19 @@ export default async function ReportsPage() {
     db.user.count({ where: { schoolId: session.schoolId, schoolRole: { key: { in: ["TEACHER","CLASS_TEACHER"] } } } }),
     db.user.count({ where: { schoolId: session.schoolId } }),
 
-    db.attendanceRecord.count({ where: { schoolId: session.schoolId, date: today, status: "PRESENT" } }),
-    db.attendanceRecord.count({ where: { schoolId: session.schoolId, date: today, status: "ABSENT" } }),
-    db.attendanceRecord.count({ where: { schoolId: session.schoolId, date: today, status: "LATE" } }),
+    db.attendanceRecord.count({ where: { schoolId: session.schoolId, academicYearId: selectedYear.id, date: today, status: "PRESENT" } }),
+    db.attendanceRecord.count({ where: { schoolId: session.schoolId, academicYearId: selectedYear.id, date: today, status: "ABSENT" } }),
+    db.attendanceRecord.count({ where: { schoolId: session.schoolId, academicYearId: selectedYear.id, date: today, status: "LATE" } }),
 
-    db.feeInvoice.aggregate({ where: { schoolId: session.schoolId }, _sum: { amountCents: true }, _count: { _all: true } }),
-    db.feeInvoice.aggregate({ where: { schoolId: session.schoolId, status: "PAID" }, _sum: { amountCents: true } }),
-    db.feeInvoice.aggregate({ where: { schoolId: session.schoolId, status: "OVERDUE" }, _sum: { amountCents: true }, _count: { _all: true } }),
+    db.feeInvoice.aggregate({ where: { schoolId: session.schoolId, academicYearId: selectedYear.id }, _sum: { amountCents: true }, _count: { _all: true } }),
+    db.feeInvoice.aggregate({ where: { schoolId: session.schoolId, academicYearId: selectedYear.id, status: "PAID" }, _sum: { amountCents: true } }),
+    db.feeInvoice.aggregate({ where: { schoolId: session.schoolId, academicYearId: selectedYear.id, status: "OVERDUE" }, _sum: { amountCents: true }, _count: { _all: true } }),
 
-    db.feePayment.aggregate({ where: { invoice: { schoolId: session.schoolId }, paidAt: { gte: monthStart } }, _sum: { amountCents: true } }),
-    db.feePayment.aggregate({ where: { invoice: { schoolId: session.schoolId }, paidAt: { gte: yearStart } }, _sum: { amountCents: true } }),
+    db.feePayment.aggregate({ where: { invoice: { schoolId: session.schoolId, academicYearId: selectedYear.id }, paidAt: { gte: monthStart } }, _sum: { amountCents: true } }),
+    db.feePayment.aggregate({ where: { invoice: { schoolId: session.schoolId, academicYearId: selectedYear.id }, paidAt: { gte: yearStart } }, _sum: { amountCents: true } }),
 
     db.feeInvoice.findMany({
-      where: { schoolId: session.schoolId, status: "OVERDUE" },
+      where: { schoolId: session.schoolId, academicYearId: selectedYear.id, status: "OVERDUE" },
       include: { student: true },
       orderBy: { dueOn: "asc" },
       take: 10,
@@ -59,7 +67,7 @@ export default async function ReportsPage() {
 
     db.attendanceRecord.groupBy({
       by: ["date", "status"],
-      where: { schoolId: session.schoolId, date: { gte: new Date(Date.now() - 30 * 86400000) } },
+      where: { schoolId: session.schoolId, academicYearId: selectedYear.id, date: { gte: new Date(Date.now() - 30 * 86400000) } },
       _count: { _all: true },
       orderBy: { date: "asc" },
     }),
@@ -71,7 +79,7 @@ export default async function ReportsPage() {
     }),
 
     db.examResult.findMany({
-      where:   { schoolId: session.schoolId },
+      where:   { schoolId: session.schoolId, academicYearId: selectedYear.id },
       orderBy: { createdAt: "desc" },
       take:    200,
     }),
@@ -134,7 +142,7 @@ export default async function ReportsPage() {
 
   return (
     <div className="space-y-5 animate-fade-up">
-      <SectionHeader title="Reports" subtitle="Analytics and insights across your school" />
+      <SectionHeader title="Reports" subtitle={`Analytics and insights across your school · ${selectedYear.name}`} />
 
       {/* ── Top metrics ── */}
       <div className="grid grid-cols-2 gap-3">
@@ -186,7 +194,7 @@ export default async function ReportsPage() {
                 <p className="text-[11px] text-amber-300/60">{fmt(totalOverdueCents)} outstanding</p>
               </div>
             </div>
-            <Link href="/fees" className="text-[12px] font-semibold text-amber-300 hover:text-amber-200 transition">
+            <Link href={withAcademicYearParam("/fees", selectedYear.id)} className="text-[12px] font-semibold text-amber-300 hover:text-amber-200 transition">
               View →
             </Link>
           </div>
@@ -202,7 +210,7 @@ export default async function ReportsPage() {
                 ? Math.floor((Date.now() - inv.dueOn.getTime()) / 86400000)
                 : null;
               return (
-                <Link key={inv.id} href={`/fees/${inv.id}`}
+                <Link key={inv.id} href={withAcademicYearParam(`/fees/${inv.id}`, selectedYear.id)}
                   className="flex items-center justify-between gap-3 rounded-[12px] border border-white/[0.07] bg-white/[0.03] px-3.5 py-3 hover:bg-white/[0.07] transition">
                   <div className="min-w-0">
                     <p className="text-[13px] font-semibold text-white/85 truncate">{inv.student.fullName}</p>

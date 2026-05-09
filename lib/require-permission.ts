@@ -26,3 +26,35 @@ export async function requirePermission(moduleKey: string, required: PermissionL
   if (!level || !atLeastLevel(level, required)) redirect(getDefaultSchoolHomePath(session.roleKey));
   return { session, level };
 }
+
+export async function requireAnyPermission(moduleKeys: string[], required: PermissionLevel = "VIEW") {
+  const session = await requireSession();
+  const autoEnsureModules = new Set<ModuleKey>([
+    "GALLERY",
+    "LEARNING_CENTER",
+    "YOUTUBE_LEARNING",
+    "SCHOOL_CALENDAR",
+    "LEAVE_REQUESTS",
+    "TEACHER_SALARY"
+  ]);
+  for (const key of moduleKeys) {
+    if (autoEnsureModules.has(key as ModuleKey)) {
+      await ensureSchoolModuleRow(session.schoolId, key as ModuleKey);
+    }
+  }
+
+  const perms = await getEffectivePermissions({
+    schoolId: session.schoolId,
+    userId: session.userId,
+    roleId: session.roleId
+  });
+
+  for (const key of moduleKeys) {
+    const level = perms[key];
+    if (level && atLeastLevel(level, required)) {
+      return { session, level, moduleKey: key };
+    }
+  }
+
+  redirect(getDefaultSchoolHomePath(session.roleKey));
+}

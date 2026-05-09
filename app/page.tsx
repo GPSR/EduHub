@@ -1,10 +1,10 @@
 import { getSession } from "@/lib/session";
-import { db } from "@/lib/db";
 import { resolveActiveSchoolSession } from "@/lib/auth-session";
 import { ProductHomePage } from "@/components/product-home-page";
 import { DesktopHelpWidget } from "@/components/desktop-help-widget";
 import { headers } from "next/headers";
 import { getDefaultSchoolHomePath } from "@/lib/default-school-home";
+import { queryFirst } from "@/lib/neon-db";
 
 export default async function HomePage() {
   const requestHeaders = await headers();
@@ -13,10 +13,13 @@ export default async function HomePage() {
   const session = await resolveActiveSchoolSession(await getSession());
   const defaultHomeHref = session ? getDefaultSchoolHomePath(session.roleKey) : "/dashboard";
   const user = session
-    ? await db.user.findUnique({
-      where: { id: session.userId },
-      select: { name: true }
-    })
+    ? await queryFirst<{ name: string }>(
+      `SELECT "name"
+       FROM "User"
+       WHERE "id" = $1
+       LIMIT 1`,
+      [session.userId]
+    )
     : null;
 
   return (

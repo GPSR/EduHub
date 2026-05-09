@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
-import { db } from "@/lib/db";
 import { getSession } from "@/lib/session";
 import { resolveActiveSchoolSession } from "@/lib/auth-session";
 import { issueSchoolBiometricToken } from "@/lib/biometric-auth";
 import { isJsonRequest, isTrustedMutationRequest } from "@/lib/request-security";
+import { queryFirst } from "@/lib/neon-db";
 
 export async function POST(req: Request) {
   if (!isTrustedMutationRequest(req, { allowNativeAppOrigin: true })) {
@@ -18,16 +18,13 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: false, message: "Unauthorized." }, { status: 401 });
   }
 
-  const user = await db.user.findFirst({
-    where: {
-      id: session.userId,
-      schoolId: session.schoolId,
-      isActive: true,
-    },
-    select: {
-      passwordHash: true,
-    },
-  });
+  const user = await queryFirst<{ passwordHash: string }>(
+    `SELECT "passwordHash"
+     FROM "User"
+     WHERE "id" = $1 AND "schoolId" = $2 AND "isActive" = TRUE
+     LIMIT 1`,
+    [session.userId, session.schoolId]
+  );
 
   if (!user) {
     return NextResponse.json({ ok: false, message: "User account is unavailable." }, { status: 401 });

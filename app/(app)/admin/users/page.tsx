@@ -23,6 +23,20 @@ function avatarColor(name: string) {
   return colors[name.charCodeAt(0) % colors.length];
 }
 
+function canSchoolAdminManagePassword(roleKey: string) {
+  const normalized = roleKey.toUpperCase();
+  return (
+    normalized === "TEACHER" ||
+    normalized.startsWith("TEACHER_") ||
+    normalized === "CLASS_TEACHER" ||
+    normalized.startsWith("CLASS_TEACHER_") ||
+    normalized === "PARENT" ||
+    normalized.startsWith("PARENT_") ||
+    normalized === "STUDENT" ||
+    normalized.startsWith("STUDENT_")
+  );
+}
+
 export default async function AdminUsersPage({
   searchParams
 }: {
@@ -107,6 +121,7 @@ export default async function AdminUsersPage({
             const feedCount = feedCountByAuthorId.get(u.id) ?? 0;
             const recentFeed = recentFeedByAuthorId.get(u.id) ?? [];
             const isTeacherRole = u.schoolRole.key === "TEACHER" || u.schoolRole.key === "CLASS_TEACHER";
+            const canUpdatePassword = canSchoolAdminManagePassword(u.schoolRole.key);
             return (
               <div
                 key={u.id}
@@ -212,15 +227,17 @@ export default async function AdminUsersPage({
                       </div>
                     </div>
 
-                    <div>
-                      <p className="text-[11px] font-semibold uppercase tracking-wider text-white/35 mb-2">Security</p>
-                      <div className="rounded-[10px] border border-white/[0.07] bg-black/20 p-3">
-                        <p className="mb-3 text-[12px] text-white/55">
-                          Set a new password directly for this user. Existing unused reset links will be invalidated.
-                        </p>
-                        <UserPasswordUpdateForm userId={u.id} />
+                    {canUpdatePassword ? (
+                      <div>
+                        <p className="text-[11px] font-semibold uppercase tracking-wider text-white/35 mb-2">Security</p>
+                        <div className="rounded-[10px] border border-white/[0.07] bg-black/20 p-3">
+                          <p className="mb-3 text-[12px] text-white/55">
+                            Set a new password directly for this user. Existing unused reset links will be invalidated.
+                          </p>
+                          <UserPasswordUpdateForm userId={u.id} />
+                        </div>
                       </div>
-                    </div>
+                    ) : null}
 
                     {isTeacherRole ? (
                       <div>

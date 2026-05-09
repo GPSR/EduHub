@@ -7,25 +7,26 @@ import { Button } from "@/components/ui";
 type CalendarMonthNavProps = {
   previousMonth: string;
   nextMonth: string;
+  academicYearId: string;
 };
 
-function monthHref(monthKey: string) {
-  return `/calendar?month=${encodeURIComponent(monthKey)}`;
+function monthHref(monthKey: string, academicYearId: string) {
+  return `/calendar?month=${encodeURIComponent(monthKey)}&ay=${encodeURIComponent(academicYearId)}`;
 }
 
-export function CalendarMonthNav({ previousMonth, nextMonth }: CalendarMonthNavProps) {
+export function CalendarMonthNav({ previousMonth, nextMonth, academicYearId }: CalendarMonthNavProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
 
-  const previousHref = useMemo(() => monthHref(previousMonth), [previousMonth]);
-  const nextHref = useMemo(() => monthHref(nextMonth), [nextMonth]);
-  const todayHref = "/calendar";
+  const previousHref = useMemo(() => monthHref(previousMonth, academicYearId), [previousMonth, academicYearId]);
+  const nextHref = useMemo(() => monthHref(nextMonth, academicYearId), [nextMonth, academicYearId]);
+  const todayHref = useMemo(() => `/calendar?ay=${encodeURIComponent(academicYearId)}`, [academicYearId]);
 
   useEffect(() => {
     router.prefetch(previousHref);
     router.prefetch(nextHref);
     router.prefetch(todayHref);
-  }, [router, previousHref, nextHref]);
+  }, [router, previousHref, nextHref, todayHref]);
 
   const goTo = (href: string) => {
     startTransition(() => {
@@ -71,4 +72,3 @@ export function CalendarMonthNav({ previousMonth, nextMonth }: CalendarMonthNavP
     </div>
   );
 }
-

@@ -152,11 +152,12 @@ export async function seedSchoolModulesAndRolePerms(schoolId: string) {
   for (const m of DEFAULT_MODULES.filter((x) => x.mvp)) {
     await setRoleModuleLevel("ADMIN", m.key, "ADMIN");
   }
+  await setRoleModuleLevel("ADMIN", "ACADEMICS", "ADMIN");
   await setRoleModuleLevel("ADMIN", "USERS", "ADMIN");
   await setRoleModuleLevel("ADMIN", "SETTINGS", "ADMIN");
 
   // Headmaster/Principal: approve where relevant, otherwise admin-lite
-  for (const key of ["DASHBOARD", "STUDENTS", "FEES", "ATTENDANCE", "TIMETABLE", "COMMUNICATION", "HOMEWORK", "PROGRESS_CARD", "REPORTS"] as const) {
+  for (const key of ["DASHBOARD", "STUDENTS", "FEES", "ATTENDANCE", "TIMETABLE", "COMMUNICATION", "HOMEWORK", "PROGRESS_CARD", "ACADEMICS", "REPORTS"] as const) {
     await setRoleModuleLevel("HEAD_MASTER", key, key === "COMMUNICATION" || key === "REPORTS" ? "APPROVE" : "EDIT");
     await setRoleModuleLevel("PRINCIPAL", key, key === "COMMUNICATION" || key === "REPORTS" ? "APPROVE" : "EDIT");
   }
@@ -174,7 +175,7 @@ export async function seedSchoolModulesAndRolePerms(schoolId: string) {
   await setRoleModuleLevel("PRINCIPAL", "TEACHER_SALARY", "VIEW");
 
   // Teachers
-  for (const key of ["DASHBOARD", "STUDENTS", "ATTENDANCE", "TIMETABLE", "COMMUNICATION", "HOMEWORK", "PROGRESS_CARD", "GALLERY", "LEARNING_CENTER"] as const) {
+  for (const key of ["DASHBOARD", "STUDENTS", "ATTENDANCE", "TIMETABLE", "COMMUNICATION", "HOMEWORK", "PROGRESS_CARD", "ACADEMICS", "GALLERY", "LEARNING_CENTER"] as const) {
     await setRoleModuleLevel("TEACHER", key, "EDIT");
     await setRoleModuleLevel("CLASS_TEACHER", key, "EDIT");
   }
@@ -188,7 +189,7 @@ export async function seedSchoolModulesAndRolePerms(schoolId: string) {
   await setRoleModuleLevel("CLASS_TEACHER", "REPORTS", "VIEW");
 
   // Parents: view-only on relevant modules
-  for (const key of ["DASHBOARD", "STUDENTS", "FEES", "ATTENDANCE", "TIMETABLE", "COMMUNICATION", "HOMEWORK", "PROGRESS_CARD", "GALLERY", "LEARNING_CENTER"] as const) {
+  for (const key of ["DASHBOARD", "STUDENTS", "FEES", "ATTENDANCE", "TIMETABLE", "COMMUNICATION", "HOMEWORK", "PROGRESS_CARD", "ACADEMICS", "GALLERY", "LEARNING_CENTER"] as const) {
     await setRoleModuleLevel("PARENT", key, "VIEW");
   }
   await setRoleModuleLevel("PARENT", "YOUTUBE_LEARNING", "VIEW");
@@ -202,7 +203,7 @@ export async function seedSchoolModulesAndRolePerms(schoolId: string) {
   await setRoleModuleLevel("BUS_ASSISTANT", "SCHOOL_CALENDAR", "VIEW");
 
   // Correspondent: high-level view + approvals on comms
-  for (const key of ["DASHBOARD", "FEES", "REPORTS", "GALLERY", "LEARNING_CENTER", "YOUTUBE_LEARNING", "SCHOOL_CALENDAR"] as const) {
+  for (const key of ["DASHBOARD", "FEES", "REPORTS", "ACADEMICS", "GALLERY", "LEARNING_CENTER", "YOUTUBE_LEARNING", "SCHOOL_CALENDAR"] as const) {
     await setRoleModuleLevel("CORRESPONDENT", key, "VIEW");
   }
   await setRoleModuleLevel("CORRESPONDENT", "COMMUNICATION", "APPROVE");
@@ -263,6 +264,7 @@ export async function getEffectivePermissions({
   const calendarNotConfigured = !moduleStateByKey.has("SCHOOL_CALENDAR");
   const leaveRequestsNotConfigured = !moduleStateByKey.has("LEAVE_REQUESTS");
   const teacherSalaryNotConfigured = !moduleStateByKey.has("TEACHER_SALARY");
+  const academicsNotConfigured = !moduleStateByKey.has("ACADEMICS");
 
   if ((enabled.has("GALLERY") || galleryNotConfigured) && !map.GALLERY) {
     if (role?.key === "ADMIN") map.GALLERY = "ADMIN";
@@ -308,6 +310,13 @@ export async function getEffectivePermissions({
   if ((enabled.has("TEACHER_SALARY") || teacherSalaryNotConfigured) && !map.TEACHER_SALARY) {
     if (role?.key === "ADMIN") map.TEACHER_SALARY = "ADMIN";
     else if (role?.key === "HEAD_MASTER" || role?.key === "PRINCIPAL") map.TEACHER_SALARY = "VIEW";
+  }
+
+  if ((enabled.has("ACADEMICS") || academicsNotConfigured) && !map.ACADEMICS) {
+    if (role?.key === "ADMIN") map.ACADEMICS = "ADMIN";
+    else if (role?.key === "HEAD_MASTER" || role?.key === "PRINCIPAL") map.ACADEMICS = "APPROVE";
+    else if (role?.key === "TEACHER" || role?.key === "CLASS_TEACHER") map.ACADEMICS = "EDIT";
+    else map.ACADEMICS = "VIEW";
   }
 
   return map;

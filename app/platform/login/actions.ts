@@ -1,10 +1,10 @@
 "use server";
 
-import { db } from "@/lib/db";
 import { verifyPassword } from "@/lib/password";
 import { createPlatformSessionCookie } from "@/lib/platform-session";
 import { auditLog } from "@/lib/audit";
 import { buildRateLimitKey, consumeRateLimitAttempt, readRequestIp } from "@/lib/rate-limit";
+import { queryFirst } from "@/lib/neon-db";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 
@@ -43,7 +43,19 @@ export async function platformLoginAction(
     return { ok: false, message: "Too many sign-in attempts. Please wait a few minutes and try again." };
   }
 
-  const user = await db.platformUser.findUnique({ where: { email } });
+  const user = await queryFirst<{
+    id: string;
+    role: "SUPER_ADMIN" | "SUPPORT_USER";
+    status: "PENDING" | "APPROVED" | "REJECTED";
+    passwordHash: string;
+    isActive: boolean;
+  }>(
+    `SELECT "id", "role", "status", "passwordHash", "isActive"
+     FROM "PlatformUser"
+     WHERE "email" = $1
+     LIMIT 1`,
+    [email]
+  );
   const ok = await verifyPassword(parsed.data.password, user?.passwordHash ?? DUMMY_PASSWORD_HASH);
   if (!ok || !user) return { ok: false, message: INVALID_LOGIN_MESSAGE };
   if (!user.isActive) return { ok: false, message: "Your platform user is deactivated. Contact super admin." };

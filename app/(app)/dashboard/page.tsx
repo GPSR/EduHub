@@ -7,6 +7,7 @@ import Link from "next/link";
 import { DashboardGlobalSearch } from "../dashboard-global-search";
 import { FolderSlideshow } from "../gallery/folder-slideshow";
 import { getLatestGallerySlideshow } from "@/lib/latest-gallery-slideshow";
+import { getAcademicYearContext, withAcademicYearParam } from "@/lib/academic-year";
 
 const DASHBOARD_MODULE_LINKS = [
   { href: "/students", icon: "👥", label: "Students" },
@@ -15,6 +16,7 @@ const DASHBOARD_MODULE_LINKS = [
   { href: "/feed", icon: "📢", label: "Feed" },
   { href: "/academics", icon: "📚", label: "Academics" },
   { href: "/academics/homework", icon: "📝", label: "Homework" },
+  { href: "/academics/progress-card", icon: "🎓", label: "Progress Card" },
   { href: "/learning-center", icon: "🧠", label: "Learning Center" },
   { href: "/youtube-learning", icon: "▶️", label: "YouTube Learning" },
   { href: "/calendar", icon: "🗓️", label: "Calendar" },
@@ -50,12 +52,14 @@ function centsToUsd(cents: number) {
 export default async function DashboardPage({
   searchParams
 }: {
-  searchParams: Promise<{ q?: string; fees?: string }>;
+  searchParams: Promise<{ q?: string; fees?: string; ay?: string }>;
 }) {
   await requirePermission("DASHBOARD", "VIEW");
   const session = await requireSession();
   if (session.roleKey !== "ADMIN") redirect("/home");
-  const { q, fees } = await searchParams;
+  const { q, fees, ay } = await searchParams;
+  const yearContext = await getAcademicYearContext({ schoolId: session.schoolId, requestedYearId: ay });
+  const selectedYear = yearContext.selectedYear;
   const query = (q ?? "").trim();
   const feeView = fees === "paid" || fees === "pending" ? fees : null;
 
@@ -106,11 +110,11 @@ export default async function DashboardPage({
       take: 180
     }),
     db.feeInvoice.aggregate({
-      where: { schoolId: session.schoolId },
+      where: { schoolId: session.schoolId, academicYearId: selectedYear.id },
       _sum: { amountCents: true }
     }),
     db.feePayment.aggregate({
-      where: { invoice: { schoolId: session.schoolId } },
+      where: { invoice: { schoolId: session.schoolId, academicYearId: selectedYear.id } },
       _sum: { amountCents: true }
     }),
     getLatestGallerySlideshow({
@@ -132,7 +136,7 @@ export default async function DashboardPage({
   const paidEntries =
     feeView === "paid"
       ? await db.feePayment.findMany({
-          where: { invoice: { schoolId: session.schoolId } },
+          where: { invoice: { schoolId: session.schoolId, academicYearId: selectedYear.id } },
           select: {
             amountCents: true,
             paidAt: true,
@@ -157,7 +161,7 @@ export default async function DashboardPage({
   const pendingEntries =
     feeView === "pending"
       ? await db.feeInvoice.findMany({
-          where: { schoolId: session.schoolId, status: { not: "PAID" } },
+          where: { schoolId: session.schoolId, academicYearId: selectedYear.id, status: { not: "PAID" } },
           select: {
             id: true,
             amountCents: true,
@@ -273,17 +277,23 @@ export default async function DashboardPage({
         )
         .slice(0, 12)
     : [];
-  const revenueHref = query
-    ? `/dashboard?q=${encodeURIComponent(query)}&fees=paid#fee-insights`
-    : "/dashboard?fees=paid#fee-insights";
-  const pendingHref = query
-    ? `/dashboard?q=${encodeURIComponent(query)}&fees=pending#fee-insights`
-    : "/dashboard?fees=pending#fee-insights";
+  const revenueHref = withAcademicYearParam(
+    query
+      ? `/dashboard?q=${encodeURIComponent(query)}&fees=paid#fee-insights`
+      : "/dashboard?fees=paid#fee-insights",
+    selectedYear.id
+  );
+  const pendingHref = withAcademicYearParam(
+    query
+      ? `/dashboard?q=${encodeURIComponent(query)}&fees=pending#fee-insights`
+      : "/dashboard?fees=pending#fee-insights",
+    selectedYear.id
+  );
 
   return (
     <div className="space-y-6 animate-fade-up">
       <div className="hidden md:block">
-        <SectionHeader title="Dashboard" subtitle={`Welcome back — ${school?.name ?? "your school"}`} />
+        <SectionHeader title="Dashboard" subtitle={`Welcome back — ${school?.name ?? "your school"} · ${selectedYear.name}`} />
       </div>
 
       <section className="md:hidden rounded-[24px] border border-white/[0.10] bg-[linear-gradient(180deg,rgba(255,255,255,0.07),rgba(255,255,255,0.025))] p-3.5 backdrop-blur-xl shadow-[0_12px_28px_-24px_rgba(0,0,0,0.95)]">
@@ -325,7 +335,7 @@ export default async function DashboardPage({
                 {DASHBOARD_MODULE_LINKS.map((item, idx) => (
                   <Link
                     key={item.href}
-                    href={item.href}
+                    href={withAcademicYearParam(item.href, selectedYear.id)}
                     className={`snap-start w-[118px] shrink-0 rounded-[13px] border px-2.5 py-2.5 transition hover:brightness-110 ${MOBILE_MODULE_WIDGET_SKINS[idx % MOBILE_MODULE_WIDGET_SKINS.length]}`}
                   >
                     <div className="flex items-center justify-between gap-1.5">

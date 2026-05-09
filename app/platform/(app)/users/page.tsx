@@ -7,15 +7,16 @@ export default async function PlatformUsersPage() {
   await requireSuperAdmin();
   const [platformUsers, schools] = await Promise.all([
     db.platformUser.findMany({
-      where: { role: { not: "SUPER_ADMIN" } },
       include: { schoolAssignments: { select: { schoolId: true } } },
       orderBy: [{ status: "asc" }, { createdAt: "desc" }],
     }),
     db.school.findMany({ select: { id: true, name: true, slug: true }, orderBy: { name: "asc" }, take: 300 }),
   ]);
 
-  const pending = platformUsers.filter((u) => u.status === "PENDING");
-  const approved = platformUsers.filter((u) => u.status === "APPROVED");
+  const supportUsers = platformUsers.filter((u) => u.role !== "SUPER_ADMIN");
+  const superAdmins = platformUsers.filter((u) => u.role === "SUPER_ADMIN");
+  const pending = supportUsers.filter((u) => u.status === "PENDING");
+  const approved = supportUsers.filter((u) => u.status === "APPROVED");
 
   return (
     <div className="space-y-5 animate-fade-up">
@@ -83,6 +84,54 @@ export default async function PlatformUsersPage() {
                     platformUserId={u.id} name={u.name} email={u.email}
                     isActive={u.isActive} schools={schools}
                     assignedSchoolIds={u.schoolAssignments.map((a) => a.schoolId)}
+                  />
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </Card>
+
+      <Card title="Super Admins" description={`${superAdmins.length} user${superAdmins.length !== 1 ? "s" : ""}`}>
+        {superAdmins.length === 0 ? (
+          <div className="py-8 text-center text-sm text-white/40">No super admin users found.</div>
+        ) : (
+          <div className="space-y-3 mt-1">
+            {superAdmins.map((u) => {
+              const initials =
+                u.name
+                  .trim()
+                  .split(/\s+/)
+                  .map((p: string) => p[0])
+                  .slice(0, 2)
+                  .join("")
+                  .toUpperCase() || "SA";
+              return (
+                <div key={u.id} className="rounded-[16px] border border-white/[0.08] bg-white/[0.03] p-4">
+                  <div className="flex items-center justify-between gap-3 mb-4">
+                    <div className="flex items-center gap-3">
+                      <div className="grid h-9 w-9 shrink-0 place-items-center rounded-[10px]
+                                      bg-gradient-to-b from-blue-400 to-blue-600 text-xs font-bold text-white">
+                        {initials}
+                      </div>
+                      <div>
+                        <p className="text-[14px] font-semibold text-white/90">{u.name}</p>
+                        <p className="text-[12px] text-white/45">{u.email} · {u.role}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Badge tone={u.status === "APPROVED" ? "success" : u.status === "PENDING" ? "warning" : "danger"}>{u.status}</Badge>
+                      <Badge tone={u.isActive ? "success" : "danger"} dot>{u.isActive ? "Active" : "Inactive"}</Badge>
+                    </div>
+                  </div>
+                  <ManagePlatformUserForm
+                    platformUserId={u.id}
+                    name={u.name}
+                    email={u.email}
+                    isActive={u.isActive}
+                    schools={schools}
+                    assignedSchoolIds={u.schoolAssignments.map((a) => a.schoolId)}
+                    isSuperAdmin
                   />
                 </div>
               );

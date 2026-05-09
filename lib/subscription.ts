@@ -1,34 +1,57 @@
-import { db } from "@/lib/db";
+import { randomUUID } from "node:crypto";
+import { execute, queryFirst } from "@/lib/neon-db";
 import type { Plan } from "@/lib/db-types";
 
 export type SubscriptionAccessCheck = { ok: true } | { ok: false; reason: string };
 
+function toDateOrNull(value: Date | string | null | undefined) {
+  if (!value) return null;
+  return value instanceof Date ? value : new Date(value);
+}
+
+type SubscriptionRow = {
+  id: string;
+  plan: Plan;
+  status: string;
+  endsAt: Date | string | null;
+};
+
 export async function ensureSchoolSubscriptionActive(schoolId: string): Promise<SubscriptionAccessCheck> {
-  const subscription = await db.subscription.findUnique({
-    where: { schoolId },
-    select: { id: true, plan: true, status: true, endsAt: true }
-  });
+  const subscription = await queryFirst<SubscriptionRow>(
+    `SELECT "id", "plan", "status", "endsAt"
+     FROM "Subscription"
+     WHERE "schoolId" = $1
+     LIMIT 1`,
+    [schoolId]
+  );
 
   if (!subscription) return { ok: false, reason: "Subscription is not configured for this school." };
 
   const now = Date.now();
-  const isExpired = subscription.endsAt ? subscription.endsAt.getTime() < now : false;
+  const endsAt = toDateOrNull(subscription.endsAt);
+  const isExpired = endsAt ? endsAt.getTime() < now : false;
 
   if (isExpired) {
     if (subscription.status !== "EXPIRED") {
-      await db.subscription.update({
-        where: { id: subscription.id },
-        data: { status: "EXPIRED" }
-      });
+      await execute(
+        `UPDATE "Subscription"
+         SET "status" = 'EXPIRED',
+             "updatedAt" = NOW()
+         WHERE "id" = $1`,
+        [subscription.id]
+      );
     }
     return { ok: false, reason: "School subscription has expired. Please contact Super Admin." };
   }
 
   if (subscription.status === "EXPIRED") {
-    await db.subscription.update({
-      where: { id: subscription.id },
-      data: { status: "ACTIVE" }
-    });
+    await execute(
+      `UPDATE "Subscription"
+       SET "status" = 'ACTIVE',
+           "updatedAt" = NOW()
+       WHERE "id" = $1`,
+      [subscription.id]
+    );
   }
 
   return { ok: true };
@@ -42,33 +65,41 @@ export async function ensureSubscriptionPlanSettings() {
     { plan: "BETA", durationDays: 180, amountCents: 0 }
   ];
 
-  await db.$transaction(
+  await Promise.all(
     defaults.map((item) =>
-      db.subscriptionPlanSetting.upsert({
-        where: { plan: item.plan },
-        update: {},
-        create: { plan: item.plan, durationDays: item.durationDays, amountCents: item.amountCents }
-      })
+      execute(
+        `INSERT INTO "SubscriptionPlanSetting"
+          ("id", "plan", "durationDays", "amountCents", "createdAt", "updatedAt")
+         VALUES ($1, $2, $3, $4, NOW(), NOW())
+         ON CONFLICT ("plan") DO NOTHING`,
+        [randomUUID(), item.plan, item.durationDays, item.amountCents]
+      )
     )
   );
 }
 
 export async function getPlanEndsAt(plan: Plan) {
   await ensureSubscriptionPlanSettings();
-  const setting = await db.subscriptionPlanSetting.findUnique({
-    where: { plan },
-    select: { durationDays: true }
-  });
+  const setting = await queryFirst<{ durationDays: number | null }>(
+    `SELECT "durationDays"
+     FROM "SubscriptionPlanSetting"
+     WHERE "plan" = $1
+     LIMIT 1`,
+    [plan]
+  );
   if (!setting || setting.durationDays == null) return null;
   return new Date(Date.now() + setting.durationDays * 24 * 60 * 60 * 1000);
 }
 
 export async function getPlanAmountCents(plan: Plan) {
   await ensureSubscriptionPlanSettings();
-  const setting = await db.subscriptionPlanSetting.findUnique({
-    where: { plan },
-    select: { amountCents: true }
-  });
+  const setting = await queryFirst<{ amountCents: number | null }>(
+    `SELECT "amountCents"
+     FROM "SubscriptionPlanSetting"
+     WHERE "plan" = $1
+     LIMIT 1`,
+    [plan]
+  );
   if (!setting) return 0;
   if (plan === "PREMIUM") return 0;
   return setting.amountCents ?? 0;

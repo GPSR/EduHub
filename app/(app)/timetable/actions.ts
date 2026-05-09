@@ -4,6 +4,7 @@ import { z } from "zod";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { requirePermission } from "@/lib/require-permission";
+import { requireWritableAcademicYear, withAcademicYearParam } from "@/lib/academic-year";
 
 const CreateTeacherTimetableEntrySchema = z.object({
   teacherUserId: z.string().min(1),
@@ -12,11 +13,13 @@ const CreateTeacherTimetableEntrySchema = z.object({
   weekday: z.coerce.number().int().min(1).max(7),
   startTime: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Invalid start time."),
   endTime: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Invalid end time."),
-  room: z.string().trim().max(80).optional()
+  room: z.string().trim().max(80).optional(),
+  academicYearId: z.string().optional()
 });
 
 const DeleteTeacherTimetableEntrySchema = z.object({
-  entryId: z.string().min(1)
+  entryId: z.string().min(1),
+  academicYearId: z.string().optional()
 });
 
 function toMinutes(value: string) {
@@ -35,7 +38,8 @@ export async function createTeacherTimetableEntryAction(formData: FormData) {
     weekday: formData.get("weekday"),
     startTime: formData.get("startTime"),
     endTime: formData.get("endTime"),
-    room: String(formData.get("room") ?? "").trim() || undefined
+    room: String(formData.get("room") ?? "").trim() || undefined,
+    academicYearId: String(formData.get("academicYearId") ?? "").trim() || undefined
   });
 
   if (!parsed.success) {
@@ -45,6 +49,10 @@ export async function createTeacherTimetableEntryAction(formData: FormData) {
   if (toMinutes(parsed.data.endTime) <= toMinutes(parsed.data.startTime)) {
     throw new Error("End time must be after start time.");
   }
+  const year = await requireWritableAcademicYear({
+    schoolId: session.schoolId,
+    requestedYearId: parsed.data.academicYearId
+  });
 
   const [teacher, cls] = await Promise.all([
     db.user.findFirst({
@@ -71,6 +79,7 @@ export async function createTeacherTimetableEntryAction(formData: FormData) {
   const overlaps = await db.teacherTimetableEntry.findMany({
     where: {
       schoolId: session.schoolId,
+      academicYearId: year.id,
       weekday: parsed.data.weekday,
       OR: [{ teacherUserId: teacher.id }, { classId: cls.id }],
       startTime: { lt: parsed.data.endTime },
@@ -98,6 +107,7 @@ export async function createTeacherTimetableEntryAction(formData: FormData) {
   await db.teacherTimetableEntry.create({
     data: {
       schoolId: session.schoolId,
+      academicYearId: year.id,
       teacherUserId: teacher.id,
       classId: cls.id,
       subjectName: parsed.data.subjectName,
@@ -109,7 +119,7 @@ export async function createTeacherTimetableEntryAction(formData: FormData) {
     }
   });
 
-  redirect(`/timetable?teacherId=${encodeURIComponent(teacher.id)}&day=${parsed.data.weekday}`);
+  redirect(withAcademicYearParam(`/timetable?teacherId=${encodeURIComponent(teacher.id)}&day=${parsed.data.weekday}`, year.id));
 }
 
 export async function deleteTeacherTimetableEntryAction(formData: FormData) {
@@ -117,7 +127,8 @@ export async function deleteTeacherTimetableEntryAction(formData: FormData) {
   if (session.roleKey !== "ADMIN") throw new Error("Only school admin can delete timetable rows.");
 
   const parsed = DeleteTeacherTimetableEntrySchema.safeParse({
-    entryId: formData.get("entryId")
+    entryId: formData.get("entryId"),
+    academicYearId: String(formData.get("academicYearId") ?? "").trim() || undefined
   });
   if (!parsed.success) throw new Error("Unable to process request.");
 
@@ -126,10 +137,13 @@ export async function deleteTeacherTimetableEntryAction(formData: FormData) {
       id: parsed.data.entryId,
       schoolId: session.schoolId
     },
-    select: { id: true }
+    select: { id: true, academicYear: { select: { id: true, name: true, status: true } } }
   });
   if (!row) throw new Error("Timetable entry not found.");
+  if (row.academicYear.status === "CLOSED") {
+    throw new Error(`Academic year ${row.academicYear.name} is closed and this timetable is read-only.`);
+  }
 
   await db.teacherTimetableEntry.delete({ where: { id: row.id } });
-  redirect("/timetable");
+  redirect(withAcademicYearParam("/timetable", parsed.data.academicYearId ?? row.academicYear.id));
 }

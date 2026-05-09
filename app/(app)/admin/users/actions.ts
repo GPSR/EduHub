@@ -13,6 +13,20 @@ import { auditLog } from "@/lib/audit";
 export type CreateUserState = { ok: boolean; message?: string };
 export type UpdateUserPasswordState = { ok: boolean; message?: string };
 
+function isSchoolAdminPasswordAllowedRole(roleKey: string) {
+  const normalized = roleKey.toUpperCase();
+  return (
+    normalized === "TEACHER" ||
+    normalized.startsWith("TEACHER_") ||
+    normalized === "CLASS_TEACHER" ||
+    normalized.startsWith("CLASS_TEACHER_") ||
+    normalized === "PARENT" ||
+    normalized.startsWith("PARENT_") ||
+    normalized === "STUDENT" ||
+    normalized.startsWith("STUDENT_")
+  );
+}
+
 const CreateUserSchema = z.object({
   name: z.string().min(2),
   email: z.string().email(),
@@ -368,6 +382,10 @@ export async function updateUserPasswordAction(
     select: { id: true, schoolRole: { select: { key: true, name: true } } }
   });
   if (!target) return { ok: false, message: "User not found in this school." };
+
+  if (!isSchoolAdminPasswordAllowedRole(target.schoolRole.key)) {
+    return { ok: false, message: "School admin can update passwords only for teacher, parent, and student users." };
+  }
 
   const passwordHash = await hashPassword(parsed.data.newPassword);
   const now = new Date();

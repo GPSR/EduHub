@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { SectionHeader } from "@/components/ui";
-import { requirePermission } from "@/lib/require-permission";
+import { requireAnyPermission } from "@/lib/require-permission";
 
 const SECTIONS = [
   {
@@ -19,10 +19,18 @@ const SECTIONS = [
     color: "from-teal-500/20 to-emerald-500/10 border-teal-500/20",
     accent: "text-teal-300",
   },
+  {
+    href: "/academics/progress-card",
+    icon: "🎓",
+    title: "Progress Card",
+    desc: "View and maintain student progress card records.",
+    color: "from-sky-500/20 to-cyan-500/10 border-sky-500/20",
+    accent: "text-sky-300",
+  },
 ];
 
 export default async function AcademicsHomePage() {
-  await requirePermission("ACADEMICS", "VIEW");
+  await requireAnyPermission(["ACADEMICS", "HOMEWORK", "PROGRESS_CARD"], "VIEW");
   return (
     <div className="space-y-5 animate-fade-up">
       <SectionHeader title="Academics" subtitle="Homework and exam management" />

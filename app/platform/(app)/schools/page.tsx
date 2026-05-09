@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Badge, SectionHeader, Card } from "@/components/ui";
 import { db } from "@/lib/db";
 import { requireSuperAdmin } from "@/lib/platform-require";
+import { ManageSchoolAdminPasswordPopup } from "../onboarding-requests/ui";
 
 const STATUS_VALUES = ["ALL", "ACTIVE", "INACTIVE"] as const;
 const PLAN_VALUES = ["ALL", "TRIAL", "BETA", "PREMIUM", "UNLIMITED", "CUSTOM"] as const;
@@ -160,25 +161,31 @@ export default async function PlatformSchoolsPage({
               const planLabel = s.subscription?.plan === "CUSTOM"
                 ? (s.subscription.customPlan?.name ?? "Custom") : (s.subscription?.plan ?? "N/A");
               return (
-                <Link
+                <div
                   key={s.id}
-                  href={`/platform/schools/${s.id}/dashboard`}
-                  className={`flex items-center justify-between gap-4 px-5 py-4 hover:bg-white/[0.04] transition-colors
+                  className={`flex items-start justify-between gap-4 px-5 py-4 hover:bg-white/[0.04] transition-colors
                                ${i === 0 ? "rounded-t-[22px]" : ""}
                                ${i === sortedSchools.length-1 ? "rounded-b-[22px]" : ""}`}
                 >
-                  <div className="min-w-0">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="text-[14px] font-semibold text-white/90">{s.name}</span>
-                      <span className="text-[12px] text-white/35">({s.slug})</span>
-                    </div>
-                    <div className="text-[12px] text-white/40 mt-1 flex flex-wrap gap-3">
-                      <span>
-                        Admins: {(adminBySchoolId.get(s.id) ?? []).map((a) => `${a.name} (${maskEmail(a.email)})`).join(", ") || "Not assigned"}
-                      </span>
-                      <span>👥 {s.students.length} students</span>
-                      <span>🏫 {s.users.length} users</span>
-                    </div>
+                  <div className="min-w-0 flex-1">
+                    <Link href={`/platform/schools/${s.id}/dashboard`} className="group block">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="text-[14px] font-semibold text-white/90 group-hover:text-white">{s.name}</span>
+                        <span className="text-[12px] text-white/35">({s.slug})</span>
+                      </div>
+                      <div className="text-[12px] text-white/40 mt-1 flex flex-wrap gap-3">
+                        <span>
+                          Admins: {(adminBySchoolId.get(s.id) ?? []).map((a) => `${a.name} (${maskEmail(a.email)})`).join(", ") || "Not assigned"}
+                        </span>
+                        <span>👥 {s.students.length} students</span>
+                        <span>🏫 {s.users.length} users</span>
+                      </div>
+                    </Link>
+                    <ManageSchoolAdminPasswordPopup
+                      schoolId={s.id}
+                      schoolName={s.name}
+                      admins={adminBySchoolId.get(s.id) ?? []}
+                    />
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
                     <Badge tone={planLabel === "PREMIUM" || planLabel === "UNLIMITED" ? "success" : planLabel === "TRIAL" ? "warning" : "neutral"}>
@@ -187,11 +194,13 @@ export default async function PlatformSchoolsPage({
                     <Badge tone={s.isActive ? "success" : "danger"} dot>
                       {s.isActive ? "Active" : "Inactive"}
                     </Badge>
-                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className="text-white/20">
-                      <path d="M6 4l4 4-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                    </svg>
+                    <Link href={`/platform/schools/${s.id}/dashboard`} className="text-white/20 hover:text-white/45 transition" aria-label={`Open ${s.name} dashboard`}>
+                      <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                        <path d="M6 4l4 4-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                    </Link>
                   </div>
-                </Link>
+                </div>
               );
             })}
           </div>

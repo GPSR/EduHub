@@ -2,13 +2,15 @@
 
 import { db } from "@/lib/db";
 import { requirePermission } from "@/lib/require-permission";
+import { requireWritableAcademicYear, withAcademicYearParam } from "@/lib/academic-year";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 
 const MarkSchema = z.object({
   date: z.string().min(1),
   studentId: z.string().min(1),
-  status: z.enum(["PRESENT", "ABSENT", "LATE", "LEAVE"])
+  status: z.enum(["PRESENT", "ABSENT", "LATE", "LEAVE"]),
+  academicYearId: z.string().optional()
 });
 
 export async function markAttendanceAction(formData: FormData) {
@@ -17,18 +19,24 @@ export async function markAttendanceAction(formData: FormData) {
   const parsed = MarkSchema.safeParse({
     date: formData.get("date"),
     studentId: formData.get("studentId"),
-    status: formData.get("status")
+    status: formData.get("status"),
+    academicYearId: String(formData.get("academicYearId") ?? "").trim() || undefined
   });
   if (!parsed.success) throw new Error("Unable to process request.");
+  const year = await requireWritableAcademicYear({
+    schoolId: session.schoolId,
+    requestedYearId: parsed.data.academicYearId
+  });
 
   const date = new Date(parsed.data.date);
   date.setHours(0, 0, 0, 0);
 
   await db.attendanceRecord.upsert({
-    where: { studentId_date: { studentId: parsed.data.studentId, date } },
-    update: { status: parsed.data.status, notedById: session.userId, schoolId: session.schoolId },
+    where: { studentId_academicYearId_date: { studentId: parsed.data.studentId, academicYearId: year.id, date } },
+    update: { status: parsed.data.status, notedById: session.userId, schoolId: session.schoolId, academicYearId: year.id },
     create: {
       schoolId: session.schoolId,
+      academicYearId: year.id,
       studentId: parsed.data.studentId,
       date,
       status: parsed.data.status,
@@ -46,10 +54,10 @@ export async function markAttendanceAction(formData: FormData) {
         schoolId: session.schoolId,
         userId: p.userId,
         title: `Attendance updated: ${student.fullName}`,
-        body: `Status: ${parsed.data.status} on ${parsed.data.date}.\nLINK:/attendance?date=${encodeURIComponent(parsed.data.date)}`
+        body: `Status: ${parsed.data.status} on ${parsed.data.date}.\nLINK:${withAcademicYearParam(`/attendance?date=${encodeURIComponent(parsed.data.date)}`, year.id)}`
       }))
     });
   }
 
-  redirect(`/attendance?date=${parsed.data.date}`);
+  redirect(withAcademicYearParam(`/attendance?date=${parsed.data.date}`, year.id));
 }

@@ -9,6 +9,7 @@ import { atLeastLevel, getEffectivePermissions } from "@/lib/permissions";
 import { requirePermission } from "@/lib/require-permission";
 import { sendStudentFeeReminderAction } from "../../fees/actions";
 import { uploadStudentPhotoAction } from "../actions";
+import { getAcademicYearContext, withAcademicYearParam } from "@/lib/academic-year";
 
 function centsToUsd(cents: number) {
   return (cents / 100).toLocaleString("en-US", { style: "currency", currency: "USD" });
@@ -29,12 +30,14 @@ export default async function StudentProfilePage({
   searchParams
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ reminder?: string; photoUpdated?: string; photoError?: string }>;
+  searchParams: Promise<{ reminder?: string; photoUpdated?: string; photoError?: string; ay?: string }>;
 }) {
   await requirePermission("STUDENTS", "VIEW");
   const session = await requireSession();
   const { id } = await params;
-  const { reminder, photoUpdated, photoError } = await searchParams;
+  const { reminder, photoUpdated, photoError, ay } = await searchParams;
+  const yearContext = await getAcademicYearContext({ schoolId: session.schoolId, requestedYearId: ay });
+  const selectedYear = yearContext.selectedYear;
 
   const student = await db.student.findFirst({
     where:
@@ -68,8 +71,13 @@ export default async function StudentProfilePage({
     db.feeInvoice.findMany({
       where:
         session.roleKey === "PARENT"
-          ? { schoolId: session.schoolId, studentId: student.id, student: { parents: { some: { userId: session.userId } } } }
-          : { schoolId: session.schoolId, studentId: student.id },
+          ? {
+              schoolId: session.schoolId,
+              studentId: student.id,
+              academicYearId: selectedYear.id,
+              student: { parents: { some: { userId: session.userId } } }
+            }
+          : { schoolId: session.schoolId, studentId: student.id, academicYearId: selectedYear.id },
       include: { payments: { select: { amountCents: true } } },
       orderBy: { createdAt: "desc" },
       take: 100
@@ -255,7 +263,8 @@ export default async function StudentProfilePage({
           {canSendFeeReminder && totalPendingCents > 0 && (
             <form action={sendStudentFeeReminderAction} className="mb-4">
               <input type="hidden" name="studentId" value={student.id} />
-              <input type="hidden" name="returnTo" value={`/students/${student.id}`} />
+              <input type="hidden" name="returnTo" value={withAcademicYearParam(`/students/${student.id}`, selectedYear.id)} />
+              <input type="hidden" name="academicYearId" value={selectedYear.id} />
               <Button type="submit" size="sm" variant="secondary">Send Fee Reminder</Button>
             </form>
           )}
@@ -267,7 +276,7 @@ export default async function StudentProfilePage({
               {pendingFeeRows.slice(0, 6).map((row) => (
                 <Link
                   key={row.id}
-                  href={`/fees/${row.id}`}
+                  href={withAcademicYearParam(`/fees/${row.id}`, selectedYear.id)}
                   className="flex items-center justify-between gap-3 rounded-[12px] border border-white/[0.07] bg-white/[0.03] px-3 py-2.5 hover:bg-white/[0.06] transition"
                 >
                   <div className="min-w-0">

@@ -15,17 +15,20 @@ import { getUnreadFeedCount } from "@/lib/feed-unread";
 import { getUnreadSupportConversationCount } from "@/lib/support-unread";
 import { getUnreadYouTubeLearningCount } from "@/lib/youtube-learning-unread";
 import { getDefaultSchoolHomePath } from "@/lib/default-school-home";
+import { getAcademicYearContext } from "@/lib/academic-year";
+import { AcademicYearSwitcher } from "@/components/academic-year-switcher";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const { user, session } = await requireUser();
-  const [perms, unreadCount, feedUnreadCount, supportUnreadCount, youtubeUnreadCount, school, userPhotoUrl] = await Promise.all([
+  const [perms, unreadCount, feedUnreadCount, supportUnreadCount, youtubeUnreadCount, school, userPhotoUrl, academicYearContext] = await Promise.all([
     getEffectivePermissions({ schoolId: session.schoolId, userId: session.userId, roleId: session.roleId }),
     db.notification.count({ where: { schoolId: session.schoolId, userId: session.userId, readAt: null } }),
     getUnreadFeedCount({ schoolId: session.schoolId, userId: session.userId, roleKey: session.roleKey }),
     getUnreadSupportConversationCount({ schoolId: session.schoolId, userId: session.userId }),
     getUnreadYouTubeLearningCount({ schoolId: session.schoolId, userId: session.userId, roleKey: session.roleKey }),
     db.school.findUnique({ where: { id: session.schoolId }, select: { brandingLogoUrl: true, name: true } }),
-    getUserProfileImageUrl(session.schoolId, user.id)
+    getUserProfileImageUrl(session.schoolId, user.id),
+    getAcademicYearContext({ schoolId: session.schoolId })
   ]);
 
   const canView = (moduleKey: string) => {
@@ -36,6 +39,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     const level = perms[moduleKey];
     return level ? atLeastLevel(level, "VIEW") : false;
   };
+  const canViewAcademics = canView("ACADEMICS") || canView("HOMEWORK") || canView("PROGRESS_CARD");
+  const canViewHomework = canView("HOMEWORK") || canView("ACADEMICS");
+  const canViewProgressCard = canView("PROGRESS_CARD") || canView("ACADEMICS");
   const defaultHomePath = getDefaultSchoolHomePath(session.roleKey);
 
   const desktopItems = [
@@ -45,7 +51,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     canView("ATTENDANCE") ? { href: "/attendance", label: "Attendance" } : null,
     canView("TIMETABLE") ? { href: "/timetable", label: "Timetable" } : null,
     canView("COMMUNICATION") ? { href: "/feed", label: "Feed" } : null,
-    canView("ACADEMICS") ? { href: "/academics", label: "Academics" } : null,
+    canViewAcademics ? { href: "/academics", label: "Academics" } : null,
+    canViewHomework ? { href: "/academics/homework", label: "Homework" } : null,
+    canViewProgressCard ? { href: "/academics/progress-card", label: "Progress Card" } : null,
     canView("REPORTS") ? { href: "/reports", label: "Reports" } : null,
     canView("GALLERY") ? { href: "/gallery", label: "Gallery" } : null,
     canView("LEARNING_CENTER") ? { href: "/learning-center", label: "Learning Center" } : null,
@@ -57,6 +65,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     { href: "/support", label: "Support" },
     session.roleKey === "ADMIN" ? { href: "/admin/users", label: "Users" } : null,
     session.roleKey === "ADMIN" && canView("TEACHER_SALARY") ? { href: "/admin/teacher-salary", label: "Teacher Salary" } : null,
+    session.roleKey === "ADMIN" ? { href: "/admin/academic-years", label: "Academic Years" } : null,
     session.roleKey === "ADMIN" ? { href: "/admin/settings", label: "Settings" } : null
   ].filter(Boolean) as { href: string; label: string }[];
 
@@ -97,6 +106,19 @@ export default async function AppLayout({ children }: { children: React.ReactNod
               </span>
             </div>
 
+            <div className="pb-2 md:hidden">
+              <AcademicYearSwitcher
+                years={academicYearContext.years.map((year) => ({
+                  id: year.id,
+                  name: year.name,
+                  status: year.status,
+                  isActive: year.isActive
+                }))}
+                selectedYearId={academicYearContext.selectedYear.id}
+                className="block w-full"
+              />
+            </div>
+
             <div className="hidden min-h-[60px] items-center justify-between gap-3 py-2 md:flex">
               <div className="flex min-w-0 items-center gap-2.5">
                 {school?.brandingLogoUrl ? (
@@ -115,6 +137,19 @@ export default async function AppLayout({ children }: { children: React.ReactNod
                   {session.roleKey}
                 </span>
                 <span className="truncate text-[12px] text-white/45">{school?.name ?? "School"}</span>
+              </div>
+
+              <div className="min-w-[220px]">
+                <AcademicYearSwitcher
+                  years={academicYearContext.years.map((year) => ({
+                    id: year.id,
+                    name: year.name,
+                    status: year.status,
+                    isActive: year.isActive
+                  }))}
+                  selectedYearId={academicYearContext.selectedYear.id}
+                  className="block w-full"
+                />
               </div>
 
               <UserMenu

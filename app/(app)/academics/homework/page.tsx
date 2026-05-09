@@ -3,7 +3,8 @@ import { Card, Button, Input, Label, Textarea, Badge, SectionHeader, EmptyState 
 import { db } from "@/lib/db";
 import { requireSession } from "@/lib/require";
 import { atLeastLevel, getEffectivePermissions } from "@/lib/permissions";
-import { requirePermission } from "@/lib/require-permission";
+import { requireAnyPermission } from "@/lib/require-permission";
+import { getAcademicYearContext } from "@/lib/academic-year";
 
 function timeAgo(date: Date): string {
   const diff = Date.now() - date.getTime();
@@ -25,26 +26,39 @@ function isOverdue(dueOn: Date | null): boolean {
   return dueOn.getTime() < Date.now();
 }
 
-export default async function HomeworkPage() {
-  await requirePermission("ACADEMICS", "VIEW");
+export default async function HomeworkPage({
+  searchParams
+}: {
+  searchParams: Promise<{ ay?: string }>;
+}) {
+  await requireAnyPermission(["HOMEWORK", "ACADEMICS"], "VIEW");
   const session = await requireSession();
+  const { ay } = await searchParams;
+  const yearContext = await getAcademicYearContext({ schoolId: session.schoolId, requestedYearId: ay });
+  const selectedYear = yearContext.selectedYear;
+  const isYearWritable = selectedYear.status !== "CLOSED";
   const perms = await getEffectivePermissions({
     schoolId: session.schoolId,
     userId: session.userId,
     roleId: session.roleId,
   });
-  const canWrite = perms["ACADEMICS"] ? atLeastLevel(perms["ACADEMICS"], "EDIT") : false;
+  const homeworkLevel = perms["HOMEWORK"] ?? perms["ACADEMICS"];
+  const canWrite = isYearWritable && (homeworkLevel ? atLeastLevel(homeworkLevel, "EDIT") : false);
 
   const homework =
     session.roleKey === "PARENT"
       ? await db.homework.findMany({
-          where: { schoolId: session.schoolId, student: { parents: { some: { userId: session.userId } } } },
+          where: {
+            schoolId: session.schoolId,
+            academicYearId: selectedYear.id,
+            student: { parents: { some: { userId: session.userId } } }
+          },
           include: { student: true },
           orderBy: { createdAt: "desc" },
           take: 100,
         })
       : await db.homework.findMany({
-          where: { schoolId: session.schoolId },
+          where: { schoolId: session.schoolId, academicYearId: selectedYear.id },
           include: { student: true },
           orderBy: { createdAt: "desc" },
           take: 100,
@@ -57,13 +71,18 @@ export default async function HomeworkPage() {
 
   return (
     <div className="space-y-5 animate-fade-up">
+      {!isYearWritable ? (
+        <div className="rounded-[14px] border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
+          Academic year {selectedYear.name} is closed. Homework is read-only.
+        </div>
+      ) : null}
       <div className="flex items-center gap-3">
         <Link href="/academics" className="text-sm text-white/40 hover:text-white/70 transition">Academics</Link>
         <span className="text-white/20">/</span>
-        <SectionHeader title="Homework" subtitle={`${homework.length} assignment${homework.length !== 1 ? "s" : ""}`} />
+        <SectionHeader title="Homework" subtitle={`${homework.length} assignment${homework.length !== 1 ? "s" : ""} · ${selectedYear.name}`} />
       </div>
 
-      {canWrite && <CreateHomeworkCard students={students} />}
+      {canWrite && <CreateHomeworkCard students={students} academicYearId={selectedYear.id} />}
 
       <div className="space-y-3">
         {homework.length === 0 ? (
@@ -120,11 +139,18 @@ export default async function HomeworkPage() {
   );
 }
 
-async function CreateHomeworkCard({ students }: { students: { id: string; fullName: string }[] }) {
+async function CreateHomeworkCard({
+  students,
+  academicYearId
+}: {
+  students: { id: string; fullName: string }[];
+  academicYearId: string;
+}) {
   const { createHomeworkAction } = await import("./actions");
   return (
     <Card title="Post Homework" accent="indigo">
       <form action={createHomeworkAction} className="grid grid-cols-1 gap-3 sm:gap-4">
+        <input type="hidden" name="academicYearId" value={academicYearId} />
         <div className="md:col-span-2">
           <Label required>Student</Label>
           <select

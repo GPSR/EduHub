@@ -9,6 +9,7 @@ import { getSchoolStudentDemographicsConfig, type StudentDemographicsConfig } fr
 import { getSchoolProfile, type SchoolProfile } from "@/lib/school-profile";
 import { getSchoolSupportChatTopics } from "@/lib/support-chat-topics";
 import { ensureBaseModules } from "@/lib/permissions";
+import Link from "next/link";
 
 export default async function AdminSettingsPage({
   searchParams,
@@ -57,6 +58,15 @@ export default async function AdminSettingsPage({
   return (
     <div className="space-y-5 animate-fade-up">
       <SectionHeader title="Settings" subtitle="Configure your school's modules, IDs, and roles" />
+
+      <Card title="Academic Year Lifecycle" description="Close year, promote students, and manage retention controls." accent="indigo">
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-sm text-white/65">Open the dedicated academic-year workflow and promotion console.</p>
+          <Link href="/admin/academic-years">
+            <Button type="button" variant="secondary" size="sm">Open</Button>
+          </Link>
+        </div>
+      </Card>
 
       <Card title="ID Generation" description="Auto-generated Student ID and Admission No formats. Tokens: {YYYY} and {SEQ}." accent="indigo">
         <IdSettingsClientForm

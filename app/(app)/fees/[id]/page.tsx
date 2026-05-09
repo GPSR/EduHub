@@ -6,6 +6,7 @@ import { requireSession } from "@/lib/require";
 import { atLeastLevel, getEffectivePermissions } from "@/lib/permissions";
 import { requirePermission } from "@/lib/require-permission";
 import { sendInvoiceReminderAction } from "../actions";
+import { getAcademicYearContext, withAcademicYearParam } from "@/lib/academic-year";
 
 function fmt(cents: number) {
   return (cents / 100).toLocaleString("en-US", { style: "currency", currency: "USD" });
@@ -20,20 +21,28 @@ export default async function InvoicePage({
   searchParams
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ reminder?: string }>;
+  searchParams: Promise<{ reminder?: string; ay?: string }>;
 }) {
   await requirePermission("FEES", "VIEW");
   const session = await requireSession();
   const { id } = await params;
-  const { reminder } = await searchParams;
+  const { reminder, ay } = await searchParams;
+  const yearContext = await getAcademicYearContext({ schoolId: session.schoolId, requestedYearId: ay });
+  const selectedYear = yearContext.selectedYear;
+  const isYearWritable = selectedYear.status !== "CLOSED";
   const perms = await getEffectivePermissions({ schoolId: session.schoolId, userId: session.userId, roleId: session.roleId });
-  const canWrite = perms["FEES"] ? atLeastLevel(perms["FEES"], "EDIT") : false;
+  const canWrite = isYearWritable && (perms["FEES"] ? atLeastLevel(perms["FEES"], "EDIT") : false);
 
   const invoice = await db.feeInvoice.findFirst({
     where:
       session.roleKey === "PARENT"
-        ? { id, schoolId: session.schoolId, student: { parents: { some: { userId: session.userId } } } }
-        : { id, schoolId: session.schoolId },
+        ? {
+            id,
+            schoolId: session.schoolId,
+            academicYearId: selectedYear.id,
+            student: { parents: { some: { userId: session.userId } } }
+          }
+        : { id, schoolId: session.schoolId, academicYearId: selectedYear.id },
     include: { student: true, payments: { orderBy: { paidAt: "desc" } } },
   });
   if (!invoice) return notFound();
@@ -44,7 +53,12 @@ export default async function InvoicePage({
 
   return (
     <div className="space-y-5 animate-fade-up">
-      <Link href="/fees" className="inline-flex items-center gap-1.5 text-sm text-white/40 hover:text-white/75 transition">
+      {!isYearWritable ? (
+        <div className="rounded-[14px] border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
+          Academic year {selectedYear.name} is closed. Invoice updates are locked.
+        </div>
+      ) : null}
+      <Link href={withAcademicYearParam("/fees", selectedYear.id)} className="inline-flex items-center gap-1.5 text-sm text-white/40 hover:text-white/75 transition">
         ← Fee Invoices
       </Link>
 
@@ -78,7 +92,7 @@ export default async function InvoicePage({
             {canWrite && balanceCents > 0 && (
               <form action={sendInvoiceReminderAction} className="mt-3">
                 <input type="hidden" name="invoiceId" value={invoice.id} />
-                <input type="hidden" name="returnTo" value={`/fees/${invoice.id}`} />
+                <input type="hidden" name="returnTo" value={withAcademicYearParam(`/fees/${invoice.id}`, selectedYear.id)} />
                 <Button type="submit" size="sm" variant="secondary">Send Reminder</Button>
               </form>
             )}

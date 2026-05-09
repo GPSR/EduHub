@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { atLeastLevel, getEffectivePermissions } from "@/lib/permissions";
 import { requirePermission } from "@/lib/require-permission";
 import { requireSession } from "@/lib/require";
+import { getAcademicYearContext, withAcademicYearParam } from "@/lib/academic-year";
 
 const WEEKDAYS = [
   { value: 1, label: "Monday" },
@@ -36,11 +37,13 @@ function buildTimetableHref(args: { teacherId?: string | null; classId?: string 
 export default async function TimetablePage({
   searchParams
 }: {
-  searchParams: Promise<{ teacherId?: string; classId?: string; day?: string; compose?: string }>;
+  searchParams: Promise<{ teacherId?: string; classId?: string; day?: string; compose?: string; ay?: string }>;
 }) {
   await requirePermission("TIMETABLE", "VIEW");
   const session = await requireSession();
-  const { teacherId, classId, day, compose } = await searchParams;
+  const { teacherId, classId, day, compose, ay } = await searchParams;
+  const yearContext = await getAcademicYearContext({ schoolId: session.schoolId, requestedYearId: ay });
+  const selectedYear = yearContext.selectedYear;
   const composeOpen = compose === "1";
 
   const dayFilter = Number.parseInt(String(day ?? ""), 10);
@@ -96,6 +99,7 @@ export default async function TimetablePage({
   const rows = await db.teacherTimetableEntry.findMany({
     where: {
       schoolId: session.schoolId,
+      academicYearId: selectedYear.id,
       ...(roleScopedTeacherId ? { teacherUserId: roleScopedTeacherId } : {}),
       ...(teacherId ? { teacherUserId: teacherId } : {}),
       ...(classId ? { classId } : {}),
@@ -120,19 +124,24 @@ export default async function TimetablePage({
 
   return (
     <div className="space-y-5 animate-fade-up">
+      {selectedYear.status === "CLOSED" ? (
+        <div className="rounded-[14px] border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
+          Academic year {selectedYear.name} is closed. Timetable is read-only.
+        </div>
+      ) : null}
       <div className="flex items-start justify-between gap-4">
         <SectionHeader
           title="Teacher Timetable"
-          subtitle="Class-wise teacher schedule with subject and timing"
+          subtitle={`Class-wise teacher schedule with subject and timing · ${selectedYear.name}`}
         />
         {canManage ? (
           <Link
-            href={buildTimetableHref({
+            href={withAcademicYearParam(buildTimetableHref({
               teacherId,
               classId,
               day: validDay ? String(validDay) : null,
               compose: !composeOpen
-            })}
+            }), selectedYear.id)}
             aria-label={composeOpen ? "Close timetable entry form" : "Add timetable entry"}
             className="sm-btn min-h-0 mt-0.5 inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-[12px] bg-gradient-to-b from-[#67b4ff] to-[#4f8dfd] text-[26px] leading-none text-white shadow-[0_14px_30px_-18px_rgba(79,141,253,0.95)] transition hover:brightness-105 active:scale-[0.98]"
             title={composeOpen ? "Close" : "Add entry"}
@@ -144,6 +153,7 @@ export default async function TimetablePage({
 
       <Card accent="indigo">
         <form action="/timetable" method="get" className="grid grid-cols-1 md:grid-cols-4 gap-3">
+          <input type="hidden" name="ay" value={selectedYear.id} />
           {composeOpen ? <input type="hidden" name="compose" value="1" /> : null}
           <div>
             <Label>Teacher</Label>
@@ -196,14 +206,14 @@ export default async function TimetablePage({
 
           <div className="flex items-end gap-2">
             <Button type="submit" variant="secondary" className="w-full">Apply filters</Button>
-            <Link href={buildTimetableHref({ compose: composeOpen })} className="w-full">
+            <Link href={withAcademicYearParam(buildTimetableHref({ compose: composeOpen }), selectedYear.id)} className="w-full">
               <Button type="button" variant="secondary" className="w-full">Reset</Button>
             </Link>
           </div>
         </form>
       </Card>
 
-      {canManage && composeOpen ? <CreateTimetableEntryCard teachers={teachers} classes={classes} /> : null}
+      {canManage && composeOpen ? <CreateTimetableEntryCard teachers={teachers} classes={classes} academicYearId={selectedYear.id} /> : null}
 
       <Card title="Weekly Schedule" description={`${rows.length} timetable row(s)`} accent="teal">
         {rows.length === 0 ? (
@@ -247,7 +257,7 @@ export default async function TimetablePage({
                               {row.room ? <p className="text-[11px] text-white/40">Room: {row.room}</p> : null}
                             </div>
 
-                            {canManage ? <DeleteTimetableEntryButton entryId={row.id} /> : null}
+                            {canManage ? <DeleteTimetableEntryButton entryId={row.id} academicYearId={selectedYear.id} /> : null}
                           </div>
                         </article>
                       ))}
@@ -265,10 +275,12 @@ export default async function TimetablePage({
 
 async function CreateTimetableEntryCard({
   teachers,
-  classes
+  classes,
+  academicYearId
 }: {
   teachers: Array<{ id: string; name: string; schoolRole: { name: string } }>;
   classes: Array<{ id: string; name: string; section: string }>;
+  academicYearId: string;
 }) {
   const { createTeacherTimetableEntryAction } = await import("./actions");
 
@@ -288,6 +300,7 @@ async function CreateTimetableEntryCard({
         </summary>
         <div className="border-t border-white/[0.08] px-3.5 py-3">
           <form action={createTeacherTimetableEntryAction} className="grid grid-cols-1 gap-3 sm:gap-4">
+            <input type="hidden" name="academicYearId" value={academicYearId} />
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <Label required>Teacher</Label>
@@ -373,12 +386,13 @@ async function CreateTimetableEntryCard({
   );
 }
 
-async function DeleteTimetableEntryButton({ entryId }: { entryId: string }) {
+async function DeleteTimetableEntryButton({ entryId, academicYearId }: { entryId: string; academicYearId: string }) {
   const { deleteTeacherTimetableEntryAction } = await import("./actions");
 
   return (
     <form action={deleteTeacherTimetableEntryAction}>
       <input type="hidden" name="entryId" value={entryId} />
+      <input type="hidden" name="academicYearId" value={academicYearId} />
       <Button type="submit" size="sm" variant="danger">Delete</Button>
     </form>
   );

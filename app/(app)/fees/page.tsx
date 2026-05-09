@@ -5,6 +5,7 @@ import { requireSession } from "@/lib/require";
 import { atLeastLevel, getEffectivePermissions } from "@/lib/permissions";
 import { requirePermission } from "@/lib/require-permission";
 import { sendPendingFeeRemindersAction } from "./actions";
+import { getAcademicYearContext, withAcademicYearParam } from "@/lib/academic-year";
 
 function centsToDollars(cents: number) {
   return (cents / 100).toFixed(2);
@@ -20,28 +21,35 @@ function statusTone(status: string): "success" | "danger" | "warning" | "neutral
 export default async function FeesPage({
   searchParams
 }: {
-  searchParams: Promise<{ reminder?: string; count?: string }>;
+  searchParams: Promise<{ reminder?: string; count?: string; ay?: string }>;
 }) {
   await requirePermission("FEES", "VIEW");
   const session = await requireSession();
-  const { reminder, count } = await searchParams;
+  const { reminder, count, ay } = await searchParams;
+  const yearContext = await getAcademicYearContext({ schoolId: session.schoolId, requestedYearId: ay });
+  const selectedYear = yearContext.selectedYear;
+  const isYearWritable = selectedYear.status !== "CLOSED";
   const perms = await getEffectivePermissions({
     schoolId: session.schoolId,
     userId: session.userId,
     roleId: session.roleId,
   });
-  const canWrite = perms["FEES"] ? atLeastLevel(perms["FEES"], "EDIT") : false;
+  const canWrite = isYearWritable && (perms["FEES"] ? atLeastLevel(perms["FEES"], "EDIT") : false);
 
   const invoices =
     session.roleKey === "PARENT"
       ? await db.feeInvoice.findMany({
-          where: { schoolId: session.schoolId, student: { parents: { some: { userId: session.userId } } } },
+          where: {
+            schoolId: session.schoolId,
+            academicYearId: selectedYear.id,
+            student: { parents: { some: { userId: session.userId } } }
+          },
           include: { student: true },
           orderBy: { createdAt: "desc" },
           take: 200,
         })
       : await db.feeInvoice.findMany({
-          where: { schoolId: session.schoolId },
+          where: { schoolId: session.schoolId, academicYearId: selectedYear.id },
           include: { student: true },
           orderBy: { createdAt: "desc" },
           take: 200,
@@ -58,11 +66,17 @@ export default async function FeesPage({
 
   return (
     <div className="space-y-5 animate-fade-up">
+      {!isYearWritable ? (
+        <div className="rounded-[14px] border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
+          Academic year {selectedYear.name} is closed. Invoices are read-only.
+        </div>
+      ) : null}
       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
-        <SectionHeader title="Fee Invoices" subtitle={`${invoices.length} total invoices`} />
+        <SectionHeader title="Fee Invoices" subtitle={`${invoices.length} total invoices · ${selectedYear.name}`} />
         {canWrite && pendingCount > 0 && (
           <form action={sendPendingFeeRemindersAction}>
-            <input type="hidden" name="returnTo" value="/fees" />
+            <input type="hidden" name="returnTo" value={withAcademicYearParam("/fees", selectedYear.id)} />
+            <input type="hidden" name="academicYearId" value={selectedYear.id} />
             <Button type="submit" variant="secondary" size="sm">Send Pending Reminders</Button>
           </form>
         )}
@@ -112,7 +126,7 @@ export default async function FeesPage({
             {invoices.map((inv, i) => (
               <Link
                 key={inv.id}
-                href={`/fees/${inv.id}`}
+                href={withAcademicYearParam(`/fees/${inv.id}`, selectedYear.id)}
                 className={`flex items-start sm:items-center gap-3 px-3.5 sm:px-4 py-3.5 sm:py-4 hover:bg-white/[0.04] transition-colors
                             ${i === 0 ? "rounded-t-[14px]" : ""}
                             ${i === invoices.length - 1 ? "rounded-b-[14px]" : ""}`}
@@ -143,16 +157,23 @@ export default async function FeesPage({
         )}
       </Card>
 
-      {canWrite && <CreateInvoiceCard students={students} />}
+      {canWrite && <CreateInvoiceCard students={students} academicYearId={selectedYear.id} />}
     </div>
   );
 }
 
-async function CreateInvoiceCard({ students }: { students: { id: string; fullName: string }[] }) {
+async function CreateInvoiceCard({
+  students,
+  academicYearId
+}: {
+  students: { id: string; fullName: string }[];
+  academicYearId: string;
+}) {
   const { createInvoiceAction } = await import("./actions");
   return (
     <Card title="New Invoice" description="Create a fee invoice for a student" accent="indigo">
       <form action={createInvoiceAction} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <input type="hidden" name="academicYearId" value={academicYearId} />
         <div>
           <Label>Student</Label>
           <select

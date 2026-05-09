@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { db } from "@/lib/db";
 import { signSessionToken } from "@/lib/session";
 import { auditLog } from "@/lib/audit";
 import { verifySchoolBiometricToken, isPasswordHashFingerprintMatch, issueSchoolBiometricToken } from "@/lib/biometric-auth";
 import { ensureSchoolSubscriptionActive } from "@/lib/subscription";
+import { queryFirst } from "@/lib/neon-db";
 import {
   getExpiredSessionCookieOptions,
   getPrimarySessionCookieName,
@@ -52,13 +52,22 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: false, message: "Biometric token expired. Please sign in with password once." }, { status: 401 });
   }
 
-  const user = await db.user.findFirst({
-    where: { id: claims.userId, schoolId: claims.schoolId },
-    include: {
-      school: { select: { isActive: true } },
-    },
-  });
-  if (!user || !user.isActive || !user.school.isActive) {
+  const user = await queryFirst<{
+    id: string;
+    schoolId: string;
+    schoolRoleId: string;
+    isActive: boolean;
+    passwordHash: string;
+    schoolIsActive: boolean;
+  }>(
+    `SELECT u."id", u."schoolId", u."schoolRoleId", u."isActive", u."passwordHash", s."isActive" AS "schoolIsActive"
+     FROM "User" u
+     INNER JOIN "School" s ON s."id" = u."schoolId"
+     WHERE u."id" = $1 AND u."schoolId" = $2
+     LIMIT 1`,
+    [claims.userId, claims.schoolId]
+  );
+  if (!user || !user.isActive || !user.schoolIsActive) {
     return NextResponse.json({ ok: false, message: "Your account is inactive. Contact the school admin." }, { status: 401 });
   }
 
@@ -69,10 +78,13 @@ export async function POST(req: Request) {
     );
   }
 
-  const role = await db.schoolRole.findFirst({
-    where: { id: user.schoolRoleId, schoolId: user.schoolId },
-    select: { id: true, key: true },
-  });
+  const role = await queryFirst<{ id: string; key: string }>(
+    `SELECT "id", "key"
+     FROM "SchoolRole"
+     WHERE "id" = $1 AND "schoolId" = $2
+     LIMIT 1`,
+    [user.schoolRoleId, user.schoolId]
+  );
   if (!role) {
     return NextResponse.json({ ok: false, message: "Account is misconfigured (missing role)." }, { status: 400 });
   }

@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { db } from "@/lib/db";
 import { auditLog } from "@/lib/audit";
 import { signScopedToken } from "@/lib/auth-token";
 import {
@@ -8,6 +7,7 @@ import {
   isPasswordHashFingerprintMatch,
   issuePlatformBiometricToken,
 } from "@/lib/biometric-auth";
+import { queryFirst } from "@/lib/neon-db";
 import {
   getExpiredSessionCookieOptions,
   getPrimarySessionCookieName,
@@ -54,9 +54,19 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: false, message: "Biometric token expired. Please sign in with password once." }, { status: 401 });
   }
 
-  const user = await db.platformUser.findUnique({
-    where: { id: claims.platformUserId },
-  });
+  const user = await queryFirst<{
+    id: string;
+    role: "SUPER_ADMIN" | "SUPPORT_USER";
+    status: "PENDING" | "APPROVED" | "REJECTED";
+    isActive: boolean;
+    passwordHash: string;
+  }>(
+    `SELECT "id", "role", "status", "isActive", "passwordHash"
+     FROM "PlatformUser"
+     WHERE "id" = $1
+     LIMIT 1`,
+    [claims.platformUserId]
+  );
   if (!user || !user.isActive) {
     return NextResponse.json({ ok: false, message: "Your platform account is inactive." }, { status: 401 });
   }

@@ -5,6 +5,7 @@ import { db } from "@/lib/db";
 import { requireSuperAdmin } from "@/lib/platform-require";
 import { ensureBaseModules } from "@/lib/permissions";
 import { impersonateSchoolAction, impersonateUserAction } from "./actions";
+import { ManageSchoolAdminPasswordPopup } from "../../onboarding-requests/ui";
 
 const MODULE_ICONS: Record<string, string> = {
   STUDENTS: "👥", FEES: "💳", ATTENDANCE: "✅", TIMETABLE: "🗓️", COMMUNICATION: "📢",
@@ -23,22 +24,27 @@ export default async function PlatformSchoolPage({ params }: { params: Promise<{
   const { id } = await params;
   await ensureBaseModules();
 
-  const school = await db.school.findUnique({
-    where: { id },
-    include: {
-      subscription: true,
-      invites: { orderBy: { createdAt: "desc" }, take: 20 },
-      users: { orderBy: { createdAt: "asc" }, take: 200, include: { schoolRole: true } },
-      modules: { include: { module: true } },
-    },
-  });
+  const [school, schoolAdminUsers] = await Promise.all([
+    db.school.findUnique({
+      where: { id },
+      include: {
+        subscription: true,
+        invites: { orderBy: { createdAt: "desc" }, take: 20 },
+        modules: { include: { module: true } },
+      },
+    }),
+    db.user.findMany({
+      where: { schoolId: id, schoolRole: { key: "ADMIN" } },
+      orderBy: { createdAt: "asc" },
+      take: 500,
+      include: { schoolRole: true }
+    })
+  ]);
   if (!school) return notFound();
 
   const modules = await db.module.findMany({ orderBy: { name: "asc" } });
   const enabledByModuleId = new Map(school.modules.map(m => [m.moduleId, m.enabled]));
   const schoolModules = modules.map(m => ({ id: m.id, key: m.key, name: m.name, enabled: enabledByModuleId.get(m.id) ?? false }));
-  const schoolAdminUsers = school.users.filter((u) => u.schoolRole.key === "ADMIN");
-
   const plan = school.subscription?.plan ?? "TRIAL";
 
   return (
@@ -110,53 +116,50 @@ export default async function PlatformSchoolPage({ params }: { params: Promise<{
       </div>
 
       {/* Impersonate school admins only */}
-      <Card title="School Admin Access" description="For support, sign in only as school admin users">
-        {schoolAdminUsers.length === 0 ? (
-          <p className="text-sm text-white/40 py-4 text-center">No school admin users found.</p>
-        ) : (
-          <div className="divide-y divide-white/[0.06] mt-2">
-            {schoolAdminUsers.map((u, i) => {
-              const initials = u.name.trim().split(/\s+/).map((p: string) => p[0]).slice(0,2).join("").toUpperCase();
-              return (
-                <div
-                  key={u.id}
-                  id={`school-admin-${u.id}`}
-                  className={`flex flex-wrap items-center gap-3 py-3 px-1 scroll-mt-24 target:bg-indigo-500/[0.08]
-                                              ${i === 0 ? "rounded-t-[12px]" : ""}
-                                              ${i === schoolAdminUsers.length - 1 ? "rounded-b-[12px]" : ""}
-                                              hover:bg-white/[0.03] transition`}>
-                  <div className={`hidden sm:grid h-8 w-8 shrink-0 place-items-center rounded-[9px]
-                                    bg-gradient-to-b ${avatarColor(u.name)} text-[11px] font-bold text-white`}>
-                    {initials}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-[13px] font-semibold text-white/85 truncate">{u.name}</p>
-                    <p className="text-[11px] text-white/40 truncate">{u.schoolRole.name}</p>
-                  </div>
-                  <form action={impersonateUserAction} method="post">
-                    <input type="hidden" name="schoolId" value={school.id} />
-                    <input type="hidden" name="userId"   value={u.id} />
-                    <Button type="submit" variant="secondary" size="sm">Sign in as</Button>
-                  </form>
-
-                  <details className="group w-full rounded-[12px] border border-white/[0.07] bg-white/[0.03]">
-                    <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-3 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-white/55">
-                      <span>Update School Admin Password</span>
-                      <span className="inline-flex items-center gap-1 rounded-full border border-white/[0.12] px-2 py-0.5 text-[10px] tracking-wide text-white/65">
-                        <span className="group-open:hidden">Open</span>
-                        <span className="hidden group-open:inline">Close</span>
-                      </span>
-                    </summary>
-                    <div className="border-t border-white/[0.07] p-3">
-                      <SchoolAdminPasswordForm schoolId={school.id} userId={u.id} />
+      <div id="school-admin-access" className="scroll-mt-24">
+        <Card title="School Admin Access" description="Sign in as school admin and update school admin passwords">
+          {schoolAdminUsers.length === 0 ? (
+            <p className="text-sm text-white/40 py-4 text-center">No school admin users found.</p>
+          ) : (
+            <div className="divide-y divide-white/[0.06] mt-2">
+              {schoolAdminUsers.map((u, i) => {
+                const initials = u.name.trim().split(/\s+/).map((p: string) => p[0]).slice(0,2).join("").toUpperCase();
+                return (
+                  <div
+                    key={u.id}
+                    id={`school-admin-${u.id}`}
+                    className={`flex flex-wrap items-center gap-3 py-3 px-1 scroll-mt-24 target:bg-indigo-500/[0.08]
+                                                ${i === 0 ? "rounded-t-[12px]" : ""}
+                                                ${i === schoolAdminUsers.length - 1 ? "rounded-b-[12px]" : ""}
+                                                hover:bg-white/[0.03] transition`}>
+                    <div className={`hidden sm:grid h-8 w-8 shrink-0 place-items-center rounded-[9px]
+                                      bg-gradient-to-b ${avatarColor(u.name)} text-[11px] font-bold text-white`}>
+                      {initials}
                     </div>
-                  </details>
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </Card>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[13px] font-semibold text-white/85 truncate">{u.name}</p>
+                      <p className="text-[11px] text-white/40 truncate">{u.schoolRole.name}</p>
+                    </div>
+                    <form action={impersonateUserAction} method="post">
+                      <input type="hidden" name="schoolId" value={school.id} />
+                      <input type="hidden" name="userId"   value={u.id} />
+                      <Button type="submit" variant="secondary" size="sm">Sign in as</Button>
+                    </form>
+                    <div className="w-full sm:w-auto">
+                      <ManageSchoolAdminPasswordPopup
+                        schoolId={school.id}
+                        schoolName={school.name}
+                        admins={[{ id: u.id, name: u.name, email: u.email }]}
+                        triggerVariant="chip"
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </Card>
+      </div>
 
       {/* Modules */}
       <Card title="School Modules" description="Enable or disable modules and customize fields per module">
@@ -193,9 +196,4 @@ async function InviteForm({ schoolId }: { schoolId: string }) {
 async function SchoolModulesForm(props: { schoolId: string; modules: Array<{ id: string; key: string; name: string; enabled: boolean }> }) {
   const { PlatformSchoolModulesForm } = await import("./ui");
   return <PlatformSchoolModulesForm schoolId={props.schoolId} modules={props.modules} />;
-}
-
-async function SchoolAdminPasswordForm({ schoolId, userId }: { schoolId: string; userId: string }) {
-  const { PlatformSchoolAdminPasswordForm } = await import("./ui");
-  return <PlatformSchoolAdminPasswordForm schoolId={schoolId} userId={userId} />;
 }

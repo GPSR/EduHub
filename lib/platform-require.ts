@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { db } from "@/lib/db";
+import { queryFirst } from "@/lib/neon-db";
 import { clearPlatformSessionCookie, getPlatformSession } from "@/lib/platform-session";
 import { resolveActivePlatformSessionWithUser } from "@/lib/auth-session";
 
@@ -31,10 +31,13 @@ export async function requirePlatformSchoolAccess(schoolId: string) {
   const { session, user } = await requirePlatformUser();
   if (user.role === "SUPER_ADMIN") return { session, user };
 
-  const assignment = await db.platformUserSchoolAssignment.findFirst({
-    where: { platformUserId: user.id, schoolId },
-    select: { id: true }
-  });
+  const assignment = await queryFirst<{ id: string }>(
+    `SELECT "id"
+     FROM "PlatformUserSchoolAssignment"
+     WHERE "platformUserId" = $1 AND "schoolId" = $2
+     LIMIT 1`,
+    [user.id, schoolId]
+  );
   if (!assignment) redirect("/platform");
   return { session, user };
 }

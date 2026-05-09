@@ -73,6 +73,7 @@ export function CalendarMonthGrid({
   canAdminManage,
   activeMonthKey,
   monthLabel,
+  academicYearId,
   initialAddDate,
   days,
   classes
@@ -81,6 +82,7 @@ export function CalendarMonthGrid({
   canAdminManage: boolean;
   activeMonthKey: string;
   monthLabel: string;
+  academicYearId: string;
   initialAddDate?: string;
   days: GridDay[];
   classes: ClassOption[];
@@ -347,6 +349,7 @@ export function CalendarMonthGrid({
                             <form action={deleteSchoolCalendarEventAction}>
                               <input type="hidden" name="eventId" value={event.id} />
                               <input type="hidden" name="monthKey" value={activeMonthKey} />
+                              <input type="hidden" name="academicYearId" value={academicYearId} />
                               <Button type="submit" size="sm" variant="danger" className="px-2.5">Delete</Button>
                             </form>
                           </div>
@@ -384,6 +387,7 @@ export function CalendarMonthGrid({
               action={createSchoolCalendarEventAction}
               className="flex h-full flex-col"
             >
+              <input type="hidden" name="academicYearId" value={academicYearId} />
               <div className="sticky top-0 z-10 flex items-center justify-between border-b border-white/[0.10] bg-[#0b1324] px-4 py-[max(0.75rem,env(safe-area-inset-top))] sm:py-3">
                 <div>
                   <p id="calendar-add-event-title" className="text-[14px] font-semibold text-white/92">Add Calendar Event</p>
@@ -467,6 +471,7 @@ export function CalendarMonthGrid({
           >
             <form action={updateSchoolCalendarEventAction} className="flex h-full flex-col">
               <input type="hidden" name="eventId" value={editingEvent.id} />
+              <input type="hidden" name="academicYearId" value={academicYearId} />
 
               <div className="sticky top-0 z-10 flex items-center justify-between border-b border-white/[0.10] bg-[#0b1324] px-4 py-[max(0.75rem,env(safe-area-inset-top))] sm:py-3">
                 <div>

@@ -1,10 +1,10 @@
 "use server";
 
-import { db } from "@/lib/db";
 import { verifyPassword } from "@/lib/password";
 import { createSessionCookie } from "@/lib/session";
 import { auditLog } from "@/lib/audit";
 import { ensureSchoolSubscriptionActive } from "@/lib/subscription";
+import { queryFirst } from "@/lib/neon-db";
 import { buildRateLimitKey, consumeRateLimitAttempt, readRequestIp } from "@/lib/rate-limit";
 import { getDefaultSchoolHomePath } from "@/lib/default-school-home";
 import { redirect } from "next/navigation";
@@ -54,18 +54,31 @@ export async function loginAction(_prev: LoginState, formData: FormData): Promis
     return { ok: false, message: "Too many sign-in attempts. Please wait a few minutes and try again." };
   }
 
-  const school = await db.school.findUnique({
-    where: { slug: schoolSlug }
-  });
+  const school = await queryFirst<{ id: string; isActive: boolean }>(
+    `SELECT "id", "isActive"
+     FROM "School"
+     WHERE "slug" = $1
+     LIMIT 1`,
+    [schoolSlug]
+  );
   if (!school || !school.isActive)
     return { ok: false, message: "School not found or inactive." };
 
   const sub = await ensureSchoolSubscriptionActive(school.id);
   if (!sub.ok) return { ok: false, message: sub.reason };
 
-  const user = await db.user.findUnique({
-    where: { schoolId_email: { schoolId: school.id, email } }
-  });
+  const user = await queryFirst<{
+    id: string;
+    schoolRoleId: string;
+    passwordHash: string;
+    isActive: boolean;
+  }>(
+    `SELECT "id", "schoolRoleId", "passwordHash", "isActive"
+     FROM "User"
+     WHERE "schoolId" = $1 AND "email" = $2
+     LIMIT 1`,
+    [school.id, email]
+  );
   const ok = await verifyPassword(parsed.data.password, user?.passwordHash ?? DUMMY_PASSWORD_HASH);
   if (!ok || !user) return { ok: false, message: INVALID_LOGIN_MESSAGE };
   if (!user.isActive) return { ok: false, message: "Your account is inactive. Contact the school admin." };
@@ -76,7 +89,13 @@ export async function loginAction(_prev: LoginState, formData: FormData): Promis
     entityType: "User",
     entityId: user.id
   });
-  const role = await db.schoolRole.findUnique({ where: { id: user.schoolRoleId } });
+  const role = await queryFirst<{ id: string; key: string }>(
+    `SELECT "id", "key"
+     FROM "SchoolRole"
+     WHERE "id" = $1
+     LIMIT 1`,
+    [user.schoolRoleId]
+  );
   if (!role) return { ok: false, message: "Account is misconfigured (missing role)." };
   await createSessionCookie({ userId: user.id, schoolId: school.id, roleId: role.id, roleKey: role.key });
   redirect(sanitizeNextPath(formData.get("next")) ?? getDefaultSchoolHomePath(role.key));
