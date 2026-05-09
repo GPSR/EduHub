@@ -172,128 +172,132 @@ export function ImageCropperDialog({
   if (!open || !file) return null;
 
   return (
-    <div className="fixed inset-0 z-[90] flex items-center justify-center p-4 sm:p-6">
+    <div className="fixed inset-0 z-[220] flex items-start sm:items-center justify-center bg-black/70 backdrop-blur-sm px-2 sm:px-4 pt-[max(0.75rem,env(safe-area-inset-top))] pb-[max(0.75rem,env(safe-area-inset-bottom))] overflow-y-auto overscroll-contain">
       <button
         type="button"
         aria-label="Close crop dialog"
         onClick={() => !busy && onCancel()}
-        className="absolute inset-0 bg-black/70 backdrop-blur-sm"
+        className="absolute inset-0"
       />
 
-      <div className="relative w-full max-w-[560px] rounded-[20px] border border-white/[0.14] bg-[#0f1728]/95 p-4 sm:p-5 shadow-[0_30px_80px_-30px_rgba(0,0,0,0.9)]">
-        <div className="mb-3 flex items-center justify-between gap-3">
-          <h3 className="text-sm sm:text-base font-semibold text-white/95">{title}</h3>
-          <p className="text-[11px] text-white/45">Square crop</p>
-        </div>
+      <div className="relative z-10 w-full max-w-[560px] max-h-[calc(100dvh-1.5rem)] sm:max-h-[calc(100dvh-2rem)] overflow-hidden rounded-[20px] border border-white/[0.14] bg-[#0f1728]/95 shadow-[0_30px_80px_-30px_rgba(0,0,0,0.9)]">
+        <div className="flex max-h-full flex-col">
+          <div className="flex items-center justify-between gap-3 border-b border-white/[0.08] px-4 py-3.5 sm:px-5">
+            <h3 className="text-sm sm:text-base font-semibold text-white/95">{title}</h3>
+            <p className="text-[11px] text-white/45">Square crop</p>
+          </div>
 
-        <div className="mx-auto w-full max-w-[360px]">
-          <div className="relative mx-auto overflow-hidden rounded-[16px] border border-white/[0.14] bg-black/30" style={{ width: PREVIEW_SIZE, height: PREVIEW_SIZE }}>
-            {sourceUrl ? (
-              <img
-                src={sourceUrl}
-                alt="Crop preview"
-                className="h-full w-full object-cover select-none"
-                draggable={false}
-                style={{
-                  transform: `translate(${offsetX}px, ${offsetY}px) scale(${zoom})`,
-                  transformOrigin: "center center",
-                }}
-              />
+          <div className="flex-1 overflow-y-auto px-4 py-4 sm:px-5 sm:py-5">
+            <div className="mx-auto w-full max-w-[360px]">
+              <div className="relative mx-auto overflow-hidden rounded-[16px] border border-white/[0.14] bg-black/30" style={{ width: PREVIEW_SIZE, height: PREVIEW_SIZE }}>
+                {sourceUrl ? (
+                  <img
+                    src={sourceUrl}
+                    alt="Crop preview"
+                    className="h-full w-full object-cover select-none"
+                    draggable={false}
+                    style={{
+                      transform: `translate(${offsetX}px, ${offsetY}px) scale(${zoom})`,
+                      transformOrigin: "center center",
+                    }}
+                  />
+                ) : null}
+                <div className="pointer-events-none absolute inset-0 border-[2px] border-white/60" />
+              </div>
+            </div>
+
+            <div className="mt-4 space-y-3">
+              <div>
+                <label className="mb-1.5 block text-[11px] font-medium uppercase tracking-[0.12em] text-white/45">
+                  Zoom
+                </label>
+                <input
+                  type="range"
+                  min={1}
+                  max={3}
+                  step={0.01}
+                  value={zoom}
+                  onChange={(e) => setZoom(Number(e.target.value))}
+                  className="w-full accent-blue-400"
+                />
+              </div>
+
+              <div>
+                <label className="mb-1.5 block text-[11px] font-medium uppercase tracking-[0.12em] text-white/45">
+                  Horizontal
+                </label>
+                <input
+                  type="range"
+                  min={-Math.round(bounds.maxOffsetX)}
+                  max={Math.round(bounds.maxOffsetX)}
+                  step={1}
+                  value={offsetX}
+                  onChange={(e) => setOffsetX(Number(e.target.value))}
+                  disabled={bounds.maxOffsetX <= 0}
+                  className="w-full accent-blue-400 disabled:opacity-40"
+                />
+              </div>
+
+              <div>
+                <label className="mb-1.5 block text-[11px] font-medium uppercase tracking-[0.12em] text-white/45">
+                  Vertical
+                </label>
+                <input
+                  type="range"
+                  min={-Math.round(bounds.maxOffsetY)}
+                  max={Math.round(bounds.maxOffsetY)}
+                  step={1}
+                  value={offsetY}
+                  onChange={(e) => setOffsetY(Number(e.target.value))}
+                  disabled={bounds.maxOffsetY <= 0}
+                  className="w-full accent-blue-400 disabled:opacity-40"
+                />
+              </div>
+            </div>
+
+            {error ? (
+              <div className="mt-3 rounded-[10px] border border-rose-500/25 bg-rose-500/10 px-3 py-2 text-xs text-rose-200">
+                {error}
+              </div>
             ) : null}
-            <div className="pointer-events-none absolute inset-0 border-[2px] border-white/60" />
-          </div>
-        </div>
-
-        <div className="mt-4 space-y-3">
-          <div>
-            <label className="mb-1.5 block text-[11px] font-medium uppercase tracking-[0.12em] text-white/45">
-              Zoom
-            </label>
-            <input
-              type="range"
-              min={1}
-              max={3}
-              step={0.01}
-              value={zoom}
-              onChange={(e) => setZoom(Number(e.target.value))}
-              className="w-full accent-blue-400"
-            />
           </div>
 
-          <div>
-            <label className="mb-1.5 block text-[11px] font-medium uppercase tracking-[0.12em] text-white/45">
-              Horizontal
-            </label>
-            <input
-              type="range"
-              min={-Math.round(bounds.maxOffsetX)}
-              max={Math.round(bounds.maxOffsetX)}
-              step={1}
-              value={offsetX}
-              onChange={(e) => setOffsetX(Number(e.target.value))}
-              disabled={bounds.maxOffsetX <= 0}
-              className="w-full accent-blue-400 disabled:opacity-40"
-            />
+          <div className="flex items-center justify-end gap-2 border-t border-white/[0.08] px-4 py-3.5 sm:px-5">
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => !busy && onCancel()}
+              disabled={busy}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              onClick={async () => {
+                if (!file || busy) return;
+                setBusy(true);
+                setError(null);
+                try {
+                  const cropped = await buildCroppedFile({
+                    file,
+                    zoom,
+                    offsetX,
+                    offsetY,
+                    previewSize: PREVIEW_SIZE,
+                    outputSize,
+                  });
+                  await onApply(cropped);
+                } catch (err) {
+                  setError(err instanceof Error ? err.message : "Unable to crop image.");
+                } finally {
+                  setBusy(false);
+                }
+              }}
+              disabled={busy}
+            >
+              {busy ? "Processing..." : "Use Cropped Photo"}
+            </Button>
           </div>
-
-          <div>
-            <label className="mb-1.5 block text-[11px] font-medium uppercase tracking-[0.12em] text-white/45">
-              Vertical
-            </label>
-            <input
-              type="range"
-              min={-Math.round(bounds.maxOffsetY)}
-              max={Math.round(bounds.maxOffsetY)}
-              step={1}
-              value={offsetY}
-              onChange={(e) => setOffsetY(Number(e.target.value))}
-              disabled={bounds.maxOffsetY <= 0}
-              className="w-full accent-blue-400 disabled:opacity-40"
-            />
-          </div>
-        </div>
-
-        {error ? (
-          <div className="mt-3 rounded-[10px] border border-rose-500/25 bg-rose-500/10 px-3 py-2 text-xs text-rose-200">
-            {error}
-          </div>
-        ) : null}
-
-        <div className="mt-4 flex items-center justify-end gap-2">
-          <Button
-            type="button"
-            variant="ghost"
-            onClick={() => !busy && onCancel()}
-            disabled={busy}
-          >
-            Cancel
-          </Button>
-          <Button
-            type="button"
-            onClick={async () => {
-              if (!file || busy) return;
-              setBusy(true);
-              setError(null);
-              try {
-                const cropped = await buildCroppedFile({
-                  file,
-                  zoom,
-                  offsetX,
-                  offsetY,
-                  previewSize: PREVIEW_SIZE,
-                  outputSize,
-                });
-                await onApply(cropped);
-              } catch (err) {
-                setError(err instanceof Error ? err.message : "Unable to crop image.");
-              } finally {
-                setBusy(false);
-              }
-            }}
-            disabled={busy}
-          >
-            {busy ? "Processing..." : "Use Cropped Photo"}
-          </Button>
         </div>
       </div>
     </div>
