@@ -42,6 +42,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const canViewAcademics = canView("ACADEMICS") || canView("HOMEWORK") || canView("PROGRESS_CARD");
   const canViewHomework = canView("HOMEWORK") || canView("ACADEMICS");
   const canViewProgressCard = canView("PROGRESS_CARD") || canView("ACADEMICS");
+  const canViewExams = canView("EXAMS") || canView("ACADEMICS");
   const defaultHomePath = getDefaultSchoolHomePath(session.roleKey);
 
   const desktopItems = [
@@ -52,6 +53,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     canView("TIMETABLE") ? { href: "/timetable", label: "Timetable" } : null,
     canView("COMMUNICATION") ? { href: "/feed", label: "Feed" } : null,
     canViewAcademics ? { href: "/academics", label: "Academics" } : null,
+    canViewExams ? { href: "/exams", label: "Exams" } : null,
     canViewHomework ? { href: "/academics/homework", label: "Homework" } : null,
     canViewProgressCard ? { href: "/academics/progress-card", label: "Progress Card" } : null,
     canView("REPORTS") ? { href: "/reports", label: "Reports" } : null,

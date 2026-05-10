@@ -17,6 +17,7 @@ const ICONS: Record<string, string> = {
   "/attendance":               "✅",
   "/timetable":                "🗓️",
   "/academics":                "📚",
+  "/exams":                    "🧪",
   "/learning-center":          "🧠",
   "/youtube-learning":         "▶️",
   "/calendar":                 "🗓️",

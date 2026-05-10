@@ -112,6 +112,7 @@ const MODULE_ICONS: Record<string, string> = {
   ATTENDANCE:    "✅",
   TIMETABLE:     "🗓️",
   COMMUNICATION: "📢",
+  EXAMS:         "🧪",
   ACADEMICS:     "📚",
   LEARNING_CENTER:"🧠",
   YOUTUBE_LEARNING:"▶️",

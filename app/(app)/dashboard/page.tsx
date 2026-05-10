@@ -15,6 +15,7 @@ const DASHBOARD_MODULE_LINKS = [
   { href: "/attendance", icon: "✅", label: "Attendance" },
   { href: "/feed", icon: "📢", label: "Feed" },
   { href: "/academics", icon: "📚", label: "Academics" },
+  { href: "/exams", icon: "🧪", label: "Exams" },
   { href: "/academics/homework", icon: "📝", label: "Homework" },
   { href: "/academics/progress-card", icon: "🎓", label: "Progress Card" },
   { href: "/learning-center", icon: "🧠", label: "Learning Center" },
@@ -130,8 +131,8 @@ export default async function DashboardPage({
   ]);
 
   const totalInvoicedCents = feeInvoicedTotals._sum.amountCents ?? 0;
-  const totalRevenueCents = feeCollectedTotals._sum.amountCents ?? 0;
-  const pendingFeeCents = Math.max(0, totalInvoicedCents - totalRevenueCents);
+  const totalReceivedCents = feeCollectedTotals._sum.amountCents ?? 0;
+  const pendingFeeCents = Math.max(0, totalInvoicedCents - totalReceivedCents);
 
   const paidEntries =
     feeView === "paid"
@@ -283,6 +284,7 @@ export default async function DashboardPage({
       : "/dashboard?fees=paid#fee-insights",
     selectedYear.id
   );
+  const grandTotalHref = withAcademicYearParam("/fees", selectedYear.id);
   const pendingHref = withAcademicYearParam(
     query
       ? `/dashboard?q=${encodeURIComponent(query)}&fees=pending#fee-insights`
@@ -445,22 +447,26 @@ export default async function DashboardPage({
       )}
 
       {/* Stat grid */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
         <StatCard
-          icon="💰" label="Total Revenue" value={centsToUsd(totalRevenueCents)}
-          color={totalRevenueCents > 0 ? "emerald" : "indigo"} delay="stagger-1" href={revenueHref} active={feeView === "paid"}
+          icon="🧾" label="Grand Total" value={centsToUsd(totalInvoicedCents)}
+          color={totalInvoicedCents > 0 ? "indigo" : "teal"} delay="stagger-1" href={grandTotalHref}
         />
         <StatCard
-          icon="🏫" label="Teachers" value={teachers}
-          color="teal" delay="stagger-2" href="/admin/users"
+          icon="💰" label="Total Received" value={centsToUsd(totalReceivedCents)}
+          color={totalReceivedCents > 0 ? "emerald" : "indigo"} delay="stagger-2" href={revenueHref} active={feeView === "paid"}
         />
         <StatCard
-          icon="🧾" label="Pending Fee Amount" value={centsToUsd(pendingFeeCents)}
+          icon="📄" label="Pending Amount" value={centsToUsd(pendingFeeCents)}
           color={pendingFeeCents > 0 ? "amber" : "emerald"} delay="stagger-3" href={pendingHref} active={feeView === "pending"}
         />
         <StatCard
+          icon="🏫" label="Teachers" value={teachers}
+          color="teal" delay="stagger-4" href="/admin/users"
+        />
+        <StatCard
           icon="📢" label="Feed Posts" value={posts}
-          color="violet" delay="stagger-4" href="/feed"
+          color="violet" delay="stagger-5" href="/feed"
         />
       </div>
 

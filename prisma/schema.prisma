@@ -118,6 +118,11 @@ enum StudentAcademicYearStatus {
   GRADUATED
 }
 
+enum ExamAttemptStatus {
+  IN_PROGRESS
+  SUBMITTED
+}
+
 model Module {
   id        String   @id @default(cuid())
   key       String   @unique
@@ -222,6 +227,9 @@ model School {
   teacherSalaryPayouts                  TeacherSalaryPayout[]
   teacherTimetableEntries               TeacherTimetableEntry[]
   leaveRequests                         LeaveRequest[]
+  schoolExams                           SchoolExam[]
+  schoolExamQuestions                   SchoolExamQuestion[]
+  schoolExamAttempts                    SchoolExamAttempt[]
   supportConversations                  SupportConversation[]
   supportMessages                       SupportMessage[]
   supportConversationSchoolParticipants SupportConversationSchoolParticipant[]
@@ -563,6 +571,7 @@ model User {
   teacherLeaveRequests            LeaveRequest[]                         @relation("TeacherLeaveRequestUser")
   leaveRequestsRequested          LeaveRequest[]                         @relation("LeaveRequestRequestedByUser")
   leaveRequestsApproved           LeaveRequest[]                         @relation("LeaveRequestApprovedByUser")
+  schoolExamsCreated              SchoolExam[]                           @relation("SchoolExamCreatedByUser")
   academicYearsClosed             AcademicYear[]                         @relation("AcademicYearClosedByUser")
   createdSupportConversations     SupportConversation[]                  @relation("SupportConversationCreatedBySchoolUser")
   supportConversationParticipants SupportConversationSchoolParticipant[]
@@ -967,6 +976,7 @@ model AcademicYear {
   attendanceRecords    AttendanceRecord[]
   homeworkRecords      Homework[]
   examResults          ExamResult[]
+  schoolExams          SchoolExam[]
   calendarEvents       SchoolCalendarEvent[]
   teacherTimetableRows TeacherTimetableEntry[]
   studentAcademicYears StudentAcademicYear[]
@@ -990,6 +1000,7 @@ model Class {
   teacherAssignments      TeacherClassAssignment[]
   learningCenterResources LearningCenterResource[]
   youtubeLearningVideos   YouTubeLearningVideo[]
+  schoolExams             SchoolExam[]
   teacherTimetableEntries TeacherTimetableEntry[]
   calendarEventTargets    SchoolCalendarEventClass[]
   studentAcademicYears    StudentAcademicYear[]      @relation("StudentAcademicYearClass")
@@ -1056,6 +1067,7 @@ model Student {
   attendance           AttendanceRecord[]
   homework             Homework[]
   examResults          ExamResult[]
+  examAttempts         SchoolExamAttempt[]
   studentAcademicYears StudentAcademicYear[]
   updateRequests       StudentUpdateRequest[]
   leaveRequests        LeaveRequest[]
@@ -1196,4 +1208,74 @@ model ExamResult {
   academicYear AcademicYear @relation(fields: [academicYearId], references: [id], onDelete: Cascade)
 
   @@index([schoolId, academicYearId, createdAt])
+}
+
+model SchoolExam {
+  id               String   @id @default(cuid())
+  schoolId         String
+  academicYearId   String
+  classId          String?
+  title            String
+  instructions     String?
+  questionPaperUrl String?
+  startsAt         DateTime
+  endsAt           DateTime
+  durationMinutes  Int      @default(60)
+  isPublished      Boolean  @default(true)
+  createdByUserId  String
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  school        School               @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  academicYear  AcademicYear         @relation(fields: [academicYearId], references: [id], onDelete: Cascade)
+  class         Class?               @relation(fields: [classId], references: [id], onDelete: SetNull)
+  createdByUser User                 @relation("SchoolExamCreatedByUser", fields: [createdByUserId], references: [id], onDelete: Cascade)
+  questions     SchoolExamQuestion[]
+  attempts      SchoolExamAttempt[]
+
+  @@index([schoolId, academicYearId, startsAt])
+  @@index([schoolId, classId, startsAt])
+  @@index([schoolId, isPublished, startsAt])
+}
+
+model SchoolExamQuestion {
+  id            String   @id @default(cuid())
+  schoolId      String
+  examId        String
+  prompt        String
+  optionA       String
+  optionB       String
+  optionC       String
+  optionD       String
+  correctOption String
+  marks         Float    @default(1)
+  sortOrder     Int      @default(0)
+  createdAt     DateTime @default(now())
+
+  school School     @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  exam   SchoolExam @relation(fields: [examId], references: [id], onDelete: Cascade)
+
+  @@index([examId, sortOrder])
+  @@index([schoolId, createdAt])
+}
+
+model SchoolExamAttempt {
+  id          String            @id @default(cuid())
+  schoolId    String
+  examId      String
+  studentId   String
+  status      ExamAttemptStatus @default(IN_PROGRESS)
+  startedAt   DateTime          @default(now())
+  submittedAt DateTime?
+  score       Float?
+  maxScore    Float?
+  answersJson String?
+
+  school  School     @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  exam    SchoolExam @relation(fields: [examId], references: [id], onDelete: Cascade)
+  student Student    @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@unique([examId, studentId])
+  @@index([schoolId, studentId, startedAt])
+  @@index([schoolId, examId, status])
 }

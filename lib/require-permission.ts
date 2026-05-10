@@ -12,7 +12,8 @@ export async function requirePermission(moduleKey: string, required: PermissionL
     "YOUTUBE_LEARNING",
     "SCHOOL_CALENDAR",
     "LEAVE_REQUESTS",
-    "TEACHER_SALARY"
+    "TEACHER_SALARY",
+    "EXAMS"
   ]);
   if (autoEnsureModules.has(moduleKey as ModuleKey)) {
     await ensureSchoolModuleRow(session.schoolId, moduleKey as ModuleKey);
@@ -35,7 +36,8 @@ export async function requireAnyPermission(moduleKeys: string[], required: Permi
     "YOUTUBE_LEARNING",
     "SCHOOL_CALENDAR",
     "LEAVE_REQUESTS",
-    "TEACHER_SALARY"
+    "TEACHER_SALARY",
+    "EXAMS"
   ]);
   for (const key of moduleKeys) {
     if (autoEnsureModules.has(key as ModuleKey)) {

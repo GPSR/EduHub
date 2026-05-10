@@ -8,9 +8,57 @@ const ALLOWED = new Map<string, string>([
   ["image/png", "png"],
   ["image/webp", "webp"]
 ]);
+const ALLOWED_DOCUMENTS = new Map<string, string>([
+  ["application/pdf", "pdf"],
+  ["application/msword", "doc"],
+  ["application/vnd.openxmlformats-officedocument.wordprocessingml.document", "docx"],
+  ["text/plain", "txt"],
+  ["text/csv", "csv"],
+  ["application/rtf", "rtf"],
+  ["application/vnd.ms-excel", "xls"],
+  ["application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "xlsx"],
+  ["application/vnd.ms-powerpoint", "ppt"],
+  ["application/vnd.openxmlformats-officedocument.presentationml.presentation", "pptx"],
+  ["image/jpeg", "jpg"],
+  ["image/png", "png"],
+  ["image/webp", "webp"],
+  ["image/gif", "gif"],
+  ["image/bmp", "bmp"],
+  ["image/heic", "heic"],
+  ["image/heif", "heif"]
+]);
+const BLOCKED_FILE_EXTENSIONS = new Set([
+  "exe",
+  "msi",
+  "bat",
+  "cmd",
+  "sh",
+  "zsh",
+  "bash",
+  "com",
+  "scr",
+  "apk",
+  "dmg",
+  "app",
+  "deb",
+  "rpm",
+  "jar",
+  "ps1",
+  "vbs",
+  "js",
+  "mjs",
+  "cjs",
+  "html",
+  "htm",
+  "php",
+  "py",
+  "rb",
+  "pl"
+]);
 
 export const DEFAULT_MAX_IMAGE_BYTES = 1500 * 1024; // Keep DB payload reasonable.
 export const LOGO_MAX_IMAGE_BYTES = 3 * 1024 * 1024;
+export const DEFAULT_MAX_FILE_BYTES = 20 * 1024 * 1024;
 const PUBLIC_UPLOADS_ROOT = path.join(process.cwd(), "public", "uploads");
 
 function formatMegabytes(bytes: number) {
@@ -19,8 +67,36 @@ function formatMegabytes(bytes: number) {
 }
 
 function toDataUrl(file: File, bytes: Buffer, ext: string) {
-  const mime = file.type || (ext === "jpg" ? "image/jpeg" : `image/${ext}`);
+  const mime =
+    file.type ||
+    (ext === "jpg"
+      ? "image/jpeg"
+      : ext === "png"
+        ? "image/png"
+        : ext === "webp"
+          ? "image/webp"
+          : ext === "gif"
+            ? "image/gif"
+            : ext === "bmp"
+              ? "image/bmp"
+              : ext === "svg"
+                ? "image/svg+xml"
+      : ext === "pdf"
+        ? "application/pdf"
+        : "application/octet-stream");
   return `data:${mime};base64,${bytes.toString("base64")}`;
+}
+
+function normalizeFileExtension(name: string) {
+  const dotIndex = name.lastIndexOf(".");
+  if (dotIndex < 0) return null;
+  const ext = name
+    .slice(dotIndex + 1)
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "");
+  if (!ext) return null;
+  return ext === "jpeg" ? "jpg" : ext;
 }
 
 async function validateImage(
@@ -33,6 +109,27 @@ async function validateImage(
   }
   const ext = ALLOWED.get(file.type);
   if (!ext) return { ok: false, message: "Use JPG, PNG, or WEBP image." };
+  const bytes = Buffer.from(await file.arrayBuffer());
+  return { ok: true, ext, bytes };
+}
+
+async function validateDocument(
+  file: File,
+  maxBytes: number | null = DEFAULT_MAX_FILE_BYTES
+): Promise<{ ok: true; ext: string; bytes: Buffer } | { ok: false; message: string }> {
+  if (!file || file.size === 0) return { ok: false, message: "Please choose a file." };
+  if (typeof maxBytes === "number" && file.size > maxBytes) {
+    return { ok: false, message: `File must be ${formatMegabytes(maxBytes)} or smaller.` };
+  }
+  const extFromMime = ALLOWED_DOCUMENTS.get(file.type);
+  const extFromName = normalizeFileExtension(file.name);
+  const ext = extFromMime ?? extFromName;
+  if (!ext) {
+    return { ok: false, message: "File extension is missing. Add an extension and retry." };
+  }
+  if (BLOCKED_FILE_EXTENSIONS.has(ext)) {
+    return { ok: false, message: "This file type is not allowed for security reasons." };
+  }
   const bytes = Buffer.from(await file.arrayBuffer());
   return { ok: true, ext, bytes };
 }
@@ -74,6 +171,30 @@ export async function saveUploadedImage(opts: {
     return { ok: true, url: `/uploads/${[...folderSegments, fileName].join("/")}` };
   } catch {
     // Fallback to data URLs if filesystem write is not available in the runtime.
+    const dataUrl = toDataUrl(opts.file, checked.bytes, checked.ext);
+    return { ok: true, url: dataUrl };
+  }
+}
+
+export async function saveUploadedFile(opts: {
+  file: File;
+  folder: string;
+  prefix: string;
+  maxBytes?: number | null;
+}): Promise<{ ok: true; url: string } | { ok: false; message: string }> {
+  const checked = await validateDocument(opts.file, opts.maxBytes);
+  if (!checked.ok) return checked;
+
+  const folderSegments = resolveFolderSegments(opts.folder);
+  const safePrefix = sanitizePathSegment(opts.prefix) || "file";
+  const fileName = `${safePrefix}-${Date.now()}-${randomUUID().slice(0, 8)}.${checked.ext}`;
+  const targetDir = path.join(PUBLIC_UPLOADS_ROOT, ...folderSegments);
+
+  try {
+    await mkdir(targetDir, { recursive: true });
+    await writeFile(path.join(targetDir, fileName), checked.bytes);
+    return { ok: true, url: `/uploads/${[...folderSegments, fileName].join("/")}` };
+  } catch {
     const dataUrl = toDataUrl(opts.file, checked.bytes, checked.ext);
     return { ok: true, url: dataUrl };
   }
