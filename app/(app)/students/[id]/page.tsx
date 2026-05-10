@@ -25,6 +25,21 @@ function timeAgo(date: Date): string {
   return `${Math.floor(hrs / 24)}d ago`;
 }
 
+function formatShortDate(date: Date) {
+  return date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+}
+
+function attendanceTone(status: string): "success" | "danger" | "warning" | "neutral" {
+  if (status === "PRESENT") return "success";
+  if (status === "ABSENT") return "danger";
+  if (status === "LATE") return "warning";
+  return "neutral";
+}
+
+function attemptTone(status: string): "success" | "warning" {
+  return status === "SUBMITTED" ? "success" : "warning";
+}
+
 export default async function StudentProfilePage({
   params,
   searchParams
@@ -65,7 +80,7 @@ export default async function StudentProfilePage({
   const canEditStudents = session.roleKey === "ADMIN" || (perms["STUDENTS"] ? atLeastLevel(perms["STUDENTS"], "EDIT") : false);
   const canManageProgression = canEditStudents && session.roleKey === "ADMIN";
 
-  const [feedPosts, invoices, selectedYearRow, promotionClasses, lastKnownPlacement] = await Promise.all([
+  const [feedPosts, invoices, selectedYearRow, promotionClasses, lastKnownPlacement, attendanceRecords, progressRecords, homeworkRows, examAttempts] = await Promise.all([
     db.feedPost.findMany({
       where: feedWhere,
       select: { id: true, title: true, scope: true, authorId: true, createdAt: true },
@@ -111,7 +126,107 @@ export default async function StudentProfilePage({
           orderBy: { updatedAt: "desc" },
           select: { classId: true }
         })
-      : Promise.resolve(null)
+      : Promise.resolve(null),
+    session.roleKey === "PARENT"
+      ? db.attendanceRecord.findMany({
+          where: {
+            schoolId: session.schoolId,
+            studentId: student.id,
+            academicYearId: selectedYear.id,
+            student: { parents: { some: { userId: session.userId } } }
+          },
+          orderBy: { date: "desc" },
+          take: 120
+        })
+      : db.attendanceRecord.findMany({
+          where: {
+            schoolId: session.schoolId,
+            studentId: student.id,
+            academicYearId: selectedYear.id
+          },
+          orderBy: { date: "desc" },
+          take: 120
+        }),
+    session.roleKey === "PARENT"
+      ? db.examResult.findMany({
+          where: {
+            schoolId: session.schoolId,
+            studentId: student.id,
+            academicYearId: selectedYear.id,
+            student: { parents: { some: { userId: session.userId } } }
+          },
+          orderBy: { createdAt: "desc" },
+          take: 200
+        })
+      : db.examResult.findMany({
+          where: {
+            schoolId: session.schoolId,
+            studentId: student.id,
+            academicYearId: selectedYear.id
+          },
+          orderBy: { createdAt: "desc" },
+          take: 200
+        }),
+    session.roleKey === "PARENT"
+      ? db.homework.findMany({
+          where: {
+            schoolId: session.schoolId,
+            studentId: student.id,
+            academicYearId: selectedYear.id,
+            student: { parents: { some: { userId: session.userId } } }
+          },
+          orderBy: { createdAt: "desc" },
+          take: 60
+        })
+      : db.homework.findMany({
+          where: {
+            schoolId: session.schoolId,
+            studentId: student.id,
+            academicYearId: selectedYear.id
+          },
+          orderBy: { createdAt: "desc" },
+          take: 60
+        }),
+    session.roleKey === "PARENT"
+      ? db.schoolExamAttempt.findMany({
+          where: {
+            schoolId: session.schoolId,
+            studentId: student.id,
+            student: { parents: { some: { userId: session.userId } } },
+            exam: { academicYearId: selectedYear.id }
+          },
+          include: {
+            exam: {
+              select: {
+                title: true,
+                startsAt: true,
+                endsAt: true,
+                class: { select: { name: true, section: true } }
+              }
+            }
+          },
+          orderBy: { startedAt: "desc" },
+          take: 60
+        })
+      : db.schoolExamAttempt.findMany({
+          where: {
+            schoolId: session.schoolId,
+            studentId: student.id,
+            exam: { academicYearId: selectedYear.id }
+          },
+          include: {
+            exam: {
+              select: {
+                title: true,
+                startsAt: true,
+                endsAt: true,
+                class: { select: { name: true, section: true } }
+              }
+            }
+          },
+          orderBy: { startedAt: "desc" },
+          take: 60
+        })
   ]);
 
   const authorIds = Array.from(new Set(feedPosts.map((post) => post.authorId)));
@@ -157,6 +272,73 @@ export default async function StudentProfilePage({
   const totalInvoicedCents = feeRows.reduce((sum, row) => sum + row.totalCents, 0);
   const totalPendingCents = pendingFeeRows.reduce((sum, row) => sum + row.pendingCents, 0);
   const totalPaidCents = Math.max(0, totalInvoicedCents - totalPendingCents);
+
+  const attendanceCounts = attendanceRecords.reduce(
+    (acc, row) => {
+      if (row.status === "PRESENT") acc.present += 1;
+      else if (row.status === "ABSENT") acc.absent += 1;
+      else if (row.status === "LATE") acc.late += 1;
+      else if (row.status === "LEAVE") acc.leave += 1;
+      return acc;
+    },
+    { present: 0, absent: 0, late: 0, leave: 0 }
+  );
+  const attendanceMarkedCount = attendanceRecords.length;
+  const attendancePresentRate = attendanceMarkedCount > 0 ? Math.round((attendanceCounts.present / attendanceMarkedCount) * 100) : null;
+
+  const progressLatestBySubject = new Map<string, (typeof progressRecords)[number]>();
+  for (const row of progressRecords) {
+    const key = `${row.examName.toLowerCase().trim()}::${row.subject.toLowerCase().trim()}`;
+    if (!progressLatestBySubject.has(key)) progressLatestBySubject.set(key, row);
+  }
+  const progressExamMap = new Map<
+    string,
+    {
+      examName: string;
+      rows: Array<{ subject: string; score: number; maxScore: number; remarks: string | null }>;
+      totalScore: number;
+      totalMax: number;
+      latestAt: Date;
+      remarks: string | null;
+    }
+  >();
+  for (const row of progressLatestBySubject.values()) {
+    const key = row.examName.toLowerCase().trim();
+    const bucket =
+      progressExamMap.get(key) ??
+      {
+        examName: row.examName,
+        rows: [],
+        totalScore: 0,
+        totalMax: 0,
+        latestAt: row.createdAt,
+        remarks: null
+      };
+    bucket.rows.push({ subject: row.subject, score: row.score, maxScore: row.maxScore, remarks: row.remarks });
+    bucket.totalScore += row.score;
+    bucket.totalMax += row.maxScore;
+    if (row.createdAt > bucket.latestAt) bucket.latestAt = row.createdAt;
+    if (!bucket.remarks && row.remarks) bucket.remarks = row.remarks;
+    progressExamMap.set(key, bucket);
+  }
+  const progressExamSummaries = Array.from(progressExamMap.values())
+    .map((entry) => ({
+      ...entry,
+      percentage: entry.totalMax > 0 ? Math.round((entry.totalScore / entry.totalMax) * 100) : 0,
+      rows: [...entry.rows].sort((a, b) => a.subject.localeCompare(b.subject))
+    }))
+    .sort((a, b) => b.latestAt.getTime() - a.latestAt.getTime());
+
+  const submittedAttempts = examAttempts.filter((attempt) => attempt.status === "SUBMITTED");
+  const avgExamScorePercent = (() => {
+    const scored = submittedAttempts.filter((attempt) => typeof attempt.score === "number" && typeof attempt.maxScore === "number" && (attempt.maxScore ?? 0) > 0);
+    if (scored.length === 0) return null;
+    const totalPercent = scored.reduce((sum, attempt) => sum + (((attempt.score ?? 0) / (attempt.maxScore ?? 1)) * 100), 0);
+    return Math.round(totalPercent / scored.length);
+  })();
+  const now = Date.now();
+  const pendingHomeworkCount = homeworkRows.filter((hw) => !hw.dueOn || hw.dueOn.getTime() >= now).length;
+  const overdueHomeworkCount = homeworkRows.filter((hw) => hw.dueOn && hw.dueOn.getTime() < now).length;
 
   return (
     <div className="space-y-5 animate-fade-up">
@@ -309,6 +491,27 @@ export default async function StudentProfilePage({
       )}
 
       <div className="grid grid-cols-1 gap-4 sm:gap-5">
+        <CollapsibleSection title="Student Overview" subtitle="Attendance, academics, exams, and homework snapshot">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            <Stat label="Attendance Marked" value={String(attendanceMarkedCount)} tone="text-white/90" />
+            <Stat
+              label="Present Rate"
+              value={attendancePresentRate !== null ? `${attendancePresentRate}%` : "—"}
+              tone={attendancePresentRate !== null && attendancePresentRate >= 75 ? "text-emerald-300" : "text-white/80"}
+            />
+            <Stat label="Progress Exams" value={String(progressExamSummaries.length)} tone="text-white/90" />
+            <Stat
+              label="Submitted Exams"
+              value={avgExamScorePercent !== null ? `${submittedAttempts.length} (${avgExamScorePercent}%)` : String(submittedAttempts.length)}
+              tone={avgExamScorePercent !== null ? "text-blue-300" : "text-white/80"}
+            />
+            <Stat label="Homework Total" value={String(homeworkRows.length)} tone="text-white/90" />
+            <Stat label="Homework Pending" value={String(pendingHomeworkCount)} tone="text-amber-300" />
+            <Stat label="Homework Overdue" value={String(overdueHomeworkCount)} tone={overdueHomeworkCount > 0 ? "text-rose-300" : "text-white/75"} />
+            <Stat label="Fees Pending" value={centsToUsd(totalPendingCents)} tone={totalPendingCents > 0 ? "text-amber-300" : "text-white/75"} />
+          </div>
+        </CollapsibleSection>
+
         <CollapsibleSection title="Academic Information" subtitle="Class, admission, and identity details">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <Field label="Admission Number" value={student.admissionNo ?? "—"} />
@@ -344,6 +547,159 @@ export default async function StudentProfilePage({
             <Field label="Guardian Address" value={student.guardianAddress ?? "—"} />
             <Field label="Pickup Authorization" value={student.pickupAuthDetails ?? "—"} />
           </div>
+        </CollapsibleSection>
+
+        <CollapsibleSection title="Attendance Overview" subtitle={`Attendance records for ${selectedYear.name}`}>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+            <Stat label="Present" value={String(attendanceCounts.present)} tone="text-emerald-300" />
+            <Stat label="Absent" value={String(attendanceCounts.absent)} tone="text-rose-300" />
+            <Stat label="Late" value={String(attendanceCounts.late)} tone="text-amber-300" />
+            <Stat label="Leave" value={String(attendanceCounts.leave)} tone="text-blue-300" />
+          </div>
+          {attendanceRecords.length === 0 ? (
+            <p className="text-sm text-white/50">No attendance records found for this academic year.</p>
+          ) : (
+            <div className="space-y-2">
+              {attendanceRecords.slice(0, 14).map((row) => (
+                <div key={row.id} className="flex items-center justify-between gap-3 rounded-[12px] border border-white/[0.07] bg-white/[0.03] px-3 py-2.5">
+                  <p className="text-[13px] text-white/80">{formatShortDate(row.date)}</p>
+                  <Badge tone={attendanceTone(row.status)}>{row.status}</Badge>
+                </div>
+              ))}
+              <div className="pt-1">
+                <Link
+                  href={withAcademicYearParam("/attendance", selectedYear.id)}
+                  className="inline-flex rounded-[10px] border border-white/[0.12] px-2.5 py-1.5 text-[12px] text-white/75 hover:bg-white/[0.06] transition"
+                >
+                  Open Attendance
+                </Link>
+              </div>
+            </div>
+          )}
+        </CollapsibleSection>
+
+        <CollapsibleSection title="Progress Card Overview" subtitle={`Exam-wise scores for ${selectedYear.name}`}>
+          {progressExamSummaries.length === 0 ? (
+            <p className="text-sm text-white/50">No progress card entries yet for this student.</p>
+          ) : (
+            <div className="space-y-3">
+              {progressExamSummaries.map((exam) => {
+                const tone = exam.percentage >= 75 ? "success" : exam.percentage >= 50 ? "warning" : "danger";
+                return (
+                  <div key={exam.examName} className="rounded-[12px] border border-white/[0.07] bg-white/[0.03] p-3">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <p className="text-[14px] font-semibold text-white/90">{exam.examName}</p>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Badge tone={tone}>{Math.round(exam.totalScore * 100) / 100}/{Math.round(exam.totalMax * 100) / 100}</Badge>
+                        <Badge tone={tone}>{exam.percentage}%</Badge>
+                      </div>
+                    </div>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {exam.rows.map((row) => {
+                        const subjectPct = row.maxScore > 0 ? Math.round((row.score / row.maxScore) * 100) : 0;
+                        const subjectTone = subjectPct >= 75 ? "success" : subjectPct >= 50 ? "warning" : "danger";
+                        return (
+                          <Badge key={`${exam.examName}:${row.subject}`} tone={subjectTone}>
+                            {row.subject}: {Math.round(row.score * 100) / 100}/{Math.round(row.maxScore * 100) / 100}
+                          </Badge>
+                        );
+                      })}
+                    </div>
+                    <p className="mt-2 text-[11px] text-white/45">
+                      Updated {timeAgo(exam.latestAt)}{exam.remarks ? ` · ${exam.remarks}` : ""}
+                    </p>
+                  </div>
+                );
+              })}
+              <div className="pt-1">
+                <Link
+                  href={withAcademicYearParam("/academics/progress-card", selectedYear.id)}
+                  className="inline-flex rounded-[10px] border border-white/[0.12] px-2.5 py-1.5 text-[12px] text-white/75 hover:bg-white/[0.06] transition"
+                >
+                  Open Progress Card
+                </Link>
+              </div>
+            </div>
+          )}
+        </CollapsibleSection>
+
+        <CollapsibleSection title="Exam Attempts" subtitle={`Scheduled exam activity for ${selectedYear.name}`}>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
+            <Stat label="Total Attempts" value={String(examAttempts.length)} tone="text-white/90" />
+            <Stat label="Submitted" value={String(submittedAttempts.length)} tone="text-emerald-300" />
+            <Stat label="Average Score" value={avgExamScorePercent !== null ? `${avgExamScorePercent}%` : "—"} tone="text-blue-300" />
+          </div>
+          {examAttempts.length === 0 ? (
+            <p className="text-sm text-white/50">No exam attempts yet for this student.</p>
+          ) : (
+            <div className="space-y-2">
+              {examAttempts.slice(0, 10).map((attempt) => {
+                const classLabelValue = attempt.exam.class
+                  ? `${attempt.exam.class.name}${attempt.exam.class.section ? ` - ${attempt.exam.class.section}` : ""}`
+                  : "All classes";
+                const scoreText =
+                  typeof attempt.score === "number" && typeof attempt.maxScore === "number"
+                    ? `${Math.round(attempt.score * 100) / 100}/${Math.round(attempt.maxScore * 100) / 100}`
+                    : "—";
+                return (
+                  <div key={attempt.id} className="rounded-[12px] border border-white/[0.07] bg-white/[0.03] px-3 py-2.5">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <p className="text-[14px] font-semibold text-white/90">{attempt.exam.title}</p>
+                      <Badge tone={attemptTone(attempt.status)}>{attempt.status}</Badge>
+                    </div>
+                    <p className="mt-1 text-[12px] text-white/55">
+                      {classLabelValue} · Started {formatShortDate(attempt.startedAt)} · Ends {formatShortDate(attempt.exam.endsAt)}
+                    </p>
+                    <p className="mt-1 text-[12px] text-white/55">Score: {scoreText}</p>
+                  </div>
+                );
+              })}
+              <div className="pt-1">
+                <Link
+                  href={withAcademicYearParam("/exams", selectedYear.id)}
+                  className="inline-flex rounded-[10px] border border-white/[0.12] px-2.5 py-1.5 text-[12px] text-white/75 hover:bg-white/[0.06] transition"
+                >
+                  Open Exams
+                </Link>
+              </div>
+            </div>
+          )}
+        </CollapsibleSection>
+
+        <CollapsibleSection title="Homework Activity" subtitle={`Classwork and assignments for ${selectedYear.name}`}>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
+            <Stat label="Total Homework" value={String(homeworkRows.length)} tone="text-white/90" />
+            <Stat label="Pending" value={String(pendingHomeworkCount)} tone="text-amber-300" />
+            <Stat label="Overdue" value={String(overdueHomeworkCount)} tone={overdueHomeworkCount > 0 ? "text-rose-300" : "text-white/75"} />
+          </div>
+          {homeworkRows.length === 0 ? (
+            <p className="text-sm text-white/50">No homework records yet for this student.</p>
+          ) : (
+            <div className="space-y-2">
+              {homeworkRows.slice(0, 10).map((homework) => {
+                const dueLabel = homework.dueOn ? formatShortDate(homework.dueOn) : "No due date";
+                const isOverdue = Boolean(homework.dueOn && homework.dueOn.getTime() < now);
+                return (
+                  <div key={homework.id} className="rounded-[12px] border border-white/[0.07] bg-white/[0.03] px-3 py-2.5">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <p className="text-[14px] font-semibold text-white/90">{homework.title}</p>
+                      <Badge tone={isOverdue ? "danger" : "info"}>{isOverdue ? "Overdue" : "Open"}</Badge>
+                    </div>
+                    <p className="mt-1 text-[12px] text-white/55">Due: {dueLabel}</p>
+                    {homework.details ? <p className="mt-1 text-[12px] text-white/55 line-clamp-2">{homework.details}</p> : null}
+                  </div>
+                );
+              })}
+              <div className="pt-1">
+                <Link
+                  href={withAcademicYearParam("/academics/homework", selectedYear.id)}
+                  className="inline-flex rounded-[10px] border border-white/[0.12] px-2.5 py-1.5 text-[12px] text-white/75 hover:bg-white/[0.06] transition"
+                >
+                  Open Homework
+                </Link>
+              </div>
+            </div>
+          )}
         </CollapsibleSection>
 
         <CollapsibleSection title="Feed Information" subtitle="Recent announcements visible to this student">

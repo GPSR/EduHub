@@ -4,7 +4,7 @@ import { db } from "@/lib/db";
 import { requireSession } from "@/lib/require";
 import { atLeastLevel, getEffectivePermissions } from "@/lib/permissions";
 import { requireAnyPermission } from "@/lib/require-permission";
-import { getAcademicYearContext } from "@/lib/academic-year";
+import { getAcademicYearContext, withAcademicYearParam } from "@/lib/academic-year";
 
 function timeAgo(date: Date): string {
   const diff = Date.now() - date.getTime();
@@ -26,14 +26,25 @@ function isOverdue(dueOn: Date | null): boolean {
   return dueOn.getTime() < Date.now();
 }
 
+function classLabel(name: string, section: string) {
+  return section ? `${name}-${section}` : name;
+}
+
+function buildHomeworkHref(args: { classId?: string | null }) {
+  const params = new URLSearchParams();
+  if (args.classId) params.set("classId", args.classId);
+  const query = params.toString();
+  return query ? `/academics/homework?${query}` : "/academics/homework";
+}
+
 export default async function HomeworkPage({
   searchParams
 }: {
-  searchParams: Promise<{ ay?: string }>;
+  searchParams: Promise<{ ay?: string; classId?: string }>;
 }) {
   await requireAnyPermission(["HOMEWORK", "ACADEMICS"], "VIEW");
   const session = await requireSession();
-  const { ay } = await searchParams;
+  const { ay, classId } = await searchParams;
   const yearContext = await getAcademicYearContext({ schoolId: session.schoolId, requestedYearId: ay });
   const selectedYear = yearContext.selectedYear;
   const isYearWritable = selectedYear.status !== "CLOSED";
@@ -44,6 +55,17 @@ export default async function HomeworkPage({
   });
   const homeworkLevel = perms["HOMEWORK"] ?? perms["ACADEMICS"];
   const canWrite = isYearWritable && (homeworkLevel ? atLeastLevel(homeworkLevel, "EDIT") : false);
+  const canFilterByClass = session.roleKey !== "PARENT";
+
+  const classes =
+    canFilterByClass
+      ? await db.class.findMany({
+          where: { schoolId: session.schoolId },
+          select: { id: true, name: true, section: true },
+          orderBy: [{ name: "asc" }, { section: "asc" }]
+        })
+      : [];
+  const selectedClassId = canFilterByClass && classes.some((cls) => cls.id === classId) ? classId ?? null : null;
 
   const homework =
     session.roleKey === "PARENT"
@@ -51,22 +73,41 @@ export default async function HomeworkPage({
           where: {
             schoolId: session.schoolId,
             academicYearId: selectedYear.id,
-            student: { parents: { some: { userId: session.userId } } }
+            student: {
+              parents: { some: { userId: session.userId } },
+              ...(selectedClassId ? { classId: selectedClassId } : {})
+            }
           },
-          include: { student: true },
+          include: { student: { include: { class: true } } },
           orderBy: { createdAt: "desc" },
           take: 100,
         })
       : await db.homework.findMany({
-          where: { schoolId: session.schoolId, academicYearId: selectedYear.id },
-          include: { student: true },
+          where: {
+            schoolId: session.schoolId,
+            academicYearId: selectedYear.id,
+            ...(selectedClassId ? { student: { classId: selectedClassId } } : {})
+          },
+          include: { student: { include: { class: true } } },
           orderBy: { createdAt: "desc" },
           take: 100,
         });
 
   const students =
     canWrite && session.roleKey !== "PARENT"
-      ? await db.student.findMany({ where: { schoolId: session.schoolId }, orderBy: { fullName: "asc" } })
+      ? await db.student.findMany({
+          where: {
+            schoolId: session.schoolId,
+            ...(selectedClassId ? { classId: selectedClassId } : {})
+          },
+          select: {
+            id: true,
+            fullName: true,
+            classId: true,
+            class: { select: { name: true, section: true } }
+          },
+          orderBy: { fullName: "asc" }
+        })
       : [];
 
   return (
@@ -82,7 +123,38 @@ export default async function HomeworkPage({
         <SectionHeader title="Homework" subtitle={`${homework.length} assignment${homework.length !== 1 ? "s" : ""} · ${selectedYear.name}`} />
       </div>
 
-      {canWrite && <CreateHomeworkCard students={students} academicYearId={selectedYear.id} />}
+      {canFilterByClass && classes.length > 0 ? (
+        <div className="flex flex-wrap gap-2">
+          <Link href={withAcademicYearParam(buildHomeworkHref({}), selectedYear.id)}>
+            <span
+              className={[
+                "inline-flex items-center rounded-full border px-3 py-1.5 text-[12px] font-medium transition",
+                !selectedClassId
+                  ? "border-blue-400/35 bg-blue-500/[0.18] text-white"
+                  : "border-white/[0.10] text-white/60 hover:bg-white/[0.06] hover:text-white/88"
+              ].join(" ")}
+            >
+              All classes
+            </span>
+          </Link>
+          {classes.map((cls) => (
+            <Link key={cls.id} href={withAcademicYearParam(buildHomeworkHref({ classId: cls.id }), selectedYear.id)}>
+              <span
+                className={[
+                  "inline-flex items-center rounded-full border px-3 py-1.5 text-[12px] font-medium transition",
+                  selectedClassId === cls.id
+                    ? "border-blue-400/35 bg-blue-500/[0.18] text-white"
+                    : "border-white/[0.10] text-white/60 hover:bg-white/[0.06] hover:text-white/88"
+                ].join(" ")}
+              >
+                {classLabel(cls.name, cls.section)}
+              </span>
+            </Link>
+          ))}
+        </div>
+      ) : null}
+
+      {canWrite && <CreateHomeworkCard students={students} classes={classes} selectedClassId={selectedClassId} academicYearId={selectedYear.id} />}
 
       <div className="space-y-3">
         {homework.length === 0 ? (
@@ -115,7 +187,9 @@ export default async function HomeworkPage({
                         {dueSoon && !overdue && <Badge tone="warning">Due soon</Badge>}
                       </div>
                       <p className="text-[12px] text-white/45">
-                        {h.student.fullName} · Posted {timeAgo(h.createdAt)}
+                        {h.student.fullName}
+                        {h.student.class ? ` · ${classLabel(h.student.class.name, h.student.class.section)}` : ""}
+                        {" · "}Posted {timeAgo(h.createdAt)}
                       </p>
                     </div>
                   </div>
@@ -141,25 +215,49 @@ export default async function HomeworkPage({
 
 async function CreateHomeworkCard({
   students,
+  classes,
+  selectedClassId,
   academicYearId
 }: {
-  students: { id: string; fullName: string }[];
+  students: { id: string; fullName: string; classId: string | null; class: { name: string; section: string } | null }[];
+  classes: { id: string; name: string; section: string }[];
+  selectedClassId: string | null;
   academicYearId: string;
 }) {
   const { createHomeworkAction } = await import("./actions");
   return (
-    <Card title="Post Homework" accent="indigo">
+    <Card title="Post Homework" description="Select class. Leave student empty to post same homework for entire class." accent="indigo">
       <form action={createHomeworkAction} className="grid grid-cols-1 gap-3 sm:gap-4">
         <input type="hidden" name="academicYearId" value={academicYearId} />
         <div className="md:col-span-2">
-          <Label required>Student</Label>
+          <Label required>Class</Label>
           <select
-            name="studentId"
+            name="classId"
+            defaultValue={selectedClassId ?? ""}
             className="w-full rounded-[13px] bg-black/25 border border-white/[0.09] px-3.5 py-2.5 text-base sm:text-sm text-white outline-none focus:border-indigo-400/50 focus:ring-4 focus:ring-indigo-500/12 transition-all"
             required
           >
-            <option value="" disabled>Select student</option>
-            {students.map(s => <option key={s.id} value={s.id}>{s.fullName}</option>)}
+            <option value="" disabled>Select class</option>
+            {classes.map((cls) => (
+              <option key={cls.id} value={cls.id}>
+                {classLabel(cls.name, cls.section)}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="md:col-span-2">
+          <Label>Student (optional)</Label>
+          <select
+            name="studentId"
+            className="w-full rounded-[13px] bg-black/25 border border-white/[0.09] px-3.5 py-2.5 text-base sm:text-sm text-white outline-none focus:border-indigo-400/50 focus:ring-4 focus:ring-indigo-500/12 transition-all"
+          >
+            <option value="">Entire selected class</option>
+            {students.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.fullName}
+                {s.class ? ` · ${classLabel(s.class.name, s.class.section)}` : ""}
+              </option>
+            ))}
           </select>
         </div>
         <div className="md:col-span-2">
