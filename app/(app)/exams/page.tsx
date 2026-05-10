@@ -178,6 +178,12 @@ export default async function ExamsPage({
         </div>
       ) : null}
 
+      {file === "deleted" ? (
+        <div className="rounded-[14px] border border-emerald-500/30 bg-emerald-500/12 px-4 py-3 text-sm text-emerald-100">
+          Exam deleted successfully.
+        </div>
+      ) : null}
+
       {file === "no_file" ? (
         <div className="rounded-[14px] border border-amber-500/30 bg-amber-500/12 px-4 py-3 text-sm text-amber-100">
           Please choose a file before updating question file.
@@ -341,6 +347,7 @@ export default async function ExamsPage({
               const canUpdateThisExam =
                 canManage &&
                 (!teacherScoped || (assignedClassId ? teacherClassIds.includes(assignedClassId) : false));
+              const canDeleteThisExam = canManage && session.roleKey === "ADMIN";
               return (
                 <article key={exam.id} className="rounded-[16px] border border-white/[0.08] bg-white/[0.03] p-4">
                   <div className="flex flex-wrap items-start justify-between gap-3">
@@ -381,6 +388,12 @@ export default async function ExamsPage({
                       <UpdateQuestionFileForm examId={exam.id} academicYearId={selectedYear.id} />
                     </div>
                   ) : null}
+
+                  {canDeleteThisExam ? (
+                    <div className="mt-3 flex justify-end">
+                      <DeleteExamForm examId={exam.id} academicYearId={selectedYear.id} />
+                    </div>
+                  ) : null}
                 </article>
               );
             })}
@@ -418,7 +431,7 @@ async function CreateExamCard({
   const endDefault = new Date(startDefault.getTime() + 60 * 60 * 1000);
 
   return (
-    <Card title="Create Exam" description="Upload question file, set exam date, and add multiple-choice options" accent="indigo">
+    <Card title="Create Exam" description="Upload question file and auto-convert to MCQ, or enter MCQs manually" accent="indigo">
       <form action={createSchoolExamAction} className="grid grid-cols-1 gap-3 sm:gap-4">
         <input type="hidden" name="academicYearId" value={academicYearId} />
 
@@ -464,7 +477,7 @@ async function CreateExamCard({
             <Label>Question paper file</Label>
             <Input name="questionPaper" type="file" />
             <p className="mt-1 text-[11px] text-white/38">
-              Supports PDF, DOC/DOCX, TXT, CSV, images, and more.
+              Supports PDF, DOC/DOCX, TXT, CSV, images, and more. Best results when file includes Question, A/B/C/D options, and Answer.
             </p>
           </div>
         </div>
@@ -493,7 +506,7 @@ Marks: 2`
           />
           <p className="mt-1 text-[11px] whitespace-pre-line text-white/38">
             Use either readable block format or pipe format.
-            Add at least one MCQ or upload a question file.
+            If this field is empty, system will try to auto-convert uploaded file into MCQ.
           </p>
         </div>
 
@@ -520,6 +533,26 @@ async function UpdateQuestionFileForm({
       <input type="hidden" name="academicYearId" value={academicYearId} />
       <Input name="questionPaper" type="file" />
       <Button type="submit" size="sm" variant="secondary">Update file</Button>
+    </form>
+  );
+}
+
+async function DeleteExamForm({
+  examId,
+  academicYearId
+}: {
+  examId: string;
+  academicYearId: string;
+}) {
+  const { deleteSchoolExamAction } = await import("./actions");
+
+  return (
+    <form action={deleteSchoolExamAction}>
+      <input type="hidden" name="examId" value={examId} />
+      <input type="hidden" name="academicYearId" value={academicYearId} />
+      <Button type="submit" size="sm" variant="danger">
+        Delete exam
+      </Button>
     </form>
   );
 }

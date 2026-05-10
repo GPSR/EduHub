@@ -54,12 +54,27 @@ const UpdateExamQuestionPaperSchema = z.object({
   academicYearId: z.string().optional()
 });
 
+const DeleteSchoolExamSchema = z.object({
+  examId: z.string().min(1),
+  academicYearId: z.string().optional()
+});
+
 type StoredAnswer = {
   questionId: string;
   selectedOption: OptionValue | null;
   correctOption: OptionValue;
   marks: number;
 };
+
+function normalizeFileExtension(name: string) {
+  const dotIndex = name.lastIndexOf(".");
+  if (dotIndex < 0) return "";
+  return name
+    .slice(dotIndex + 1)
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "");
+}
 
 function parseLocalDateTime(input: string, fieldLabel: string) {
   const value = input.trim();
@@ -291,6 +306,71 @@ function parseQuestionLines(raw: string): ParsedExamQuestion[] {
   });
 }
 
+function parseInlineMcqSequence(raw: string): ParsedExamQuestion[] {
+  const text = raw.replace(/\r/g, "\n").replace(/\n+/g, " ");
+  const pattern =
+    /(?:q(?:uestion)?\s*\d*[\).:\-]?\s*)(.+?)\s+A[\).:\-]\s*(.+?)\s+B[\).:\-]\s*(.+?)\s+C[\).:\-]\s*(.+?)\s+D[\).:\-]\s*(.+?)\s+(?:answer|ans|correct(?:\s*option)?)\s*[:\-]\s*([ABCD])(?:\s+marks?\s*[:\-]\s*([0-9]+(?:\.[0-9]+)?))?/gis;
+
+  const questions: ParsedExamQuestion[] = [];
+  let match: RegExpExecArray | null = pattern.exec(text);
+  while (match) {
+    const prompt = (match[1] ?? "").trim().slice(0, 600);
+    const optionA = (match[2] ?? "").trim().slice(0, 300);
+    const optionB = (match[3] ?? "").trim().slice(0, 300);
+    const optionC = (match[4] ?? "").trim().slice(0, 300);
+    const optionD = (match[5] ?? "").trim().slice(0, 300);
+    const correct = ((match[6] ?? "").trim().toUpperCase()) as OptionValue;
+    const marksRaw = Number(match[7] ?? "1");
+    const marks = Number.isFinite(marksRaw) && marksRaw > 0 ? Math.round(marksRaw * 100) / 100 : 1;
+
+    if (
+      prompt &&
+      optionA &&
+      optionB &&
+      optionC &&
+      optionD &&
+      OPTION_VALUES.includes(correct)
+    ) {
+      questions.push({
+        prompt,
+        optionA,
+        optionB,
+        optionC,
+        optionD,
+        correctOption: correct,
+        marks,
+        sortOrder: questions.length + 1
+      });
+    }
+
+    match = pattern.exec(text);
+  }
+
+  return questions;
+}
+
+async function extractQuestionTextFromFile(file: File): Promise<string> {
+  const ext = normalizeFileExtension(file.name);
+  const mime = (file.type || "").toLowerCase();
+  const bytes = Buffer.from(await file.arrayBuffer());
+
+  if (mime.startsWith("text/") || ["txt", "csv", "md", "json"].includes(ext)) {
+    return bytes.toString("utf8");
+  }
+
+  if (mime === "application/pdf" || ext === "pdf") {
+    const pdfModule = await import("pdf-parse");
+    const parser = (pdfModule as unknown as { default?: (dataBuffer: Buffer) => Promise<{ text?: string }> }).default;
+    if (!parser) {
+      throw new Error("PDF parser is unavailable. Please enter MCQ text manually.");
+    }
+    const parsed = await parser(bytes);
+    return String(parsed.text ?? "");
+  }
+
+  return "";
+}
+
 function attemptHref(examId: string, attemptId: string, academicYearId: string, submitted = false) {
   const path = submitted
     ? `/exams/${examId}/attempt/${attemptId}?submitted=1`
@@ -353,10 +433,28 @@ export async function createSchoolExamAction(formData: FormData) {
     questionPaperUrl = saved.url;
   }
 
-  const questions = parseQuestionLines(parsed.data.questionsText ?? "");
-  if (questions.length === 0 && !hasQuestionPaper) {
+  const manualQuestions = parseQuestionLines(parsed.data.questionsText ?? "");
+  if (manualQuestions.length === 0 && !hasQuestionPaper) {
     throw new Error("Add MCQ questions or upload a question file to publish exam.");
   }
+  let extractedQuestions: ParsedExamQuestion[] = [];
+  if (manualQuestions.length === 0 && questionPaper instanceof File && questionPaper.size > 0) {
+    const extractedText = await extractQuestionTextFromFile(questionPaper);
+    try {
+      extractedQuestions = parseQuestionLines(extractedText);
+    } catch {
+      extractedQuestions = parseInlineMcqSequence(extractedText);
+    }
+    if (extractedQuestions.length === 0) {
+      extractedQuestions = parseInlineMcqSequence(extractedText);
+    }
+    if (extractedQuestions.length === 0) {
+      throw new Error(
+        "Could not convert question file to MCQ automatically. Use format with Question, options A/B/C/D, and Answer: A/B/C/D."
+      );
+    }
+  }
+  const questions = manualQuestions.length > 0 ? manualQuestions : extractedQuestions;
 
   const exam = await db.$transaction(async (tx) => {
     const created = await tx.schoolExam.create({
@@ -833,4 +931,51 @@ export async function updateExamQuestionPaperAction(formData: FormData) {
   });
 
   redirect(examsListHref({ academicYearId: exam.academicYearId, status: "updated", examId: exam.id }));
+}
+
+export async function deleteSchoolExamAction(formData: FormData) {
+  const { session } = await requirePermission("EXAMS", "EDIT");
+  if (session.roleKey !== "ADMIN") {
+    throw new Error("Only school admin can delete exams.");
+  }
+
+  const parsed = DeleteSchoolExamSchema.safeParse({
+    examId: String(formData.get("examId") ?? "").trim(),
+    academicYearId: String(formData.get("academicYearId") ?? "").trim() || undefined
+  });
+  if (!parsed.success) throw new Error("Unable to delete exam.");
+
+  const exam = await db.schoolExam.findFirst({
+    where: {
+      id: parsed.data.examId,
+      schoolId: session.schoolId
+    },
+    select: {
+      id: true,
+      academicYearId: true
+    }
+  });
+  if (!exam) throw new Error("Exam not found.");
+
+  await requireWritableAcademicYear({
+    schoolId: session.schoolId,
+    requestedYearId: exam.academicYearId
+  });
+
+  await db.schoolExam.delete({
+    where: { id: exam.id }
+  });
+
+  await db.auditLog.create({
+    data: {
+      schoolId: session.schoolId,
+      actorType: "SCHOOL_USER",
+      actorId: session.userId,
+      action: "SCHOOL_EXAM_DELETED",
+      entityType: "SchoolExam",
+      entityId: exam.id
+    }
+  });
+
+  redirect(examsListHref({ academicYearId: exam.academicYearId, status: "deleted" }));
 }
