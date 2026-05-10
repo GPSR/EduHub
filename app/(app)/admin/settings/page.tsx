@@ -8,6 +8,11 @@ import { getSchoolIdCardTemplate } from "@/lib/id-card-template";
 import { getSchoolStudentDemographicsConfig, type StudentDemographicsConfig } from "@/lib/student-demographics";
 import { getSchoolProfile, type SchoolProfile } from "@/lib/school-profile";
 import { getSchoolSupportChatTopics } from "@/lib/support-chat-topics";
+import {
+  getSchoolProgressCardExamTemplates,
+  toProgressCardExamTemplateLines,
+  type ProgressCardExamTemplate
+} from "@/lib/progress-card-exam-templates";
 import { ensureBaseModules } from "@/lib/permissions";
 import Link from "next/link";
 
@@ -19,7 +24,7 @@ export default async function AdminSettingsPage({
   const { session } = await requirePermission("SETTINGS", "ADMIN");
   await ensureBaseModules();
   const { roleId, logoUploadStatus, logoUploadMessage } = await searchParams;
-  const [school, roles, modules, schoolModuleRows, classes, idCardTemplate, demographicsConfig, schoolProfile, supportTopics] = await Promise.all([
+  const [school, roles, modules, schoolModuleRows, classes, idCardTemplate, demographicsConfig, schoolProfile, supportTopics, progressCardTemplates] = await Promise.all([
     db.school.findUnique({ where: { id: session.schoolId } }),
     db.schoolRole.findMany({
       where: { schoolId: session.schoolId },
@@ -37,7 +42,8 @@ export default async function AdminSettingsPage({
     getSchoolIdCardTemplate(session.schoolId),
     getSchoolStudentDemographicsConfig(session.schoolId),
     getSchoolProfile(session.schoolId),
-    getSchoolSupportChatTopics(session.schoolId)
+    getSchoolSupportChatTopics(session.schoolId),
+    getSchoolProgressCardExamTemplates(session.schoolId)
   ]);
   const enabledByModuleId = new Map(schoolModuleRows.map((row) => [row.moduleId, row.enabled]));
   const schoolModules = modules.map((module) => ({
@@ -108,6 +114,10 @@ export default async function AdminSettingsPage({
         <ClassConfigPanel
           classes={classes.map((c) => ({ id: c.id, name: c.name, section: c.section }))}
         />
+      </Card>
+
+      <Card title="Progress Card Exam Templates" description="Configure dropdown values as: Exam name | Subject | Max score." accent="teal">
+        <ProgressCardExamTemplatesPanel templates={progressCardTemplates} />
       </Card>
 
       <Card title="Student Demographics" description="Configure Gender and Blood Group dropdown options used in admissions." accent="teal">
@@ -418,6 +428,40 @@ async function SupportChatTopicsPanel({ topics }: { topics: string[] }) {
       </div>
       <div className="flex justify-end">
         <Button type="submit">Save support topics</Button>
+      </div>
+    </form>
+  );
+}
+
+async function ProgressCardExamTemplatesPanel({ templates }: { templates: ProgressCardExamTemplate[] }) {
+  const { updateProgressCardExamTemplatesAction } = await import("./actions");
+  return (
+    <form action={updateProgressCardExamTemplatesAction} className="grid grid-cols-1 gap-4">
+      <div>
+        <Label required>Exam template entries</Label>
+        <Textarea
+          name="templates"
+          rows={9}
+          defaultValue={toProgressCardExamTemplateLines(templates)}
+          placeholder={"Quarterly | Mathematics | 100\nQuarterly | Science | 100\nFinal Term | English | 100"}
+        />
+        <p className="mt-1 text-[11px] text-white/35">
+          One line per entry. Use this format: Exam name | Subject | Max score.
+        </p>
+      </div>
+      {templates.length > 0 ? (
+        <div className="flex flex-wrap gap-2">
+          {templates.map((template) => (
+            <Badge key={template.id} tone="info">
+              {template.examName} · {template.subject} · {template.maxScore}
+            </Badge>
+          ))}
+        </div>
+      ) : (
+        <p className="text-[12px] text-white/45">No templates configured yet.</p>
+      )}
+      <div className="flex justify-end">
+        <Button type="submit">Save exam templates</Button>
       </div>
     </form>
   );

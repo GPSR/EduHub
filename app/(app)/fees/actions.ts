@@ -3,6 +3,8 @@
 import { db } from "@/lib/db";
 import { requirePermission } from "@/lib/require-permission";
 import { getAcademicYearContext, requireWritableAcademicYear, withAcademicYearParam } from "@/lib/academic-year";
+import { resolveSchoolAppBaseUrl } from "@/lib/app-env";
+import { sendTransactionalEmail } from "@/lib/mailer";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 
@@ -40,6 +42,148 @@ function normalizeReturnPath(raw: string | undefined, fallback: string) {
   const trimmed = raw.trim();
   if (!trimmed.startsWith("/")) return fallback;
   return trimmed;
+}
+
+function normalizeEmail(value: string) {
+  return value.trim().toLowerCase();
+}
+
+function isValidEmail(value: string) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+}
+
+function splitEmailCsv(raw?: string | null) {
+  return String(raw ?? "")
+    .split(/[,\n;]+/)
+    .map((item) => normalizeEmail(item))
+    .filter((item) => item.length > 0 && isValidEmail(item));
+}
+
+function escapeHtml(input: string) {
+  return input
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll("\"", "&quot;")
+    .replaceAll("'", "&#39;");
+}
+
+async function getParentReminderEmails(schoolId: string, studentId: string) {
+  const [links, student] = await Promise.all([
+    db.studentParent.findMany({
+      where: { schoolId, studentId },
+      select: { user: { select: { email: true } } }
+    }),
+    db.student.findFirst({
+      where: { id: studentId, schoolId },
+      select: { parentEmails: true }
+    })
+  ]);
+
+  const emails = new Set<string>();
+  for (const link of links) {
+    const email = normalizeEmail(link.user.email);
+    if (isValidEmail(email)) emails.add(email);
+  }
+  for (const email of splitEmailCsv(student?.parentEmails)) {
+    emails.add(email);
+  }
+  return Array.from(emails);
+}
+
+function buildFeeReminderEmail(args: {
+  schoolName: string;
+  studentName: string;
+  invoiceTitle: string;
+  invoiceCount?: number;
+  totalAmountCents: number;
+  paidAmountCents: number;
+  balanceAmountCents: number;
+  dueOn?: Date | null;
+  detailsUrl: string;
+}) {
+  const dueText = args.dueOn ? args.dueOn.toDateString() : "Not specified";
+  const invoiceLabel =
+    args.invoiceCount && args.invoiceCount > 1
+      ? `${args.invoiceCount} invoices`
+      : args.invoiceTitle;
+  const subject = `Fee Reminder | ${args.studentName} | ${invoiceLabel}`;
+
+  const text = [
+    `School: ${args.schoolName}`,
+    `Student: ${args.studentName}`,
+    `Fee details: ${invoiceLabel}`,
+    `Total amount: ${centsToUsd(args.totalAmountCents)}`,
+    `Amount paid: ${centsToUsd(args.paidAmountCents)}`,
+    `Balance amount: ${centsToUsd(args.balanceAmountCents)}`,
+    `Due date: ${dueText}`,
+    "",
+    `Open details: ${args.detailsUrl}`
+  ].join("\n");
+
+  const html = `
+  <div style="font-family:Arial,sans-serif;line-height:1.5;color:#0f172a;max-width:640px;margin:0 auto;">
+    <h2 style="margin:0 0 10px;">Fee Reminder</h2>
+    <p style="margin:0 0 14px;">Please review the latest fee summary for your child.</p>
+    <table style="width:100%;border-collapse:collapse;margin:0 0 14px;">
+      <tr><td style="padding:6px 0;color:#475569;">School</td><td style="padding:6px 0;font-weight:600;">${escapeHtml(args.schoolName)}</td></tr>
+      <tr><td style="padding:6px 0;color:#475569;">Student</td><td style="padding:6px 0;font-weight:600;">${escapeHtml(args.studentName)}</td></tr>
+      <tr><td style="padding:6px 0;color:#475569;">Fee details</td><td style="padding:6px 0;font-weight:600;">${escapeHtml(invoiceLabel)}</td></tr>
+      <tr><td style="padding:6px 0;color:#475569;">Total amount</td><td style="padding:6px 0;font-weight:600;">${escapeHtml(centsToUsd(args.totalAmountCents))}</td></tr>
+      <tr><td style="padding:6px 0;color:#475569;">Amount paid</td><td style="padding:6px 0;font-weight:600;">${escapeHtml(centsToUsd(args.paidAmountCents))}</td></tr>
+      <tr><td style="padding:6px 0;color:#475569;">Balance amount</td><td style="padding:6px 0;font-weight:700;color:#b45309;">${escapeHtml(centsToUsd(args.balanceAmountCents))}</td></tr>
+      <tr><td style="padding:6px 0;color:#475569;">Due date</td><td style="padding:6px 0;font-weight:600;">${escapeHtml(dueText)}</td></tr>
+    </table>
+    <p style="margin:0 0 14px;">
+      <a href="${escapeHtml(args.detailsUrl)}" style="display:inline-block;background:#2563eb;color:#fff;text-decoration:none;padding:10px 14px;border-radius:8px;font-weight:600;">
+        Open Fee Details
+      </a>
+    </p>
+    <p style="margin:0;font-size:12px;color:#64748b;">If payment is already completed, please ignore this reminder.</p>
+  </div>`;
+
+  return { subject, text, html };
+}
+
+async function sendFeeReminderEmailToParents(args: {
+  schoolId: string;
+  studentId: string;
+  schoolName: string;
+  studentName: string;
+  invoiceTitle: string;
+  invoiceCount?: number;
+  totalAmountCents: number;
+  paidAmountCents: number;
+  balanceAmountCents: number;
+  dueOn?: Date | null;
+  detailsPath: string;
+}) {
+  const recipients = await getParentReminderEmails(args.schoolId, args.studentId);
+  if (!recipients.length) return;
+
+  const detailsUrl = `${resolveSchoolAppBaseUrl()}${args.detailsPath}`;
+  const emailContent = buildFeeReminderEmail({
+    schoolName: args.schoolName,
+    studentName: args.studentName,
+    invoiceTitle: args.invoiceTitle,
+    invoiceCount: args.invoiceCount,
+    totalAmountCents: args.totalAmountCents,
+    paidAmountCents: args.paidAmountCents,
+    balanceAmountCents: args.balanceAmountCents,
+    dueOn: args.dueOn,
+    detailsUrl
+  });
+
+  await Promise.all(
+    recipients.map((to) =>
+      sendTransactionalEmail({
+        to,
+        subject: emailContent.subject,
+        text: emailContent.text,
+        html: emailContent.html
+      })
+    )
+  );
 }
 
 const CreateInvoiceSchema = z.object({
@@ -159,13 +303,18 @@ export async function sendInvoiceReminderAction(formData: FormData) {
 
   const invoice = await db.feeInvoice.findFirst({
     where: { id: parsed.data.invoiceId, schoolId: session.schoolId },
-    include: { student: { select: { id: true, fullName: true } }, payments: { select: { amountCents: true } } }
+    include: {
+      school: { select: { name: true } },
+      student: { select: { id: true, fullName: true } },
+      payments: { select: { amountCents: true } }
+    }
   });
   if (!invoice) throw new Error("Invoice not found.");
 
   const paidCents = invoice.payments.reduce((sum, payment) => sum + payment.amountCents, 0);
   const pendingCents = Math.max(0, invoice.amountCents - paidCents);
   const returnTo = normalizeReturnPath(parsed.data.returnTo, withAcademicYearParam(`/fees/${invoice.id}`, invoice.academicYearId));
+  const detailPath = withAcademicYearParam(`/fees/${invoice.id}`, invoice.academicYearId);
 
   if (pendingCents <= 0) {
     redirect(appendQuery(returnTo, "reminder", "already_paid"));
@@ -173,7 +322,19 @@ export async function sendInvoiceReminderAction(formData: FormData) {
 
   await notifyParentsForStudent(session.schoolId, invoice.student.id, {
     title: `Fee reminder: ${invoice.title}`,
-    body: `Pending amount ${centsToUsd(pendingCents)} for ${invoice.student.fullName}.\nLINK:${withAcademicYearParam(`/fees/${invoice.id}`, invoice.academicYearId)}`
+    body: `Pending amount ${centsToUsd(pendingCents)} for ${invoice.student.fullName}.\nLINK:${detailPath}`
+  });
+  await sendFeeReminderEmailToParents({
+    schoolId: session.schoolId,
+    studentId: invoice.student.id,
+    schoolName: invoice.school.name,
+    studentName: invoice.student.fullName,
+    invoiceTitle: invoice.title,
+    totalAmountCents: invoice.amountCents,
+    paidAmountCents: paidCents,
+    balanceAmountCents: pendingCents,
+    dueOn: invoice.dueOn,
+    detailsPath: detailPath
   });
 
   redirect(appendQuery(returnTo, "reminder", "sent"));
@@ -213,7 +374,7 @@ export async function sendPendingFeeRemindersAction(formData: FormData) {
 
   const byStudent = new Map<
     string,
-    { studentName: string; pendingCents: number; invoiceCount: number }
+    { studentName: string; pendingCents: number; invoiceCount: number; totalAmountCents: number; paidAmountCents: number }
   >();
 
   for (const invoice of pendingInvoices) {
@@ -225,12 +386,16 @@ export async function sendPendingFeeRemindersAction(formData: FormData) {
       byStudent.set(invoice.student.id, {
         studentName: invoice.student.fullName,
         pendingCents,
-        invoiceCount: 1
+        invoiceCount: 1,
+        totalAmountCents: invoice.amountCents,
+        paidAmountCents: paidCents
       });
       continue;
     }
     existing.pendingCents += pendingCents;
     existing.invoiceCount += 1;
+    existing.totalAmountCents += invoice.amountCents;
+    existing.paidAmountCents += paidCents;
   }
 
   if (byStudent.size === 0) {
@@ -259,6 +424,28 @@ export async function sendPendingFeeRemindersAction(formData: FormData) {
   if (notifications.length > 0) {
     await db.notification.createMany({ data: notifications });
   }
+
+  const school = await db.school.findUnique({
+    where: { id: session.schoolId },
+    select: { name: true }
+  });
+  const schoolName = school?.name ?? "School";
+  await Promise.all(
+    Array.from(byStudent.entries()).map(([studentId, info]) =>
+      sendFeeReminderEmailToParents({
+        schoolId: session.schoolId,
+        studentId,
+        schoolName,
+        studentName: info.studentName,
+        invoiceTitle: "Pending fee summary",
+        invoiceCount: info.invoiceCount,
+        totalAmountCents: info.totalAmountCents,
+        paidAmountCents: info.paidAmountCents,
+        balanceAmountCents: info.pendingCents,
+        detailsPath: withAcademicYearParam("/fees", selectedYearId)
+      })
+    )
+  );
 
   let target = appendQuery(returnTo, "reminder", "bulk_sent");
   target = appendQuery(target, "count", String(byStudent.size));
@@ -289,11 +476,18 @@ export async function sendStudentFeeReminderAction(formData: FormData) {
     parsed.data.returnTo,
     withAcademicYearParam(`/students/${parsed.data.studentId}`, selectedYearId)
   );
-  const student = await db.student.findFirst({
-    where: { id: parsed.data.studentId, schoolId: session.schoolId },
-    select: { id: true, fullName: true }
-  });
+  const [student, school] = await Promise.all([
+    db.student.findFirst({
+      where: { id: parsed.data.studentId, schoolId: session.schoolId },
+      select: { id: true, fullName: true }
+    }),
+    db.school.findUnique({
+      where: { id: session.schoolId },
+      select: { name: true }
+    })
+  ]);
   if (!student) throw new Error("Student not found.");
+  const schoolName = school?.name ?? "School";
 
   const pendingInvoices = await db.feeInvoice.findMany({
     where: { schoolId: session.schoolId, studentId: student.id, academicYearId: selectedYearId, status: { not: "PAID" } },
@@ -302,8 +496,12 @@ export async function sendStudentFeeReminderAction(formData: FormData) {
   });
 
   let pendingTotal = 0;
+  let totalAmountCents = 0;
+  let totalPaidCents = 0;
   for (const invoice of pendingInvoices) {
     const paid = invoice.payments.reduce((sum, payment) => sum + payment.amountCents, 0);
+    totalAmountCents += invoice.amountCents;
+    totalPaidCents += paid;
     pendingTotal += Math.max(0, invoice.amountCents - paid);
   }
 
@@ -314,6 +512,18 @@ export async function sendStudentFeeReminderAction(formData: FormData) {
   await notifyParentsForStudent(session.schoolId, student.id, {
     title: `Fee reminder: ${student.fullName}`,
     body: `${pendingInvoices.length} pending invoice${pendingInvoices.length > 1 ? "s" : ""}. Pending amount ${centsToUsd(pendingTotal)}.\nLINK:${withAcademicYearParam("/fees", selectedYearId)}`
+  });
+  await sendFeeReminderEmailToParents({
+    schoolId: session.schoolId,
+    studentId: student.id,
+    schoolName,
+    studentName: student.fullName,
+    invoiceTitle: "Pending fee summary",
+    invoiceCount: pendingInvoices.length,
+    totalAmountCents,
+    paidAmountCents: totalPaidCents,
+    balanceAmountCents: pendingTotal,
+    detailsPath: withAcademicYearParam("/fees", selectedYearId)
   });
 
   redirect(appendQuery(returnTo, "reminder", "sent"));

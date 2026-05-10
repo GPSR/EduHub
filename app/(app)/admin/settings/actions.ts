@@ -14,6 +14,11 @@ import {
 } from "@/lib/student-demographics";
 import { getSchoolProfile, normalizeSchoolProfile } from "@/lib/school-profile";
 import { getSchoolSupportChatTopics, normalizeSupportChatTopics } from "@/lib/support-chat-topics";
+import {
+  getSchoolProgressCardExamTemplates,
+  normalizeProgressCardExamTemplates,
+  toPersistedProgressCardExamTemplates
+} from "@/lib/progress-card-exam-templates";
 
 export type SettingsState = { ok: boolean; message?: string };
 
@@ -372,6 +377,10 @@ const SupportChatTopicsSchema = z.object({
   topics: z.string().max(2200).optional().default("")
 });
 
+const ProgressCardTemplatesSchema = z.object({
+  templates: z.string().max(10000).optional().default("")
+});
+
 export async function updateSupportChatTopicsAction(formData: FormData) {
   const { session } = await requirePermission("SETTINGS", "ADMIN");
   const parsed = SupportChatTopicsSchema.safeParse({
@@ -397,6 +406,36 @@ export async function updateSupportChatTopicsAction(formData: FormData) {
 
   revalidatePath("/admin/settings");
   revalidatePath("/support");
+  redirect("/admin/settings");
+}
+
+export async function updateProgressCardExamTemplatesAction(formData: FormData) {
+  const { session } = await requirePermission("SETTINGS", "ADMIN");
+  const parsed = ProgressCardTemplatesSchema.safeParse({
+    templates: String(formData.get("templates") ?? "")
+  });
+  if (!parsed.success) throw new Error("Unable to process request.");
+
+  const current = await getSchoolProgressCardExamTemplates(session.schoolId);
+  const next = normalizeProgressCardExamTemplates(parsed.data.templates);
+  const currentPayload = toPersistedProgressCardExamTemplates(current);
+  const nextPayload = toPersistedProgressCardExamTemplates(next);
+  if (JSON.stringify(currentPayload) === JSON.stringify(nextPayload)) redirect("/admin/settings");
+
+  await db.auditLog.create({
+    data: {
+      schoolId: session.schoolId,
+      actorType: "SCHOOL_USER",
+      actorId: session.userId,
+      action: "PROGRESS_CARD_EXAM_TEMPLATES_UPDATE",
+      entityType: "School",
+      entityId: session.schoolId,
+      metadataJson: JSON.stringify({ templates: nextPayload })
+    }
+  });
+
+  revalidatePath("/admin/settings");
+  revalidatePath("/academics/progress-card");
   redirect("/admin/settings");
 }
 

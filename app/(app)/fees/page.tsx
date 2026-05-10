@@ -102,7 +102,7 @@ export default async function FeesPage({
 
   const invoices = await db.feeInvoice.findMany({
     where: invoiceWhere,
-    include: { student: { include: { class: true } } },
+    include: { student: { include: { class: true } }, payments: { select: { amountCents: true } } },
     orderBy: { createdAt: "desc" },
     take: 200,
   });
@@ -116,9 +116,18 @@ export default async function FeesPage({
         })
       : [];
 
-  const totalCents = invoices.reduce((sum, inv) => sum + inv.amountCents, 0);
-  const paidCents = invoices.filter(i => i.status === "PAID").reduce((sum, inv) => sum + inv.amountCents, 0);
-  const pendingCount = invoices.filter(i => i.status !== "PAID").length;
+  const paidCents = invoices.reduce(
+    (sum, inv) => sum + inv.payments.reduce((paymentSum, payment) => paymentSum + payment.amountCents, 0),
+    0
+  );
+  const outstandingCents = invoices.reduce((sum, inv) => {
+    const invoicePaid = inv.payments.reduce((paymentSum, payment) => paymentSum + payment.amountCents, 0);
+    return sum + Math.max(0, inv.amountCents - invoicePaid);
+  }, 0);
+  const pendingCount = invoices.reduce((countSum, inv) => {
+    const invoicePaid = inv.payments.reduce((paymentSum, payment) => paymentSum + payment.amountCents, 0);
+    return countSum + (Math.max(0, inv.amountCents - invoicePaid) > 0 ? 1 : 0);
+  }, 0);
 
   return (
     <div className="space-y-5 animate-fade-up">
@@ -162,7 +171,7 @@ export default async function FeesPage({
       {/* Summary row */}
       <div className="grid grid-cols-3 gap-3">
         {[
-          { label: "Total Invoiced", value: `$${centsToDollars(totalCents)}`, color: "text-white/85" },
+          { label: "Total Invoiced", value: `$${centsToDollars(outstandingCents)}`, color: outstandingCents > 0 ? "text-amber-300" : "text-white/85" },
           { label: "Collected",      value: `$${centsToDollars(paidCents)}`,  color: "text-emerald-300" },
           { label: "Pending",        value: pendingCount,                     color: pendingCount > 0 ? "text-amber-300" : "text-white/85" },
         ].map(s => (

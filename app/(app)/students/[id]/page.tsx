@@ -98,7 +98,7 @@ export default async function StudentProfilePage({
     canManageProgression
       ? db.class.findMany({
           where: { schoolId: session.schoolId },
-          select: { id: true, name: true, section: true }
+          select: { id: true, name: true, section: true, createdAt: true }
         })
       : Promise.resolve([]),
     canManageProgression
@@ -135,6 +135,8 @@ export default async function StudentProfilePage({
 
   const classCollator = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" });
   const sortedPromotionClasses = [...promotionClasses].sort((a, b) => {
+    const byCreatedAt = a.createdAt.getTime() - b.createdAt.getTime();
+    if (byCreatedAt !== 0) return byCreatedAt;
     const byName = classCollator.compare(a.name, b.name);
     if (byName !== 0) return byName;
     return classCollator.compare(a.section, b.section);

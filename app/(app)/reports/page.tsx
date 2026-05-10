@@ -31,9 +31,8 @@ export default async function ReportsPage({
     totalStudents, totalTeachers, totalUsers,
     presentToday, absentToday, lateToday,
     // Fees
-    feeAll, feePaid, feeOverdue,
+    feeInvoicesForReport, feeTotalCollected,
     feeMonthCollected, feeYearCollected,
-    overdueInvoices,
     // Attendance monthly (last 30 days)
     attendanceLast30,
     // Class-wise student counts
@@ -51,19 +50,24 @@ export default async function ReportsPage({
     db.attendanceRecord.count({ where: { schoolId: session.schoolId, academicYearId: selectedYear.id, date: today, status: "ABSENT" } }),
     db.attendanceRecord.count({ where: { schoolId: session.schoolId, academicYearId: selectedYear.id, date: today, status: "LATE" } }),
 
-    db.feeInvoice.aggregate({ where: { schoolId: session.schoolId, academicYearId: selectedYear.id }, _sum: { amountCents: true }, _count: { _all: true } }),
-    db.feeInvoice.aggregate({ where: { schoolId: session.schoolId, academicYearId: selectedYear.id, status: "PAID" }, _sum: { amountCents: true } }),
-    db.feeInvoice.aggregate({ where: { schoolId: session.schoolId, academicYearId: selectedYear.id, status: "OVERDUE" }, _sum: { amountCents: true }, _count: { _all: true } }),
+    db.feeInvoice.findMany({
+      where: { schoolId: session.schoolId, academicYearId: selectedYear.id },
+      select: {
+        id: true,
+        title: true,
+        amountCents: true,
+        dueOn: true,
+        student: { select: { fullName: true } },
+        payments: { select: { amountCents: true } }
+      }
+    }),
+    db.feePayment.aggregate({
+      where: { invoice: { schoolId: session.schoolId, academicYearId: selectedYear.id } },
+      _sum: { amountCents: true }
+    }),
 
     db.feePayment.aggregate({ where: { invoice: { schoolId: session.schoolId, academicYearId: selectedYear.id }, paidAt: { gte: monthStart } }, _sum: { amountCents: true } }),
     db.feePayment.aggregate({ where: { invoice: { schoolId: session.schoolId, academicYearId: selectedYear.id }, paidAt: { gte: yearStart } }, _sum: { amountCents: true } }),
-
-    db.feeInvoice.findMany({
-      where: { schoolId: session.schoolId, academicYearId: selectedYear.id, status: "OVERDUE" },
-      include: { student: true },
-      orderBy: { dueOn: "asc" },
-      take: 10,
-    }),
 
     db.attendanceRecord.groupBy({
       by: ["date", "status"],
@@ -99,12 +103,26 @@ export default async function ReportsPage({
   const classById  = new Map(classes.map(c => [c.id, `${c.name}${c.section ? `-${c.section}` : ""}`]));
 
   // ── Derived stats ─────────────────────────────────────
-  const totalInvoicedCents  = feeAll._sum.amountCents ?? 0;
-  const totalPaidCents      = feePaid._sum.amountCents ?? 0;
-  const totalOverdueCents   = feeOverdue._sum.amountCents ?? 0;
+  const totalInvoicedCents  = feeInvoicesForReport.reduce((sum, inv) => sum + inv.amountCents, 0);
+  const totalPaidCentsRaw   = feeTotalCollected._sum.amountCents ?? 0;
+  const totalPaidCents      = Math.min(totalPaidCentsRaw, totalInvoicedCents);
   const collectionRate      = pct(totalPaidCents, totalInvoicedCents);
   const monthCollectedCents = feeMonthCollected._sum.amountCents ?? 0;
   const yearCollectedCents  = feeYearCollected._sum.amountCents ?? 0;
+  const overdueRows = feeInvoicesForReport
+    .map((inv) => {
+      const paidCents = inv.payments.reduce((sum, payment) => sum + payment.amountCents, 0);
+      const balanceCents = Math.max(0, inv.amountCents - paidCents);
+      return { ...inv, balanceCents };
+    })
+    .filter((inv) => inv.balanceCents > 0 && inv.dueOn && inv.dueOn < today)
+    .sort((a, b) => {
+      const aTime = a.dueOn ? a.dueOn.getTime() : Number.MAX_SAFE_INTEGER;
+      const bTime = b.dueOn ? b.dueOn.getTime() : Number.MAX_SAFE_INTEGER;
+      return aTime - bTime;
+    });
+  const totalOverdueCents = overdueRows.reduce((sum, inv) => sum + inv.balanceCents, 0);
+  const overdueInvoices = overdueRows.slice(0, 10);
 
   // ── Attendance 30-day summary ─────────────────────────
   const attendMap = new Map<string, { present: number; absent: number; late: number }>();
@@ -185,12 +203,12 @@ export default async function ReportsPage({
         </div>
 
         {/* Overdue summary */}
-        {feeOverdue._count._all > 0 && (
+        {overdueRows.length > 0 && (
           <div className="flex items-center justify-between rounded-[13px] border border-amber-500/20 bg-amber-500/[0.07] px-4 py-3">
             <div className="flex items-center gap-2">
               <span className="text-lg">⚠️</span>
               <div>
-                <p className="text-[13px] font-semibold text-amber-200">{feeOverdue._count._all} overdue invoice{feeOverdue._count._all !== 1 ? "s" : ""}</p>
+                <p className="text-[13px] font-semibold text-amber-200">{overdueRows.length} overdue invoice{overdueRows.length !== 1 ? "s" : ""}</p>
                 <p className="text-[11px] text-amber-300/60">{fmt(totalOverdueCents)} outstanding</p>
               </div>
             </div>
@@ -217,7 +235,7 @@ export default async function ReportsPage({
                     <p className="text-[11px] text-white/40 truncate">{inv.title}</p>
                   </div>
                   <div className="text-right shrink-0">
-                    <p className="text-[13px] font-bold text-rose-300">{fmt(inv.amountCents)}</p>
+                    <p className="text-[13px] font-bold text-rose-300">{fmt(inv.balanceCents)}</p>
                     {daysOverdue !== null && (
                       <Badge tone="danger">{daysOverdue}d overdue</Badge>
                     )}

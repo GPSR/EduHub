@@ -13,7 +13,7 @@ function fmt(cents: number) {
 }
 
 function statusTone(s: string): "success" | "danger" | "warning" | "neutral" {
-  return s === "PAID" ? "success" : s === "OVERDUE" ? "danger" : s === "PENDING" ? "warning" : "neutral";
+  return s === "PAID" ? "success" : s === "OVERDUE" ? "danger" : (s === "PENDING" || s === "DUE" || s === "PARTIAL") ? "warning" : "neutral";
 }
 
 export default async function InvoicePage({
@@ -150,7 +150,15 @@ export default async function InvoicePage({
                     <span className="text-sm">💳</span>
                   </div>
                   <div>
-                    <p className="text-[14px] font-semibold text-emerald-300">{fmt(p.amountCents)}</p>
+                    <div className="flex items-center gap-2">
+                      <p className="text-[14px] font-semibold text-emerald-300">{fmt(p.amountCents)}</p>
+                      <Link
+                        href={withAcademicYearParam(`/fees/${invoice.id}/payments/${p.id}/receipt`, selectedYear.id)}
+                        className="text-[11px] text-sky-300 underline underline-offset-2 hover:text-sky-200"
+                      >
+                        Generate receipt
+                      </Link>
+                    </div>
                     <p className="text-[12px] text-white/40">
                       {p.method ?? "Payment"}{p.reference ? ` · ${p.reference}` : ""}
                     </p>

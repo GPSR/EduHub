@@ -447,7 +447,12 @@ function withQuery(path: string, key: string, value: string) {
   return `${path}${glue}${encodeURIComponent(key)}=${encodeURIComponent(value)}`;
 }
 
-function classComparator(a: { name: string; section: string }, b: { name: string; section: string }) {
+function classComparator(
+  a: { name: string; section: string; createdAt: Date },
+  b: { name: string; section: string; createdAt: Date }
+) {
+  const byCreatedAt = a.createdAt.getTime() - b.createdAt.getTime();
+  if (byCreatedAt !== 0) return byCreatedAt;
   const collator = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" });
   const byName = collator.compare(a.name, b.name);
   if (byName !== 0) return byName;
@@ -524,7 +529,7 @@ export async function updateStudentProgressionAction(formData: FormData) {
     }
     const classes = await db.class.findMany({
       where: { schoolId: session.schoolId },
-      select: { id: true, name: true, section: true }
+      select: { id: true, name: true, section: true, createdAt: true }
     });
     const sortedClasses = [...classes].sort(classComparator);
     const currentIndex = sortedClasses.findIndex((row) => row.id === currentClassId);
