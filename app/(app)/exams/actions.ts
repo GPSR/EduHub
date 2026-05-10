@@ -49,6 +49,11 @@ const SendExamReportSchema = z.object({
   examId: z.string().min(1)
 });
 
+const UpdateExamQuestionPaperSchema = z.object({
+  examId: z.string().min(1),
+  academicYearId: z.string().optional()
+});
+
 type StoredAnswer = {
   questionId: string;
   selectedOption: OptionValue | null;
@@ -124,6 +129,17 @@ async function getTeacherClassIds(schoolId: string, userId: string) {
     select: { classId: true }
   });
   return [...new Set(rows.map((row) => row.classId))];
+}
+
+function examsListHref(args: {
+  academicYearId: string;
+  status?: string;
+  examId?: string;
+}) {
+  let href = withAcademicYearParam("/exams", args.academicYearId);
+  if (args.status) href = appendQuery(href, "file", args.status);
+  if (args.examId) href = appendQuery(href, "examId", args.examId);
+  return href;
 }
 
 function parseQuestionLines(raw: string): ParsedExamQuestion[] {
@@ -750,4 +766,71 @@ export async function sendExamReportToParentsAction(formData: FormData) {
   nextHref = appendQuery(nextHref, "total", String(recipients.length));
 
   redirect(nextHref);
+}
+
+export async function updateExamQuestionPaperAction(formData: FormData) {
+  const { session } = await requirePermission("EXAMS", "EDIT");
+
+  const parsed = UpdateExamQuestionPaperSchema.safeParse({
+    examId: String(formData.get("examId") ?? "").trim(),
+    academicYearId: String(formData.get("academicYearId") ?? "").trim() || undefined
+  });
+  if (!parsed.success) throw new Error("Unable to update question file.");
+
+  const exam = await db.schoolExam.findFirst({
+    where: {
+      id: parsed.data.examId,
+      schoolId: session.schoolId
+    },
+    select: {
+      id: true,
+      classId: true,
+      academicYearId: true
+    }
+  });
+  if (!exam) throw new Error("Exam not found.");
+
+  await requireWritableAcademicYear({
+    schoolId: session.schoolId,
+    requestedYearId: exam.academicYearId
+  });
+
+  if (session.roleKey === "TEACHER" || session.roleKey === "CLASS_TEACHER") {
+    const teacherClassIds = await getTeacherClassIds(session.schoolId, session.userId);
+    if (!exam.classId || !teacherClassIds.includes(exam.classId)) {
+      throw new Error("You can only modify question files for your assigned class exams.");
+    }
+  }
+
+  const questionPaper = formData.get("questionPaper");
+  if (!(questionPaper instanceof File) || questionPaper.size <= 0) {
+    redirect(examsListHref({ academicYearId: exam.academicYearId, status: "no_file", examId: exam.id }));
+  }
+
+  const saved = await saveUploadedFile({
+    file: questionPaper,
+    folder: `schools/${session.schoolId}/exams/question-papers`,
+    prefix: "exam-paper"
+  });
+  if (!saved.ok) {
+    redirect(examsListHref({ academicYearId: exam.academicYearId, status: "upload_failed", examId: exam.id }));
+  }
+
+  await db.schoolExam.update({
+    where: { id: exam.id },
+    data: { questionPaperUrl: saved.url }
+  });
+
+  await db.auditLog.create({
+    data: {
+      schoolId: session.schoolId,
+      actorType: "SCHOOL_USER",
+      actorId: session.userId,
+      action: "EXAM_QUESTION_FILE_UPDATED",
+      entityType: "SchoolExam",
+      entityId: exam.id
+    }
+  });
+
+  redirect(examsListHref({ academicYearId: exam.academicYearId, status: "updated", examId: exam.id }));
 }

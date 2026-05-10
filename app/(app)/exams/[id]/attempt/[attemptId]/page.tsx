@@ -5,6 +5,7 @@ import { db } from "@/lib/db";
 import { requirePermission } from "@/lib/require-permission";
 import { requireSession } from "@/lib/require";
 import { getAcademicYearContext, withAcademicYearParam } from "@/lib/academic-year";
+import { ExamQuestionFilePreview } from "@/components/exam-question-file-preview";
 
 const OPTION_KEYS = ["A", "B", "C", "D"] as const;
 type OptionKey = (typeof OPTION_KEYS)[number];
@@ -200,14 +201,13 @@ export default async function SchoolExamAttemptPage({
         ) : null}
 
         {attempt.exam.questionPaperUrl ? (
-          <a
-            href={attempt.exam.questionPaperUrl}
-            target="_blank"
-            rel="noreferrer"
-            className="mt-3 inline-flex items-center gap-1 rounded-[10px] border border-sky-400/28 bg-sky-500/[0.12] px-3 py-1.5 text-[12px] font-medium text-sky-200 hover:bg-sky-500/[0.2]"
-          >
-            Open Question File ↗
-          </a>
+          <div className="mt-3">
+            <ExamQuestionFilePreview
+              fileUrl={attempt.exam.questionPaperUrl}
+              title={`${attempt.exam.title} · Question File`}
+              buttonText="Open Question File"
+            />
+          </div>
         ) : null}
 
         {attempt.status === "SUBMITTED" ? (

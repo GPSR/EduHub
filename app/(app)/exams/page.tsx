@@ -5,6 +5,7 @@ import { atLeastLevel, getEffectivePermissions } from "@/lib/permissions";
 import { requirePermission } from "@/lib/require-permission";
 import { requireSession } from "@/lib/require";
 import { getAcademicYearContext, withAcademicYearParam } from "@/lib/academic-year";
+import { ExamQuestionFilePreview } from "@/components/exam-question-file-preview";
 
 function classLabel(name: string, section: string) {
   return section ? `${name}-${section}` : name;
@@ -55,11 +56,11 @@ type ParentExamStudent = {
 export default async function ExamsPage({
   searchParams
 }: {
-  searchParams: Promise<{ classId?: string; compose?: string; ay?: string }>;
+  searchParams: Promise<{ classId?: string; compose?: string; ay?: string; file?: string; examId?: string }>;
 }) {
   await requirePermission("EXAMS", "VIEW");
   const session = await requireSession();
-  const { classId: filterClassId, compose, ay } = await searchParams;
+  const { classId: filterClassId, compose, ay, file, examId } = await searchParams;
   const composeOpen = compose === "1";
 
   const yearContext = await getAcademicYearContext({ schoolId: session.schoolId, requestedYearId: ay });
@@ -171,6 +172,24 @@ export default async function ExamsPage({
         </div>
       ) : null}
 
+      {file === "updated" ? (
+        <div className="rounded-[14px] border border-emerald-500/30 bg-emerald-500/12 px-4 py-3 text-sm text-emerald-100">
+          Question file updated successfully.
+        </div>
+      ) : null}
+
+      {file === "no_file" ? (
+        <div className="rounded-[14px] border border-amber-500/30 bg-amber-500/12 px-4 py-3 text-sm text-amber-100">
+          Please choose a file before updating question file.
+        </div>
+      ) : null}
+
+      {file === "upload_failed" ? (
+        <div className="rounded-[14px] border border-rose-500/30 bg-rose-500/12 px-4 py-3 text-sm text-rose-100">
+          Upload failed. Please check file type/size and try again.
+        </div>
+      ) : null}
+
       <div className="flex items-start justify-between gap-4">
         <SectionHeader
           title="Exams"
@@ -269,14 +288,13 @@ export default async function ExamsPage({
                     <div className="text-right text-[12px] text-white/50">
                       <p>{exam._count.questions} MCQ</p>
                       {exam.questionPaperUrl ? (
-                        <a
-                          href={exam.questionPaperUrl}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="mt-1 inline-block text-sky-300 underline underline-offset-2 hover:text-sky-200"
-                        >
-                          Open Question File
-                        </a>
+                        <div className="mt-1 inline-flex">
+                          <ExamQuestionFilePreview
+                            fileUrl={exam.questionPaperUrl}
+                            title={`${exam.title} · Question File`}
+                            buttonText="Open Question File"
+                          />
+                        </div>
                       ) : null}
                     </div>
                   </div>
@@ -319,6 +337,10 @@ export default async function ExamsPage({
           <div className="space-y-3">
             {exams.map((exam) => {
               const status = examWindowStatus(now, exam.startsAt, exam.endsAt);
+              const assignedClassId = exam.class?.id ?? null;
+              const canUpdateThisExam =
+                canManage &&
+                (!teacherScoped || (assignedClassId ? teacherClassIds.includes(assignedClassId) : false));
               return (
                 <article key={exam.id} className="rounded-[16px] border border-white/[0.08] bg-white/[0.03] p-4">
                   <div className="flex flex-wrap items-start justify-between gap-3">
@@ -339,17 +361,26 @@ export default async function ExamsPage({
                       <p>{exam._count.questions} MCQ questions</p>
                       <p>{exam._count.attempts} student attempt(s)</p>
                       {exam.questionPaperUrl ? (
-                        <a
-                          href={exam.questionPaperUrl}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="mt-1 inline-block text-sky-300 underline underline-offset-2 hover:text-sky-200"
-                        >
-                          Open Question File
-                        </a>
+                        <div className="mt-1 inline-flex">
+                          <ExamQuestionFilePreview
+                            fileUrl={exam.questionPaperUrl}
+                            title={`${exam.title} · Question File`}
+                            buttonText="Open Question File"
+                          />
+                        </div>
                       ) : null}
                     </div>
                   </div>
+
+                  {canUpdateThisExam ? (
+                    <div
+                      id={examId === exam.id ? `exam-${exam.id}` : undefined}
+                      className="mt-3 rounded-[12px] border border-white/[0.08] bg-black/20 p-3"
+                    >
+                      <p className="text-[12px] font-semibold text-white/85">Update question file</p>
+                      <UpdateQuestionFileForm examId={exam.id} academicYearId={selectedYear.id} />
+                    </div>
+                  ) : null}
                 </article>
               );
             })}
@@ -471,5 +502,24 @@ Marks: 2`
         </div>
       </form>
     </Card>
+  );
+}
+
+async function UpdateQuestionFileForm({
+  examId,
+  academicYearId
+}: {
+  examId: string;
+  academicYearId: string;
+}) {
+  const { updateExamQuestionPaperAction } = await import("./actions");
+
+  return (
+    <form action={updateExamQuestionPaperAction} className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-[1fr_auto] sm:items-end">
+      <input type="hidden" name="examId" value={examId} />
+      <input type="hidden" name="academicYearId" value={academicYearId} />
+      <Input name="questionPaper" type="file" />
+      <Button type="submit" size="sm" variant="secondary">Update file</Button>
+    </form>
   );
 }
