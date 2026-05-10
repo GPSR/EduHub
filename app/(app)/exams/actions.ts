@@ -359,13 +359,16 @@ async function extractQuestionTextFromFile(file: File): Promise<string> {
   }
 
   if (mime === "application/pdf" || ext === "pdf") {
-    const pdfModule = await import("pdf-parse");
-    const parser = (pdfModule as unknown as { default?: (dataBuffer: Buffer) => Promise<{ text?: string }> }).default;
-    if (!parser) {
-      throw new Error("PDF parser is unavailable. Please enter MCQ text manually.");
+    try {
+      const pdfModule = await import("pdf-parse");
+      const parser = (pdfModule as unknown as { default?: (dataBuffer: Buffer) => Promise<{ text?: string }> }).default;
+      if (!parser) return "";
+      const parsed = await parser(bytes);
+      return String(parsed.text ?? "");
+    } catch (error) {
+      console.warn("PDF auto-conversion unavailable in current runtime.", error);
+      return "";
     }
-    const parsed = await parser(bytes);
-    return String(parsed.text ?? "");
   }
 
   return "";
@@ -440,18 +443,20 @@ export async function createSchoolExamAction(formData: FormData) {
   let extractedQuestions: ParsedExamQuestion[] = [];
   if (manualQuestions.length === 0 && questionPaper instanceof File && questionPaper.size > 0) {
     const extractedText = await extractQuestionTextFromFile(questionPaper);
-    try {
-      extractedQuestions = parseQuestionLines(extractedText);
-    } catch {
-      extractedQuestions = parseInlineMcqSequence(extractedText);
+    if (extractedText.trim()) {
+      try {
+        extractedQuestions = parseQuestionLines(extractedText);
+      } catch {
+        extractedQuestions = parseInlineMcqSequence(extractedText);
+      }
+      if (extractedQuestions.length === 0) {
+        extractedQuestions = parseInlineMcqSequence(extractedText);
+      }
     }
+
     if (extractedQuestions.length === 0) {
-      extractedQuestions = parseInlineMcqSequence(extractedText);
-    }
-    if (extractedQuestions.length === 0) {
-      throw new Error(
-        "Could not convert question file to MCQ automatically. Use format with Question, options A/B/C/D, and Answer: A/B/C/D."
-      );
+      // Keep creation flow stable across server runtimes where PDF parsing may be unavailable.
+      redirect(withAcademicYearParam("/exams?compose=1&file=mcq_parse_failed", year.id));
     }
   }
   const questions = manualQuestions.length > 0 ? manualQuestions : extractedQuestions;

@@ -196,6 +196,12 @@ export default async function ExamsPage({
         </div>
       ) : null}
 
+      {file === "mcq_parse_failed" ? (
+        <div className="rounded-[14px] border border-amber-500/30 bg-amber-500/12 px-4 py-3 text-sm text-amber-100">
+          Could not auto-convert this file to MCQ. Add questions in text format (Question, A/B/C/D, Answer) and publish again.
+        </div>
+      ) : null}
+
       <div className="flex items-start justify-between gap-4">
         <SectionHeader
           title="Exams"
