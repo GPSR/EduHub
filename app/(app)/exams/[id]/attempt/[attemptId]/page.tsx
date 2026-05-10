@@ -41,6 +41,12 @@ function formatDateTime(date: Date) {
   });
 }
 
+function parseNumberParam(value?: string) {
+  if (!value) return null;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
 function parseStoredAnswers(raw: string | null): Map<string, StoredAnswer> {
   if (!raw) return new Map();
   try {
@@ -68,12 +74,24 @@ export default async function SchoolExamAttemptPage({
   searchParams
 }: {
   params: Promise<{ id: string; attemptId: string }>;
-  searchParams: Promise<{ ay?: string; submitted?: string; report?: string; sent?: string; total?: string }>;
+  searchParams: Promise<{
+    ay?: string;
+    submitted?: string;
+    report?: string;
+    sent?: string;
+    total?: string;
+    score?: string;
+    max?: string;
+    correct?: string;
+    wrong?: string;
+    totalQuestions?: string;
+    percentage?: string;
+  }>;
 }) {
   await requirePermission("EXAMS", "VIEW");
   const session = await requireSession();
   const { id: examId, attemptId } = await params;
-  const { ay, submitted, report, sent, total } = await searchParams;
+  const { ay, submitted, report, sent, total, score, max, correct, wrong, totalQuestions, percentage } = await searchParams;
 
   const yearContext = await getAcademicYearContext({ schoolId: session.schoolId, requestedYearId: ay });
   const selectedYear = yearContext.selectedYear;
@@ -133,9 +151,65 @@ export default async function SchoolExamAttemptPage({
     windowStatus === "OPEN" &&
     hasMcqQuestions;
   const submittedAnswers = parseStoredAnswers(attempt.answersJson);
+  const submittedScore = parseNumberParam(score);
+  const submittedMax = parseNumberParam(max);
+  const submittedCorrect = parseNumberParam(correct);
+  const submittedWrong = parseNumberParam(wrong);
+  const submittedTotalQuestions = parseNumberParam(totalQuestions);
+  const submittedPercentage = parseNumberParam(percentage);
+  const showScorePopup =
+    submitted === "1" &&
+    submittedScore !== null &&
+    submittedMax !== null &&
+    submittedCorrect !== null &&
+    submittedWrong !== null &&
+    submittedTotalQuestions !== null &&
+    submittedPercentage !== null;
+  const closePopupHref = withAcademicYearParam(`/exams/${examId}/attempt/${attemptId}`, selectedYear.id);
 
   return (
     <div className="space-y-5 animate-fade-up">
+      {showScorePopup ? (
+        <div className="fixed inset-0 z-[620] flex items-center justify-center bg-[#020814]/90 px-4">
+          <div className="w-full max-w-[460px] rounded-[20px] border border-emerald-400/35 bg-[#081529] p-5 shadow-[0_35px_90px_-45px_rgba(0,0,0,0.95)]">
+            <h3 className="text-[20px] font-semibold text-white/95">Exam Submitted</h3>
+            <p className="mt-1 text-[13px] text-white/62">Score summary for {attempt.exam.title}</p>
+
+            <div className="mt-4 grid grid-cols-2 gap-2.5">
+              <div className="rounded-[12px] border border-white/[0.1] bg-black/20 px-3 py-2.5">
+                <p className="text-[11px] text-white/55">Score</p>
+                <p className="text-[17px] font-semibold text-emerald-200">{submittedScore}/{submittedMax}</p>
+              </div>
+              <div className="rounded-[12px] border border-white/[0.1] bg-black/20 px-3 py-2.5">
+                <p className="text-[11px] text-white/55">Percentage</p>
+                <p className="text-[17px] font-semibold text-blue-200">{submittedPercentage.toFixed(1)}%</p>
+              </div>
+              <div className="rounded-[12px] border border-white/[0.1] bg-black/20 px-3 py-2.5">
+                <p className="text-[11px] text-white/55">Correct</p>
+                <p className="text-[17px] font-semibold text-emerald-200">{submittedCorrect}</p>
+              </div>
+              <div className="rounded-[12px] border border-white/[0.1] bg-black/20 px-3 py-2.5">
+                <p className="text-[11px] text-white/55">Wrong</p>
+                <p className="text-[17px] font-semibold text-rose-200">{submittedWrong}</p>
+              </div>
+            </div>
+
+            <p className="mt-3 text-[12px] text-white/60">
+              Attempted questions: {submittedTotalQuestions} · Parent report card has been processed automatically.
+            </p>
+
+            <div className="mt-4 flex justify-end">
+              <Link
+                href={closePopupHref}
+                className="inline-flex min-h-[38px] items-center justify-center rounded-[11px] border border-white/[0.15] bg-[#0d172b] px-4 text-sm font-medium text-white/88 hover:bg-[#16233a]"
+              >
+                Continue
+              </Link>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       <Link href={withAcademicYearParam("/exams", selectedYear.id)} className="inline-flex items-center gap-1.5 text-sm text-white/45 hover:text-white/80 transition-colors">
         ← Back to exams
       </Link>
@@ -200,7 +274,7 @@ export default async function SchoolExamAttemptPage({
           </p>
         ) : null}
 
-        {attempt.exam.questionPaperUrl ? (
+        {attempt.exam.questionPaperUrl && session.roleKey !== "PARENT" ? (
           <div className="mt-3">
             <ExamQuestionFilePreview
               fileUrl={attempt.exam.questionPaperUrl}
@@ -214,7 +288,7 @@ export default async function SchoolExamAttemptPage({
           <div className="mt-4 rounded-[12px] border border-emerald-500/25 bg-emerald-500/10 px-3.5 py-3 text-[13px] text-emerald-100">
             Score: {attempt.score ?? 0} / {attempt.maxScore ?? 0}
             {attempt.submittedAt ? ` · Submitted ${formatDateTime(attempt.submittedAt)}` : ""}
-            <SendExamReportForm examId={attempt.exam.id} attemptId={attempt.id} />
+            {session.roleKey !== "PARENT" ? <SendExamReportForm examId={attempt.exam.id} attemptId={attempt.id} /> : null}
           </div>
         ) : null}
 
@@ -235,7 +309,7 @@ export default async function SchoolExamAttemptPage({
         )}
       </Card>
 
-      {hasMcqQuestions ? (
+      {hasMcqQuestions && session.roleKey !== "PARENT" ? (
         <Card
           title="Question & Answer Preview"
           description={

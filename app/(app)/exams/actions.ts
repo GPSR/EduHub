@@ -34,6 +34,17 @@ const CreateExamSchema = z.object({
   academicYearId: z.string().optional()
 });
 
+const CreateExamRetestSchema = z.object({
+  sourceExamId: z.string().min(1),
+  classId: z.string().optional(),
+  title: z.string().trim().max(160).optional(),
+  instructions: z.string().trim().max(3000).optional(),
+  startsAt: z.string().min(1),
+  endsAt: z.string().min(1),
+  durationMinutes: z.coerce.number().int().min(5).max(300),
+  academicYearId: z.string().optional()
+});
+
 const StartAttemptSchema = z.object({
   examId: z.string().min(1),
   studentId: z.string().min(1)
@@ -688,6 +699,149 @@ export async function createSchoolExamAction(formData: FormData) {
   redirect(withAcademicYearParam(`/exams?examId=${encodeURIComponent(exam.id)}`, year.id));
 }
 
+export async function createExamRetestAction(formData: FormData) {
+  const { session } = await requirePermission("EXAMS", "EDIT");
+
+  const parsed = CreateExamRetestSchema.safeParse({
+    sourceExamId: String(formData.get("sourceExamId") ?? "").trim(),
+    classId: String(formData.get("classId") ?? "").trim() || undefined,
+    title: String(formData.get("title") ?? "").trim() || undefined,
+    instructions: String(formData.get("instructions") ?? "").trim() || undefined,
+    startsAt: String(formData.get("startsAt") ?? "").trim(),
+    endsAt: String(formData.get("endsAt") ?? "").trim(),
+    durationMinutes: formData.get("durationMinutes"),
+    academicYearId: String(formData.get("academicYearId") ?? "").trim() || undefined
+  });
+  if (!parsed.success) {
+    throw new Error(parsed.error.issues[0]?.message ?? "Unable to create re-test.");
+  }
+
+  const year = await requireWritableAcademicYear({
+    schoolId: session.schoolId,
+    requestedYearId: parsed.data.academicYearId
+  });
+
+  const startsAt = parseLocalDateTime(parsed.data.startsAt, "Re-test start date");
+  const endsAt = parseLocalDateTime(parsed.data.endsAt, "Re-test end date");
+  if (endsAt <= startsAt) {
+    throw new Error("Re-test end date/time should be after start date/time.");
+  }
+
+  const sourceExam = await db.schoolExam.findFirst({
+    where: {
+      id: parsed.data.sourceExamId,
+      schoolId: session.schoolId
+    },
+    include: {
+      questions: {
+        select: {
+          prompt: true,
+          optionA: true,
+          optionB: true,
+          optionC: true,
+          optionD: true,
+          correctOption: true,
+          marks: true,
+          sortOrder: true
+        },
+        orderBy: { sortOrder: "asc" }
+      }
+    }
+  });
+  if (!sourceExam) throw new Error("Source exam not found.");
+
+  const teacherScoped = session.roleKey === "TEACHER" || session.roleKey === "CLASS_TEACHER";
+  let teacherClassIds: string[] = [];
+  if (teacherScoped) {
+    teacherClassIds = await getTeacherClassIds(session.schoolId, session.userId);
+    if (teacherClassIds.length === 0) {
+      throw new Error("No class assignments found. Ask admin to assign class before scheduling re-test.");
+    }
+    if (sourceExam.classId && !teacherClassIds.includes(sourceExam.classId)) {
+      throw new Error("You can only reuse exams from your assigned classes.");
+    }
+  }
+
+  const classId = parsed.data.classId ?? null;
+  if (teacherScoped && !classId) {
+    throw new Error("Teachers must select a class for re-test.");
+  }
+  if (classId) {
+    const cls = await db.class.findFirst({
+      where: { id: classId, schoolId: session.schoolId },
+      select: { id: true }
+    });
+    if (!cls) throw new Error("Selected class is invalid.");
+    if (teacherScoped && !teacherClassIds.includes(classId)) {
+      throw new Error("You can only schedule re-test for your assigned classes.");
+    }
+  }
+
+  const clonedTitle = parsed.data.title?.trim()?.length
+    ? parsed.data.title.trim()
+    : `${sourceExam.title} (Re-test)`;
+
+  const clonedInstructions = parsed.data.instructions?.trim()?.length
+    ? parsed.data.instructions.trim()
+    : sourceExam.instructions;
+
+  const createdExam = await db.$transaction(async (tx) => {
+    const created = await tx.schoolExam.create({
+      data: {
+        schoolId: session.schoolId,
+        academicYearId: year.id,
+        classId,
+        title: clonedTitle,
+        instructions: clonedInstructions,
+        questionPaperUrl: sourceExam.questionPaperUrl,
+        startsAt,
+        endsAt,
+        durationMinutes: parsed.data.durationMinutes,
+        isPublished: true,
+        createdByUserId: session.userId
+      }
+    });
+
+    if (sourceExam.questions.length > 0) {
+      await tx.schoolExamQuestion.createMany({
+        data: sourceExam.questions.map((question, index) => ({
+          schoolId: session.schoolId,
+          examId: created.id,
+          prompt: question.prompt,
+          optionA: question.optionA,
+          optionB: question.optionB,
+          optionC: question.optionC,
+          optionD: question.optionD,
+          correctOption: question.correctOption as OptionValue,
+          marks: question.marks,
+          sortOrder: question.sortOrder || index + 1
+        }))
+      });
+    }
+
+    return created;
+  });
+
+  await db.auditLog.create({
+    data: {
+      schoolId: session.schoolId,
+      actorType: "SCHOOL_USER",
+      actorId: session.userId,
+      action: "SCHOOL_EXAM_RETEST_CREATED",
+      entityType: "SchoolExam",
+      entityId: createdExam.id,
+      metadataJson: JSON.stringify({
+        sourceExamId: sourceExam.id,
+        sourceAcademicYearId: sourceExam.academicYearId,
+        targetAcademicYearId: year.id,
+        targetClassId: classId
+      })
+    }
+  });
+
+  redirect(examsListHref({ academicYearId: year.id, status: "retest_created", examId: createdExam.id }));
+}
+
 export async function startExamAttemptAction(formData: FormData) {
   const { session } = await requirePermission("EXAMS", "VIEW");
 
@@ -770,6 +924,7 @@ export async function submitExamAttemptAction(formData: FormData) {
       exam: {
         select: {
           id: true,
+          title: true,
           academicYearId: true,
           startsAt: true,
           endsAt: true,
@@ -819,35 +974,119 @@ export async function submitExamAttemptAction(formData: FormData) {
     });
   }
 
+  const roundedScore = Math.round(score * 100) / 100;
+  const roundedMaxScore = Math.round(maxScore * 100) / 100;
+  const totalQuestions = answers.length;
+  const correctCount = answers.filter((answer) => answer.selectedOption && answer.selectedOption === answer.correctOption).length;
+  const wrongCount = answers.filter((answer) => answer.selectedOption && answer.selectedOption !== answer.correctOption).length;
+  const percentage = roundedMaxScore > 0 ? (roundedScore / roundedMaxScore) * 100 : 0;
+
   await db.schoolExamAttempt.update({
     where: { id: attempt.id },
     data: {
       status: "SUBMITTED",
       submittedAt: now,
-      score: Math.round(score * 100) / 100,
-      maxScore: Math.round(maxScore * 100) / 100,
+      score: roundedScore,
+      maxScore: roundedMaxScore,
       answersJson: JSON.stringify(answers)
     }
   });
 
-  redirect(attemptHref(attempt.exam.id, attempt.id, attempt.exam.academicYearId, true));
+  await syncAttemptToExamResult({
+    schoolId: session.schoolId,
+    academicYearId: attempt.exam.academicYearId,
+    studentId: attempt.studentId,
+    examTitle: attempt.exam.title,
+    score: roundedScore,
+    maxScore: roundedMaxScore,
+    attemptId: attempt.id
+  });
+
+  const reportResult = await sendExamReportForAttempt({
+    session,
+    attemptId: attempt.id,
+    examId: attempt.exam.id
+  });
+
+  let nextHref = attemptHref(attempt.exam.id, attempt.id, attempt.exam.academicYearId, true);
+  nextHref = appendQuery(nextHref, "score", String(roundedScore));
+  nextHref = appendQuery(nextHref, "max", String(roundedMaxScore));
+  nextHref = appendQuery(nextHref, "correct", String(correctCount));
+  nextHref = appendQuery(nextHref, "wrong", String(wrongCount));
+  nextHref = appendQuery(nextHref, "totalQuestions", String(totalQuestions));
+  nextHref = appendQuery(nextHref, "percentage", percentage.toFixed(1));
+  nextHref = appendQuery(nextHref, "report", reportResult.status);
+  nextHref = appendQuery(nextHref, "sent", String(reportResult.sentCount));
+  nextHref = appendQuery(nextHref, "total", String(reportResult.totalCount));
+
+  redirect(nextHref);
 }
 
-export async function sendExamReportToParentsAction(formData: FormData) {
-  const { session } = await requirePermission("EXAMS", "VIEW");
-
-  const parsed = SendExamReportSchema.safeParse({
-    attemptId: formData.get("attemptId"),
-    examId: formData.get("examId")
+async function syncAttemptToExamResult(args: {
+  schoolId: string;
+  academicYearId: string;
+  studentId: string;
+  examTitle: string;
+  score: number;
+  maxScore: number;
+  attemptId: string;
+}) {
+  const marker = `[AUTO_EXAM_ATTEMPT:${args.attemptId}]`;
+  const existing = await db.examResult.findFirst({
+    where: {
+      schoolId: args.schoolId,
+      academicYearId: args.academicYearId,
+      studentId: args.studentId,
+      examName: args.examTitle,
+      remarks: {
+        contains: marker
+      }
+    },
+    select: { id: true }
   });
-  if (!parsed.success) throw new Error("Unable to send exam report.");
 
+  if (existing) {
+    await db.examResult.update({
+      where: { id: existing.id },
+      data: {
+        score: args.score,
+        maxScore: args.maxScore
+      }
+    });
+    return;
+  }
+
+  await db.examResult.create({
+    data: {
+      schoolId: args.schoolId,
+      academicYearId: args.academicYearId,
+      studentId: args.studentId,
+      examName: args.examTitle,
+      subject: "Online MCQ",
+      score: args.score,
+      maxScore: args.maxScore,
+      remarks: `Auto synced from Exams module ${marker}`
+    }
+  });
+}
+
+type ExamReportStatus = "sent" | "partial" | "failed" | "no_parent_email" | "not_submitted";
+
+async function sendExamReportForAttempt(args: {
+  session: {
+    schoolId: string;
+    userId: string;
+    roleKey: string;
+  };
+  attemptId: string;
+  examId: string;
+}): Promise<{ status: ExamReportStatus; sentCount: number; totalCount: number }> {
   const attempt = await db.schoolExamAttempt.findFirst({
     where: {
-      id: parsed.data.attemptId,
-      examId: parsed.data.examId,
-      schoolId: session.schoolId,
-      ...(session.roleKey === "PARENT" ? { student: { parents: { some: { userId: session.userId } } } } : {})
+      id: args.attemptId,
+      examId: args.examId,
+      schoolId: args.session.schoolId,
+      ...(args.session.roleKey === "PARENT" ? { student: { parents: { some: { userId: args.session.userId } } } } : {})
     },
     include: {
       student: {
@@ -884,11 +1123,8 @@ export async function sendExamReportToParentsAction(formData: FormData) {
     }
   });
   if (!attempt) throw new Error("Exam attempt not found.");
-
-  const baseAttemptHref = attemptHref(attempt.exam.id, attempt.id, attempt.exam.academicYearId, true);
-
   if (attempt.status !== "SUBMITTED") {
-    redirect(appendQuery(baseAttemptHref, "report", "not_submitted"));
+    return { status: "not_submitted", sentCount: 0, totalCount: 0 };
   }
 
   const recipientSet = new Set<string>();
@@ -900,9 +1136,8 @@ export async function sendExamReportToParentsAction(formData: FormData) {
     recipientSet.add(email);
   }
   const recipients = Array.from(recipientSet);
-
   if (recipients.length === 0) {
-    redirect(appendQuery(baseAttemptHref, "report", "no_parent_email"));
+    return { status: "no_parent_email", sentCount: 0, totalCount: 0 };
   }
 
   const answersByQuestionId = parseStoredAnswers(attempt.answersJson);
@@ -924,9 +1159,7 @@ export async function sendExamReportToParentsAction(formData: FormData) {
   const correctCount = perQuestion.filter((item) => item.selected && item.selected === item.correctOption).length;
   const totalQuestions = perQuestion.length;
   const score = attempt.score ?? 0;
-  const maxScore =
-    attempt.maxScore ??
-    perQuestion.reduce((sum, item) => sum + item.marks, 0);
+  const maxScore = attempt.maxScore ?? perQuestion.reduce((sum, item) => sum + item.marks, 0);
   const percentage = maxScore > 0 ? (score / maxScore) * 100 : 0;
   const className = attempt.student.class
     ? classLabel(attempt.student.class.name, attempt.student.class.section)
@@ -1021,7 +1254,7 @@ export async function sendExamReportToParentsAction(formData: FormData) {
   if (sentCount > 0 && attempt.student.parents.length > 0) {
     await db.notification.createMany({
       data: attempt.student.parents.map((parent) => ({
-        schoolId: session.schoolId,
+        schoolId: args.session.schoolId,
         userId: parent.userId,
         title: `Exam report shared: ${attempt.exam.title}`,
         body: `${attempt.student.fullName} score ${score}/${maxScore}.\nLINK:${withAcademicYearParam(`/exams/${attempt.exam.id}/attempt/${attempt.id}`, attempt.exam.academicYearId)}`
@@ -1032,9 +1265,9 @@ export async function sendExamReportToParentsAction(formData: FormData) {
 
   await db.auditLog.create({
     data: {
-      schoolId: session.schoolId,
+      schoolId: args.session.schoolId,
       actorType: "SCHOOL_USER",
-      actorId: session.userId,
+      actorId: args.session.userId,
       action: "EXAM_REPORT_EMAIL_SENT",
       entityType: "SchoolExamAttempt",
       entityId: attempt.id,
@@ -1048,13 +1281,42 @@ export async function sendExamReportToParentsAction(formData: FormData) {
     }
   });
 
-  let nextHref = baseAttemptHref;
-  if (sentCount === 0) nextHref = appendQuery(nextHref, "report", "failed");
-  else if (failCount > 0) nextHref = appendQuery(nextHref, "report", "partial");
-  else nextHref = appendQuery(nextHref, "report", "sent");
-  nextHref = appendQuery(nextHref, "sent", String(sentCount));
-  nextHref = appendQuery(nextHref, "total", String(recipients.length));
+  if (sentCount === 0) return { status: "failed", sentCount, totalCount: recipients.length };
+  if (failCount > 0) return { status: "partial", sentCount, totalCount: recipients.length };
+  return { status: "sent", sentCount, totalCount: recipients.length };
+}
 
+export async function sendExamReportToParentsAction(formData: FormData) {
+  const { session } = await requirePermission("EXAMS", "VIEW");
+
+  const parsed = SendExamReportSchema.safeParse({
+    attemptId: formData.get("attemptId"),
+    examId: formData.get("examId")
+  });
+  if (!parsed.success) throw new Error("Unable to send exam report.");
+  const reportResult = await sendExamReportForAttempt({
+    session,
+    attemptId: parsed.data.attemptId,
+    examId: parsed.data.examId
+  });
+
+  const currentAttempt = await db.schoolExamAttempt.findFirst({
+    where: {
+      id: parsed.data.attemptId,
+      examId: parsed.data.examId,
+      schoolId: session.schoolId
+    },
+    select: {
+      id: true,
+      exam: { select: { id: true, academicYearId: true } }
+    }
+  });
+  if (!currentAttempt) throw new Error("Exam attempt not found.");
+
+  let nextHref = attemptHref(currentAttempt.exam.id, currentAttempt.id, currentAttempt.exam.academicYearId, true);
+  nextHref = appendQuery(nextHref, "report", reportResult.status);
+  nextHref = appendQuery(nextHref, "sent", String(reportResult.sentCount));
+  nextHref = appendQuery(nextHref, "total", String(reportResult.totalCount));
   redirect(nextHref);
 }
 

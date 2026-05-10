@@ -56,6 +56,7 @@ export default async function ExamQuestionPaperPage({
 }) {
   await requirePermission("EXAMS", "VIEW");
   const session = await requireSession();
+  if (session.roleKey === "PARENT") return notFound();
   const { id } = await params;
   const { ay } = await searchParams;
 

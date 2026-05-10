@@ -93,6 +93,9 @@ export default async function ExamsPage({
     });
     teacherClassIds = [...new Set(rows.map((row) => row.classId))];
   }
+  const retestClasses = teacherScoped
+    ? classes.filter((cls) => teacherClassIds.includes(cls.id))
+    : classes;
 
   let parentStudents: ParentExamStudent[] = [];
   if (parentScoped) {
@@ -181,6 +184,12 @@ export default async function ExamsPage({
       {file === "deleted" ? (
         <div className="rounded-[14px] border border-emerald-500/30 bg-emerald-500/12 px-4 py-3 text-sm text-emerald-100">
           Exam deleted successfully.
+        </div>
+      ) : null}
+
+      {file === "retest_created" ? (
+        <div className="rounded-[14px] border border-emerald-500/30 bg-emerald-500/12 px-4 py-3 text-sm text-emerald-100">
+          Re-test created successfully.
         </div>
       ) : null}
 
@@ -299,15 +308,6 @@ export default async function ExamsPage({
                     </div>
                     <div className="text-right text-[12px] text-white/50">
                       <p>{exam._count.questions} MCQ</p>
-                      {exam.questionPaperUrl ? (
-                        <div className="mt-1 inline-flex">
-                          <ExamQuestionFilePreview
-                            fileUrl={exam.questionPaperUrl}
-                            title={`${exam.title} · Question File`}
-                            buttonText="Open Question File"
-                          />
-                        </div>
-                      ) : null}
                     </div>
                   </div>
 
@@ -353,6 +353,9 @@ export default async function ExamsPage({
               const canUpdateThisExam =
                 canManage &&
                 (!teacherScoped || (assignedClassId ? teacherClassIds.includes(assignedClassId) : false));
+              const canRetestThisExam =
+                canManage &&
+                (!teacherScoped || (retestClasses.length > 0 && (!assignedClassId || teacherClassIds.includes(assignedClassId))));
               const canDeleteThisExam = canManage && session.roleKey === "ADMIN";
               return (
                 <article key={exam.id} className="rounded-[16px] border border-white/[0.08] bg-white/[0.03] p-4">
@@ -392,6 +395,22 @@ export default async function ExamsPage({
                     >
                       <p className="text-[12px] font-semibold text-white/85">Update question file</p>
                       <UpdateQuestionFileForm examId={exam.id} academicYearId={selectedYear.id} />
+                    </div>
+                  ) : null}
+
+                  {canRetestThisExam ? (
+                    <div className="mt-3 rounded-[12px] border border-white/[0.08] bg-black/20 p-3">
+                      <p className="text-[12px] font-semibold text-white/85">Re-test / Repeat exam</p>
+                      <RepeatExamForm
+                        sourceExamId={exam.id}
+                        sourceExamTitle={exam.title}
+                        sourceClassId={exam.class?.id ?? null}
+                        sourceDurationMinutes={exam.durationMinutes}
+                        sourceInstructions={exam.instructions ?? ""}
+                        classes={retestClasses}
+                        teacherScoped={teacherScoped}
+                        academicYearId={selectedYear.id}
+                      />
                     </div>
                   ) : null}
 
@@ -539,6 +558,92 @@ async function UpdateQuestionFileForm({
       <input type="hidden" name="academicYearId" value={academicYearId} />
       <Input name="questionPaper" type="file" />
       <Button type="submit" size="sm" variant="secondary">Update file</Button>
+    </form>
+  );
+}
+
+async function RepeatExamForm({
+  sourceExamId,
+  sourceExamTitle,
+  sourceClassId,
+  sourceDurationMinutes,
+  sourceInstructions,
+  classes,
+  teacherScoped,
+  academicYearId
+}: {
+  sourceExamId: string;
+  sourceExamTitle: string;
+  sourceClassId: string | null;
+  sourceDurationMinutes: number;
+  sourceInstructions: string;
+  classes: Array<{ id: string; name: string; section: string }>;
+  teacherScoped: boolean;
+  academicYearId: string;
+}) {
+  const { createExamRetestAction } = await import("./actions");
+
+  const startDefault = new Date();
+  const endDefault = new Date(startDefault.getTime() + Math.max(sourceDurationMinutes, 5) * 60 * 1000);
+  const defaultClassId = sourceClassId && classes.some((cls) => cls.id === sourceClassId)
+    ? sourceClassId
+    : (teacherScoped ? (classes[0]?.id ?? "") : "");
+
+  return (
+    <form action={createExamRetestAction} className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
+      <input type="hidden" name="sourceExamId" value={sourceExamId} />
+      <input type="hidden" name="academicYearId" value={academicYearId} />
+
+      <div className="sm:col-span-2">
+        <Label>Re-test title</Label>
+        <Input name="title" defaultValue={`${sourceExamTitle} (Re-test)`} />
+      </div>
+
+      <div>
+        <Label required={teacherScoped}>Class</Label>
+        <select
+          name="classId"
+          defaultValue={defaultClassId}
+          required={teacherScoped}
+          className="w-full rounded-[12px] border border-white/[0.12] bg-[#0f1728]/75 px-3.5 py-2.5 text-sm text-white outline-none transition-all focus:border-blue-300/70 focus:ring-4 focus:ring-blue-500/22"
+        >
+          {!teacherScoped ? <option value="">All classes</option> : null}
+          {classes.map((cls) => (
+            <option key={cls.id} value={cls.id}>
+              {classLabel(cls.name, cls.section)}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <div>
+        <Label required>Duration (minutes)</Label>
+        <Input name="durationMinutes" type="number" min={5} max={300} defaultValue={sourceDurationMinutes} required />
+      </div>
+
+      <div>
+        <Label required>Start date & time</Label>
+        <Input name="startsAt" type="datetime-local" defaultValue={toDatetimeLocalValue(startDefault)} required />
+      </div>
+
+      <div>
+        <Label required>End date & time</Label>
+        <Input name="endsAt" type="datetime-local" defaultValue={toDatetimeLocalValue(endDefault)} required />
+      </div>
+
+      <div className="sm:col-span-2">
+        <Label>Instructions</Label>
+        <Textarea
+          name="instructions"
+          rows={2}
+          defaultValue={sourceInstructions}
+          placeholder="Optional: reuse or update instructions for this re-test"
+        />
+      </div>
+
+      <div className="sm:col-span-2 flex justify-end">
+        <Button type="submit" size="sm">Create re-test</Button>
+      </div>
     </form>
   );
 }
