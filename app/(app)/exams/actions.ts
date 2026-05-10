@@ -1112,7 +1112,6 @@ async function sendExamReportForAttempt(args: {
           questions: {
             select: {
               id: true,
-              prompt: true,
               correctOption: true,
               marks: true
             },
@@ -1148,7 +1147,6 @@ async function sendExamReportForAttempt(args: {
     const gained = selected && selected === question.correctOption ? marks : 0;
     return {
       number: index + 1,
-      prompt: question.prompt,
       selected,
       correctOption: question.correctOption as OptionValue,
       gained,
@@ -1180,12 +1178,7 @@ async function sendExamReportForAttempt(args: {
     `Answered questions: ${answeredCount} / ${totalQuestions}`,
     `Submitted at: ${attempt.submittedAt ? formatDateTime(attempt.submittedAt) : "-"}`,
     "",
-    `Open detailed report: ${attemptUrl}`,
-    "",
-    ...perQuestion.map(
-      (item) =>
-        `Q${item.number}: selected ${item.selected ?? "-"}, correct ${item.correctOption}, marks ${item.gained}/${item.marks}`
-    )
+    `Open detailed report: ${attemptUrl}`
   ].join("\n");
 
   const html = `
@@ -1206,34 +1199,6 @@ async function sendExamReportForAttempt(args: {
         Open Detailed Report
       </a>
     </p>
-
-    <div style="overflow:auto;">
-      <table style="width:100%;border-collapse:collapse;border:1px solid #dbe2ea;">
-        <thead>
-          <tr>
-            <th style="padding:8px;border-bottom:1px solid #dbe2ea;background:#f8fafc;text-align:left;">Q#</th>
-            <th style="padding:8px;border-bottom:1px solid #dbe2ea;background:#f8fafc;text-align:left;">Question</th>
-            <th style="padding:8px;border-bottom:1px solid #dbe2ea;background:#f8fafc;text-align:left;">Selected</th>
-            <th style="padding:8px;border-bottom:1px solid #dbe2ea;background:#f8fafc;text-align:left;">Correct</th>
-            <th style="padding:8px;border-bottom:1px solid #dbe2ea;background:#f8fafc;text-align:left;">Marks</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${perQuestion
-            .map(
-              (item) => `
-            <tr>
-              <td style="padding:8px;border-bottom:1px solid #eef2f7;">${item.number}</td>
-              <td style="padding:8px;border-bottom:1px solid #eef2f7;">${escapeHtml(item.prompt)}</td>
-              <td style="padding:8px;border-bottom:1px solid #eef2f7;">${escapeHtml(item.selected ?? "-")}</td>
-              <td style="padding:8px;border-bottom:1px solid #eef2f7;">${escapeHtml(item.correctOption)}</td>
-              <td style="padding:8px;border-bottom:1px solid #eef2f7;">${escapeHtml(`${item.gained}/${item.marks}`)}</td>
-            </tr>`
-            )
-            .join("")}
-        </tbody>
-      </table>
-    </div>
   </div>`;
 
   const delivery = await Promise.all(
