@@ -326,7 +326,7 @@ function parseQuestionLines(raw: string): ParsedExamQuestion[] {
 function parseInlineMcqSequence(raw: string): ParsedExamQuestion[] {
   const text = raw.replace(/\r/g, "\n").replace(/\n+/g, " ");
   const pattern =
-    /(?:q(?:uestion)?\s*\d*[\).:\-]?\s*)(.+?)\s+A[\).:\-]\s*(.+?)\s+B[\).:\-]\s*(.+?)\s+C[\).:\-]\s*(.+?)\s+D[\).:\-]\s*(.+?)\s+(?:answer|ans|correct(?:\s*option)?)\s*[:\-]\s*([ABCD])(?:\s+marks?\s*[:\-]\s*([0-9]+(?:\.[0-9]+)?))?/gis;
+    /(?:q(?:uestion)?\s*\d*[\).:\-]?\s*)(.+?)\s+(?:\(\s*A\s*\)|A[\).:\-])\s*(.+?)\s+(?:\(\s*B\s*\)|B[\).:\-])\s*(.+?)\s+(?:\(\s*C\s*\)|C[\).:\-])\s*(.+?)\s+(?:\(\s*D\s*\)|D[\).:\-])\s*(.+?)\s+(?:answer|ans|correct(?:\s*option)?)\s*[:\-]?\s*\(?\s*([ABCD1-4])\s*\)?(?:\s+marks?\s*[:\-]?\s*([0-9]+(?:\.[0-9]+)?))?/gis;
 
   const questions: ParsedExamQuestion[] = [];
   let match: RegExpExecArray | null = pattern.exec(text);
@@ -336,7 +336,7 @@ function parseInlineMcqSequence(raw: string): ParsedExamQuestion[] {
     const optionB = (match[3] ?? "").trim().slice(0, 300);
     const optionC = (match[4] ?? "").trim().slice(0, 300);
     const optionD = (match[5] ?? "").trim().slice(0, 300);
-    const correct = ((match[6] ?? "").trim().toUpperCase()) as OptionValue;
+    const correct = optionFromToken((match[6] ?? "").trim()) as OptionValue | null;
     const marksRaw = Number(match[7] ?? "1");
     const marks = Number.isFinite(marksRaw) && marksRaw > 0 ? Math.round(marksRaw * 100) / 100 : 1;
 
@@ -346,7 +346,7 @@ function parseInlineMcqSequence(raw: string): ParsedExamQuestion[] {
       optionB &&
       optionC &&
       optionD &&
-      OPTION_VALUES.includes(correct)
+      Boolean(correct)
     ) {
       questions.push({
         prompt,
@@ -354,7 +354,7 @@ function parseInlineMcqSequence(raw: string): ParsedExamQuestion[] {
         optionB,
         optionC,
         optionD,
-        correctOption: correct,
+        correctOption: correct as OptionValue,
         marks,
         sortOrder: questions.length + 1
       });
@@ -509,7 +509,7 @@ function parseMcqFromExtractedText(raw: string): ParsedExamQuestion[] {
     const optionD = options.D ?? "";
     if (!optionA || !optionB || !optionC || !optionD) continue;
 
-    const inBlockAnswer = compact.match(/\b(?:answer|ans|correct(?:\s*option)?)\s*[:\-]?\s*([ABCD]|[1-4])\b/i);
+    const inBlockAnswer = compact.match(/\b(?:answer|ans|correct(?:\s*option)?)\s*[:\-]?\s*\(?\s*([ABCD]|[1-4])\s*\)?/i);
     const correctOption =
       optionFromToken(inBlockAnswer?.[1] ?? "") ??
       answerKeyMap.get(block.questionNumber) ??
