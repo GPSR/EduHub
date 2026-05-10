@@ -107,10 +107,6 @@ export default async function FeesPage({
     take: 200,
   });
 
-  const students =
-    canWrite && session.roleKey !== "PARENT"
-      ? await db.student.findMany({ where: { schoolId: session.schoolId }, orderBy: { fullName: "asc" } })
-      : [];
   const classes =
     session.roleKey !== "PARENT"
       ? await db.class.findMany({
@@ -140,6 +136,41 @@ export default async function FeesPage({
             <Button type="submit" variant="secondary" size="sm">Send Pending Reminders</Button>
           </form>
         )}
+      </div>
+
+      {reminder === "bulk_sent" && (
+        <div className="rounded-2xl border border-emerald-500/25 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-100">
+          Fee reminders sent successfully{count ? ` for ${count} student${count === "1" ? "" : "s"}` : ""}.
+        </div>
+      )}
+      {reminder === "sent" && (
+        <div className="rounded-2xl border border-emerald-500/25 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-100">
+          Fee reminder sent successfully.
+        </div>
+      )}
+      {reminder === "none" && (
+        <div className="rounded-2xl border border-amber-500/25 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
+          No pending fee balances found for reminders.
+        </div>
+      )}
+      {reminder === "already_paid" && (
+        <div className="rounded-2xl border border-white/[0.14] bg-white/[0.06] px-4 py-3 text-sm text-white/85">
+          This invoice is already paid. Reminder was not sent.
+        </div>
+      )}
+
+      {/* Summary row */}
+      <div className="grid grid-cols-3 gap-3">
+        {[
+          { label: "Total Invoiced", value: `$${centsToDollars(totalCents)}`, color: "text-white/85" },
+          { label: "Collected",      value: `$${centsToDollars(paidCents)}`,  color: "text-emerald-300" },
+          { label: "Pending",        value: pendingCount,                     color: pendingCount > 0 ? "text-amber-300" : "text-white/85" },
+        ].map(s => (
+          <div key={s.label} className="rounded-[14px] border border-white/[0.07] bg-white/[0.03] px-2.5 sm:px-4 py-3 sm:py-3.5 text-center">
+            <div className={`text-base sm:text-lg font-bold ${s.color}`}>{s.value}</div>
+            <div className="text-[11px] text-white/40 mt-1 font-medium uppercase tracking-wider">{s.label}</div>
+          </div>
+        ))}
       </div>
 
       <Card>
@@ -193,41 +224,6 @@ export default async function FeesPage({
         </form>
       </Card>
 
-      {reminder === "bulk_sent" && (
-        <div className="rounded-2xl border border-emerald-500/25 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-100">
-          Fee reminders sent successfully{count ? ` for ${count} student${count === "1" ? "" : "s"}` : ""}.
-        </div>
-      )}
-      {reminder === "sent" && (
-        <div className="rounded-2xl border border-emerald-500/25 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-100">
-          Fee reminder sent successfully.
-        </div>
-      )}
-      {reminder === "none" && (
-        <div className="rounded-2xl border border-amber-500/25 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
-          No pending fee balances found for reminders.
-        </div>
-      )}
-      {reminder === "already_paid" && (
-        <div className="rounded-2xl border border-white/[0.14] bg-white/[0.06] px-4 py-3 text-sm text-white/85">
-          This invoice is already paid. Reminder was not sent.
-        </div>
-      )}
-
-      {/* Summary row */}
-      <div className="grid grid-cols-3 gap-3">
-        {[
-          { label: "Total Invoiced", value: `$${centsToDollars(totalCents)}`, color: "text-white/85" },
-          { label: "Collected",      value: `$${centsToDollars(paidCents)}`,  color: "text-emerald-300" },
-          { label: "Pending",        value: pendingCount,                     color: pendingCount > 0 ? "text-amber-300" : "text-white/85" },
-        ].map(s => (
-          <div key={s.label} className="rounded-[14px] border border-white/[0.07] bg-white/[0.03] px-2.5 sm:px-4 py-3 sm:py-3.5 text-center">
-            <div className={`text-base sm:text-lg font-bold ${s.color}`}>{s.value}</div>
-            <div className="text-[11px] text-white/40 mt-1 font-medium uppercase tracking-wider">{s.label}</div>
-          </div>
-        ))}
-      </div>
-
       {/* Invoice list */}
       <Card>
         {invoices.length === 0 ? (
@@ -275,69 +271,6 @@ export default async function FeesPage({
         )}
       </Card>
 
-      {canWrite && <CreateInvoiceCard students={students} academicYearId={selectedYear.id} />}
     </div>
-  );
-}
-
-async function CreateInvoiceCard({
-  students,
-  academicYearId
-}: {
-  students: { id: string; fullName: string }[];
-  academicYearId: string;
-}) {
-  const { createInvoiceAction } = await import("./actions");
-  return (
-    <Card title="New Invoice" description="Create a fee invoice for a student" accent="indigo">
-      <form action={createInvoiceAction} className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <input type="hidden" name="academicYearId" value={academicYearId} />
-        <div>
-          <Label>Student</Label>
-          <select
-            name="studentId"
-            className="w-full rounded-[13px] bg-black/25 border border-white/[0.09] px-3.5 py-2.5 text-base sm:text-sm text-white outline-none focus:border-indigo-400/50 focus:ring-4 focus:ring-indigo-500/12 transition-all"
-            required
-          >
-            <option value="" disabled>Select student</option>
-            {students.map(s => (
-              <option key={s.id} value={s.id}>{s.fullName}</option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <Label>Title</Label>
-          <input
-            name="title"
-            className="w-full rounded-[13px] bg-black/25 border border-white/[0.09] px-3.5 py-2.5 text-sm text-white placeholder:text-white/30 outline-none focus:border-indigo-400/50 focus:ring-4 focus:ring-indigo-500/12 transition-all"
-            placeholder="Tuition fee – April"
-            required
-          />
-        </div>
-        <div>
-          <Label>Amount ($)</Label>
-          <input
-            name="amount"
-            type="number"
-            step="0.01"
-            min="0"
-            className="w-full rounded-[13px] bg-black/25 border border-white/[0.09] px-3.5 py-2.5 text-sm text-white placeholder:text-white/30 outline-none focus:border-indigo-400/50 focus:ring-4 focus:ring-indigo-500/12 transition-all"
-            placeholder="100.00"
-            required
-          />
-        </div>
-        <div>
-          <Label>Due date</Label>
-          <input
-            name="dueOn"
-            type="date"
-            className="w-full rounded-[13px] bg-black/25 border border-white/[0.09] px-3.5 py-2.5 text-base sm:text-sm text-white outline-none focus:border-indigo-400/50 focus:ring-4 focus:ring-indigo-500/12 transition-all"
-          />
-        </div>
-        <div className="md:col-span-2 flex justify-end">
-          <Button type="submit">Create invoice</Button>
-        </div>
-      </form>
-    </Card>
   );
 }
