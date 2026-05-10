@@ -14,10 +14,21 @@ export default async function NewStudentPage({
 }) {
   const { error = "" } = await searchParams;
   const errorMessages: Record<string, string> = {
-    parentContactRequired: "Parent email or parent mobile is required to invite/signup parent access.",
+    fullNameRequired: "Student full name is required.",
+    fullNameInvalid: "Enter a valid student full name (letters, spaces, . ' - only).",
+    classRequired: "Please select a class.",
+    genderRequired: "Gender is required.",
+    genderInvalid: "Selected gender is invalid. Please choose from configured options.",
+    dobRequired: "Date of birth is required.",
+    dobInvalid: "Enter a valid date of birth (not in the future).",
+    addressRequired: "Student address is required.",
+    addressInvalid: "Student address is invalid.",
     parentNameRequired: "Parent name is required.",
+    parentNameInvalid: "Enter a valid parent name (letters, spaces, . ' - only).",
+    parentMobileRequired: "Parent mobile number is required.",
     parentMobileInvalid: "Enter a valid parent mobile number.",
     parentEmailInvalid: "Enter a valid parent email address.",
+    bloodGroupInvalid: "Selected blood group is invalid.",
     totalFeeInvalid: "Enter a valid total fee amount greater than 0."
   };
   const formError = error ? errorMessages[error] ?? "Please check the form details and try again." : null;
@@ -53,6 +64,7 @@ export default async function NewStudentPage({
     format: school.admissionNoFormat,
     seq: school.admissionNoNext
   });
+  const todayIso = new Date().toISOString().slice(0, 10);
   return (
     <div className="space-y-5 animate-fade-up">
       <Link href="/students" className="inline-flex items-center gap-1.5 text-sm text-white/40 hover:text-white/75 transition">
@@ -89,7 +101,15 @@ export default async function NewStudentPage({
               </div>
               <div className="md:col-span-2">
                 <Label required>Full name</Label>
-                <Input name="fullName" placeholder="e.g. Jane Smith" required />
+                <Input
+                  name="fullName"
+                  placeholder="e.g. Jane Smith"
+                  required
+                  minLength={2}
+                  maxLength={80}
+                  pattern="[A-Za-z][A-Za-z\s.'-]{1,79}"
+                  title="Use letters, spaces, dot, apostrophe, hyphen only"
+                />
               </div>
             </div>
           </div>
@@ -102,9 +122,10 @@ export default async function NewStudentPage({
                 <Label>Configured class</Label>
                 <select
                   name="classId"
+                  required
                   className="w-full rounded-[13px] bg-black/25 border border-white/[0.09] px-3.5 py-2.5 text-base sm:text-sm text-white outline-none"
                 >
-                  <option value="">Select class</option>
+                  <option value="" disabled>Select class</option>
                   {classes.map((c) => (
                     <option key={c.id} value={c.id}>
                       {c.name}{c.section ? ` - ${c.section}` : ""}
@@ -126,20 +147,21 @@ export default async function NewStudentPage({
             <p className="text-[11px] font-semibold uppercase tracking-wider text-white/35 mb-3">Student Details</p>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
-                <Label>Gender</Label>
+                <Label required>Gender</Label>
                 <select
                   name="gender"
+                  required
                   className="w-full rounded-[13px] bg-black/25 border border-white/[0.09] px-3.5 py-2.5 text-base sm:text-sm text-white outline-none"
                 >
-                  <option value="">Select gender</option>
+                  <option value="" disabled>Select gender</option>
                   {demographicsConfig.genders.map((gender) => (
                     <option key={gender} value={gender}>{gender}</option>
                   ))}
                 </select>
               </div>
               <div>
-                <Label>Date of birth</Label>
-                <Input name="dateOfBirth" type="date" />
+                <Label required>Date of birth</Label>
+                <Input name="dateOfBirth" type="date" required max={todayIso} />
               </div>
               <div>
                 <Label>Blood group</Label>
@@ -154,16 +176,16 @@ export default async function NewStudentPage({
                 </select>
               </div>
               <div className="md:col-span-3">
-                <Label>Address</Label>
-                <Input name="address" placeholder="Student address" />
+                <Label required>Address</Label>
+                <Input name="address" placeholder="Student address" required minLength={5} maxLength={240} />
               </div>
               <div>
                 <Label>Transport details</Label>
-                <Input name="transportDetails" placeholder="Bus route / pickup point" />
+                <Input name="transportDetails" placeholder="Bus route / pickup point" maxLength={120} />
               </div>
               <div className="md:col-span-2">
                 <Label>Medical notes</Label>
-                <Input name="medicalNotes" placeholder="Allergies, medication, emergency notes" />
+                <Input name="medicalNotes" placeholder="Allergies, medication, emergency notes" maxLength={300} />
               </div>
             </div>
           </div>
@@ -174,7 +196,15 @@ export default async function NewStudentPage({
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
                 <Label required>Parent name</Label>
-                <Input name="parentName" placeholder="e.g. John Smith" required />
+                <Input
+                  name="parentName"
+                  placeholder="e.g. John Smith"
+                  required
+                  minLength={2}
+                  maxLength={80}
+                  pattern="[A-Za-z][A-Za-z\s.'-]{1,79}"
+                  title="Use letters, spaces, dot, apostrophe, hyphen only"
+                />
               </div>
               <div>
                 <Label>Parent email</Label>
@@ -182,9 +212,19 @@ export default async function NewStudentPage({
                 <p className="mt-1 text-[11px] text-white/35">Use email to send invite/signup link.</p>
               </div>
               <div>
-                <Label>Parent mobile</Label>
-                <Input name="parentMobile" type="tel" placeholder="+1 555 123 4567" />
-                <p className="mt-1 text-[11px] text-white/35">Enter parent email or mobile (at least one is required).</p>
+                <Label required>Parent mobile</Label>
+                <Input
+                  name="parentMobile"
+                  type="text"
+                  inputMode="numeric"
+                  placeholder="e.g. 9876543210"
+                  required
+                  minLength={10}
+                  maxLength={15}
+                  pattern="[0-9]{10,15}"
+                  title="Use numbers only (10 to 15 digits)"
+                />
+                <p className="mt-1 text-[11px] text-white/35">Numbers only. 10 to 15 digits.</p>
               </div>
             </div>
           </div>

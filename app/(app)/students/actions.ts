@@ -13,21 +13,37 @@ import { ensureActiveAcademicYearForSchool, withAcademicYearParam } from "@/lib/
 import { randomToken } from "@/lib/token";
 import { resolveSchoolAppBaseUrl } from "@/lib/app-env";
 import { sendTransactionalEmail } from "@/lib/mailer";
+import { getSchoolStudentDemographicsConfig } from "@/lib/student-demographics";
+
+const STUDENT_NAME_PATTERN = /^[\p{L}][\p{L}\s.'-]{1,79}$/u;
+const STUDENT_PHONE_PATTERN = /^\d{10,15}$/;
+const MIN_DOB = new Date("1900-01-01T00:00:00.000Z");
 
 const StudentCreateSchema = z.object({
-  fullName: z.string().min(2),
-  classId: z.string().optional(),
-  className: z.string().optional(),
-  section: z.string().optional(),
-  gender: z.string().optional(),
-  dateOfBirth: z.string().optional(),
-  bloodGroup: z.string().optional(),
-  address: z.string().optional(),
-  parentName: z.string().min(2),
-  parentMobile: z.string().regex(/^\+?[0-9][0-9()\-\s]{6,19}$/).optional(),
-  parentEmail: z.string().email().optional(),
-  transportDetails: z.string().optional(),
-  medicalNotes: z.string().optional()
+  fullName: z.string().trim().min(2, "fullNameRequired").max(80, "fullNameInvalid").regex(STUDENT_NAME_PATTERN, "fullNameInvalid"),
+  classId: z.string().trim().min(1, "classRequired"),
+  gender: z.string().trim().min(1, "genderRequired"),
+  dateOfBirth: z
+    .string()
+    .trim()
+    .min(1, "dobRequired")
+    .refine((value) => {
+      const parsed = parseDateInput(value);
+      if (!parsed) return false;
+      const now = new Date();
+      return parsed >= MIN_DOB && parsed <= now;
+    }, "dobInvalid"),
+  bloodGroup: z.string().trim().max(24, "bloodGroupInvalid").optional(),
+  address: z.string().trim().min(5, "addressRequired").max(240, "addressInvalid"),
+  parentName: z.string().trim().min(2, "parentNameRequired").max(80, "parentNameInvalid").regex(STUDENT_NAME_PATTERN, "parentNameInvalid"),
+  parentMobile: z
+    .string()
+    .trim()
+    .min(1, "parentMobileRequired")
+    .regex(STUDENT_PHONE_PATTERN, "parentMobileInvalid"),
+  parentEmail: z.string().trim().email("parentEmailInvalid").optional(),
+  transportDetails: z.string().trim().max(120, "transportDetailsInvalid").optional(),
+  medicalNotes: z.string().trim().max(300, "medicalNotesInvalid").optional()
 });
 
 const StudentUpdateSchema = z.object({
@@ -251,7 +267,7 @@ async function ensureParentEnrollmentAccessForStudent(args: {
 export async function createStudentAction(formData: FormData) {
   const { session } = await requirePermission("STUDENTS", "EDIT");
   const activeYear = await ensureActiveAcademicYearForSchool(session.schoolId);
-  const parentMobile = String(formData.get("parentMobile") ?? "").trim() || undefined;
+  const parentMobile = String(formData.get("parentMobile") ?? "").trim();
   const parentEmail = String(formData.get("parentEmail") ?? "").trim().toLowerCase() || undefined;
   const totalFeeRaw = String(formData.get("totalFee") ?? "").trim();
   let totalFeeCents: number | null = null;
@@ -267,15 +283,9 @@ export async function createStudentAction(formData: FormData) {
     }
   }
 
-  if (!parentMobile && !parentEmail) {
-    redirect("/students/new?error=parentContactRequired");
-  }
-
   const parsed = StudentCreateSchema.safeParse({
     fullName: formData.get("fullName"),
-    classId: String(formData.get("classId") ?? "").trim() || undefined,
-    className: formData.get("className") || undefined,
-    section: formData.get("section") || undefined,
+    classId: String(formData.get("classId") ?? "").trim(),
     gender: String(formData.get("gender") ?? "").trim() || undefined,
     dateOfBirth: String(formData.get("dateOfBirth") ?? "").trim() || undefined,
     bloodGroup: String(formData.get("bloodGroup") ?? "").trim() || undefined,
@@ -287,38 +297,43 @@ export async function createStudentAction(formData: FormData) {
     medicalNotes: String(formData.get("medicalNotes") ?? "").trim() || undefined
   });
   if (!parsed.success) {
-    const firstPath = String(parsed.error.issues[0]?.path?.[0] ?? "");
-    if (firstPath === "parentName") redirect("/students/new?error=parentNameRequired");
+    const firstIssue = parsed.error.issues[0];
+    const firstPath = String(firstIssue?.path?.[0] ?? "");
+    const issueMessage = String(firstIssue?.message ?? "");
+    if (firstPath === "fullName" && issueMessage === "fullNameRequired") redirect("/students/new?error=fullNameRequired");
+    if (firstPath === "fullName") redirect("/students/new?error=fullNameInvalid");
+    if (firstPath === "classId") redirect("/students/new?error=classRequired");
+    if (firstPath === "gender") redirect("/students/new?error=genderRequired");
+    if (firstPath === "dateOfBirth" && issueMessage === "dobRequired") redirect("/students/new?error=dobRequired");
+    if (firstPath === "dateOfBirth") redirect("/students/new?error=dobInvalid");
+    if (firstPath === "address" && issueMessage === "addressRequired") redirect("/students/new?error=addressRequired");
+    if (firstPath === "address") redirect("/students/new?error=addressInvalid");
+    if (firstPath === "parentName" && issueMessage === "parentNameRequired") redirect("/students/new?error=parentNameRequired");
+    if (firstPath === "parentName") redirect("/students/new?error=parentNameInvalid");
+    if (firstPath === "parentMobile" && issueMessage === "parentMobileRequired") redirect("/students/new?error=parentMobileRequired");
     if (firstPath === "parentMobile") redirect("/students/new?error=parentMobileInvalid");
     if (firstPath === "parentEmail") redirect("/students/new?error=parentEmailInvalid");
     throw new Error("Unable to process request.");
   }
 
-  let classId: string | null = null;
-  if (parsed.data.classId) {
-    const cls = await db.class.findFirst({
-      where: { id: parsed.data.classId, schoolId: session.schoolId },
-      select: { id: true }
-    });
-    classId = cls?.id ?? null;
-  } else if (parsed.data.className) {
-    const cls = await db.class.upsert({
-      where: {
-        schoolId_name_section: {
-          schoolId: session.schoolId,
-          name: parsed.data.className,
-          section: parsed.data.section ?? ""
-        }
-      },
-      update: {},
-      create: {
-        schoolId: session.schoolId,
-        name: parsed.data.className,
-        section: parsed.data.section ?? ""
-      }
-    });
-    classId = cls.id;
+  const demographicsConfig = await getSchoolStudentDemographicsConfig(session.schoolId);
+  const allowedGenderKeys = new Set(demographicsConfig.genders.map((gender) => gender.toLowerCase()));
+  if (!allowedGenderKeys.has(parsed.data.gender.toLowerCase())) {
+    redirect("/students/new?error=genderInvalid");
   }
+  const allowedBloodGroupKeys = new Set(demographicsConfig.bloodGroups.map((group) => group.toLowerCase()));
+  if (parsed.data.bloodGroup && !allowedBloodGroupKeys.has(parsed.data.bloodGroup.toLowerCase())) {
+    redirect("/students/new?error=bloodGroupInvalid");
+  }
+
+  const selectedClass = await db.class.findFirst({
+    where: { id: parsed.data.classId, schoolId: session.schoolId },
+    select: { id: true }
+  });
+  if (!selectedClass) {
+    redirect("/students/new?error=classRequired");
+  }
+  const classId = selectedClass.id;
 
   const created = await db.$transaction(async (tx) => {
     const school = await tx.school.findUnique({ where: { id: session.schoolId } });
@@ -349,12 +364,12 @@ export async function createStudentAction(formData: FormData) {
         admissionNo,
         rollNumber,
         classId,
-        gender: parsed.data.gender || undefined,
-        dateOfBirth: parseDateInput(parsed.data.dateOfBirth ?? null),
+        gender: parsed.data.gender,
+        dateOfBirth: parseDateInput(parsed.data.dateOfBirth),
         bloodGroup: parsed.data.bloodGroup || undefined,
-        address: parsed.data.address || undefined,
-        fatherName: parsed.data.parentName || undefined,
-        parentMobiles: parsed.data.parentMobile || undefined,
+        address: parsed.data.address,
+        fatherName: parsed.data.parentName,
+        parentMobiles: parsed.data.parentMobile,
         parentEmails: parsed.data.parentEmail || undefined,
         transportDetails: parsed.data.transportDetails || undefined,
         medicalNotes: parsed.data.medicalNotes || undefined
@@ -422,8 +437,16 @@ function normalizeOptional(value: FormDataEntryValue | null) {
 
 function parseDateInput(value: string | null) {
   if (!value) return null;
-  const date = new Date(`${value}T00:00:00.000Z`);
-  return Number.isNaN(date.getTime()) ? null : date;
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (!match) return null;
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  if (!Number.isInteger(year) || !Number.isInteger(month) || !Number.isInteger(day)) return null;
+  const date = new Date(Date.UTC(year, month - 1, day));
+  if (Number.isNaN(date.getTime())) return null;
+  if (date.getUTCFullYear() !== year || date.getUTCMonth() !== month - 1 || date.getUTCDate() !== day) return null;
+  return date;
 }
 
 function firstCsvValue(value?: string | null) {
