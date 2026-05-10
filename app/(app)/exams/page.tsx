@@ -31,11 +31,19 @@ function formatDateTime(date: Date) {
   });
 }
 
-function buildExamsHref(args: { classId?: string | null; compose?: boolean; ay: string }) {
+function buildExamsHref(args: {
+  classId?: string | null;
+  compose?: boolean;
+  ay: string;
+  retestExamId?: string | null;
+  updateExamId?: string | null;
+}) {
   const params = new URLSearchParams();
   params.set("ay", args.ay);
   if (args.classId) params.set("classId", args.classId);
   if (args.compose) params.set("compose", "1");
+  if (args.retestExamId) params.set("retest", args.retestExamId);
+  if (args.updateExamId) params.set("update", args.updateExamId);
   return `/exams?${params.toString()}`;
 }
 
@@ -56,12 +64,22 @@ type ParentExamStudent = {
 export default async function ExamsPage({
   searchParams
 }: {
-  searchParams: Promise<{ classId?: string; compose?: string; ay?: string; file?: string; examId?: string }>;
+  searchParams: Promise<{
+    classId?: string;
+    compose?: string;
+    ay?: string;
+    file?: string;
+    examId?: string;
+    retest?: string;
+    update?: string;
+  }>;
 }) {
   await requirePermission("EXAMS", "VIEW");
   const session = await requireSession();
-  const { classId: filterClassId, compose, ay, file, examId } = await searchParams;
+  const { classId: filterClassId, compose, ay, file, examId, retest, update } = await searchParams;
   const composeOpen = compose === "1";
+  const openRetestExamId = retest?.trim() || undefined;
+  const openUpdateExamId = update?.trim() || undefined;
 
   const yearContext = await getAcademicYearContext({ schoolId: session.schoolId, requestedYearId: ay });
   const selectedYear = yearContext.selectedYear;
@@ -218,7 +236,11 @@ export default async function ExamsPage({
         />
         {canManage ? (
           <Link
-            href={buildExamsHref({ classId: hasClassFilter && filterClassId ? filterClassId : null, compose: !composeOpen, ay: selectedYear.id })}
+            href={buildExamsHref({
+              classId: hasClassFilter && filterClassId ? filterClassId : null,
+              compose: !composeOpen,
+              ay: selectedYear.id
+            })}
             aria-label={composeOpen ? "Close exam form" : "Create exam"}
             className="sm-btn min-h-0 mt-0.5 inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-[12px] bg-gradient-to-b from-[#67b4ff] to-[#4f8dfd] text-[26px] leading-none text-white shadow-[0_14px_30px_-18px_rgba(79,141,253,0.95)] transition hover:brightness-105 active:scale-[0.98]"
             title={composeOpen ? "Close" : "Create exam"}
@@ -357,6 +379,8 @@ export default async function ExamsPage({
                 canManage &&
                 (!teacherScoped || (retestClasses.length > 0 && (!assignedClassId || teacherClassIds.includes(assignedClassId))));
               const canDeleteThisExam = canManage && session.roleKey === "ADMIN";
+              const isUpdateOpen = openUpdateExamId === exam.id;
+              const isRetestOpen = openRetestExamId === exam.id;
               return (
                 <article key={exam.id} className="rounded-[16px] border border-white/[0.08] bg-white/[0.03] p-4">
                   <div className="flex flex-wrap items-start justify-between gap-3">
@@ -376,19 +400,68 @@ export default async function ExamsPage({
                     <div className="text-right text-[12px] text-white/52">
                       <p>{exam._count.questions} MCQ questions</p>
                       <p>{exam._count.attempts} student attempt(s)</p>
-                      {exam.questionPaperUrl ? (
-                        <div className="mt-1 inline-flex">
-                          <ExamQuestionFilePreview
-                            fileUrl={exam.questionPaperUrl}
-                            title={`${exam.title} · Question File`}
-                            buttonText="Open Question File"
-                          />
-                        </div>
-                      ) : null}
                     </div>
                   </div>
 
-                  {canUpdateThisExam ? (
+                  <div className="mt-3 flex flex-wrap items-center justify-end gap-2">
+                    {canDeleteThisExam ? (
+                      <DeleteExamForm examId={exam.id} academicYearId={selectedYear.id} />
+                    ) : null}
+
+                    {canRetestThisExam ? (
+                      <Link
+                        href={buildExamsHref({
+                          classId: hasClassFilter && filterClassId ? filterClassId : null,
+                          compose: composeOpen,
+                          ay: selectedYear.id,
+                          retestExamId: isRetestOpen ? null : exam.id
+                        })}
+                      >
+                        <span
+                          className={[
+                            "inline-flex min-h-[34px] items-center rounded-[10px] border px-3 text-[12px] font-medium transition",
+                            isRetestOpen
+                              ? "border-blue-300/55 bg-blue-500/25 text-white"
+                              : "border-white/[0.14] bg-white/[0.04] text-white/80 hover:bg-white/[0.08]"
+                          ].join(" ")}
+                        >
+                          {isRetestOpen ? "Close Re-Test" : "Create Re-Test"}
+                        </span>
+                      </Link>
+                    ) : null}
+
+                    {canUpdateThisExam ? (
+                      <Link
+                        href={buildExamsHref({
+                          classId: hasClassFilter && filterClassId ? filterClassId : null,
+                          compose: composeOpen,
+                          ay: selectedYear.id,
+                          updateExamId: isUpdateOpen ? null : exam.id
+                        })}
+                      >
+                        <span
+                          className={[
+                            "inline-flex min-h-[34px] items-center rounded-[10px] border px-3 text-[12px] font-medium transition",
+                            isUpdateOpen
+                              ? "border-blue-300/55 bg-blue-500/25 text-white"
+                              : "border-white/[0.14] bg-white/[0.04] text-white/80 hover:bg-white/[0.08]"
+                          ].join(" ")}
+                        >
+                          {isUpdateOpen ? "Close Update File" : "Update File"}
+                        </span>
+                      </Link>
+                    ) : null}
+
+                    {exam.questionPaperUrl ? (
+                      <ExamQuestionFilePreview
+                        fileUrl={exam.questionPaperUrl}
+                        title={`${exam.title} · Question File`}
+                        buttonText="Open Question File"
+                      />
+                    ) : null}
+                  </div>
+
+                  {canUpdateThisExam && isUpdateOpen ? (
                     <div
                       id={examId === exam.id ? `exam-${exam.id}` : undefined}
                       className="mt-3 rounded-[12px] border border-white/[0.08] bg-black/20 p-3"
@@ -398,7 +471,7 @@ export default async function ExamsPage({
                     </div>
                   ) : null}
 
-                  {canRetestThisExam ? (
+                  {canRetestThisExam && isRetestOpen ? (
                     <div className="mt-3 rounded-[12px] border border-white/[0.08] bg-black/20 p-3">
                       <p className="text-[12px] font-semibold text-white/85">Re-test / Repeat exam</p>
                       <RepeatExamForm
@@ -411,12 +484,6 @@ export default async function ExamsPage({
                         teacherScoped={teacherScoped}
                         academicYearId={selectedYear.id}
                       />
-                    </div>
-                  ) : null}
-
-                  {canDeleteThisExam ? (
-                    <div className="mt-3 flex justify-end">
-                      <DeleteExamForm examId={exam.id} academicYearId={selectedYear.id} />
                     </div>
                   ) : null}
                 </article>
