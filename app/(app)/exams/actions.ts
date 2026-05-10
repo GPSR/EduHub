@@ -66,6 +66,18 @@ type StoredAnswer = {
   marks: number;
 };
 
+function optionFromToken(value: string): OptionValue | null {
+  const normalized = value.trim().toUpperCase();
+  if (OPTION_VALUES.includes(normalized as OptionValue)) {
+    return normalized as OptionValue;
+  }
+  if (normalized === "1") return "A";
+  if (normalized === "2") return "B";
+  if (normalized === "3") return "C";
+  if (normalized === "4") return "D";
+  return null;
+}
+
 function normalizeFileExtension(name: string) {
   const dotIndex = name.lastIndexOf(".");
   if (dotIndex < 0) return "";
@@ -168,13 +180,15 @@ function parseQuestionLines(raw: string): ParsedExamQuestion[] {
 
   const parseCorrectOption = (value: string, blockLabel: string): OptionValue => {
     const normalized = value.toUpperCase().trim();
-    if (OPTION_VALUES.includes(normalized as OptionValue)) {
-      return normalized as OptionValue;
+    const mapped = optionFromToken(normalized);
+    if (mapped) return mapped;
+
+    const tokenMatch = normalized.match(/\b([ABCD1-4])\b/);
+    if (tokenMatch) {
+      const fromToken = optionFromToken(tokenMatch[1]);
+      if (fromToken) return fromToken;
     }
-    const tokenMatch = normalized.match(/\b([ABCD])\b/);
-    if (tokenMatch && OPTION_VALUES.includes(tokenMatch[1] as OptionValue)) {
-      return tokenMatch[1] as OptionValue;
-    }
+
     throw new Error(`${blockLabel} must set correct option as A/B/C/D.`);
   };
 
@@ -226,10 +240,13 @@ function parseQuestionLines(raw: string): ParsedExamQuestion[] {
       }
 
       const optionMatch =
-        line.match(/^option\s*([ABCD])\s*[:)\-\.]\s*(.+)$/i) ??
-        line.match(/^([ABCD])\s*[:)\-\.]\s*(.+)$/i);
+        line.match(/^option\s*([ABCD1-4])\s*[:)\-\.]\s*(.+)$/i) ??
+        line.match(/^([ABCD1-4])\s*[:)\-\.]\s*(.+)$/i);
       if (optionMatch) {
-        options[optionMatch[1].toUpperCase() as OptionValue] = optionMatch[2]?.trim() ?? "";
+        const mapped = optionFromToken(optionMatch[1] ?? "");
+        if (mapped) {
+          options[mapped] = optionMatch[2]?.trim() ?? "";
+        }
         continue;
       }
 
@@ -349,6 +366,175 @@ function parseInlineMcqSequence(raw: string): ParsedExamQuestion[] {
   return questions;
 }
 
+function extractAnswerKeyMap(raw: string): Map<number, OptionValue> {
+  const anchor = raw.match(/\b(?:answer\s*key|correct\s*answers?|answer\s*sheet|key\s*answers?)\b/i);
+  if (!anchor || anchor.index === undefined) return new Map();
+
+  const source = raw.slice(anchor.index);
+  const map = new Map<number, OptionValue>();
+  const pattern = /(?:^|[\s,;])(\d{1,3})\s*[\)\].:\-]?\s*([ABCD]|[1-4])\b/gi;
+  let match: RegExpExecArray | null = pattern.exec(source);
+  while (match) {
+    const qno = Number(match[1]);
+    const option = optionFromToken(match[2] ?? "");
+    if (Number.isFinite(qno) && qno > 0 && option) {
+      map.set(qno, option);
+    }
+    match = pattern.exec(source);
+  }
+  return map;
+}
+
+function extractQuestionBlocks(raw: string): Array<{ questionNumber: number; body: string }> {
+  const blocks: Array<{ questionNumber: number; body: string }> = [];
+
+  const linePattern = /(?:^|\n)\s*(?:q(?:uestion)?\s*)?(\d{1,3})\s*[\)\].:\-]\s+/gi;
+  const lineMatches: Array<{ start: number; contentStart: number; number: number }> = [];
+  let lineMatch: RegExpExecArray | null = linePattern.exec(raw);
+  while (lineMatch) {
+    const number = Number(lineMatch[1]);
+    if (Number.isFinite(number) && number > 0) {
+      lineMatches.push({
+        start: lineMatch.index,
+        contentStart: lineMatch.index + lineMatch[0].length,
+        number
+      });
+    }
+    lineMatch = linePattern.exec(raw);
+  }
+
+  if (lineMatches.length > 0) {
+    for (let i = 0; i < lineMatches.length; i += 1) {
+      const current = lineMatches[i];
+      const next = lineMatches[i + 1];
+      const body = raw.slice(current.contentStart, next ? next.start : raw.length).trim();
+      if (body) {
+        blocks.push({ questionNumber: current.number, body });
+      }
+    }
+    return blocks;
+  }
+
+  const inline = raw.replace(/\s+/g, " ").trim();
+  if (!inline) return blocks;
+
+  const inlinePattern = /(?:^|\s)(?:q(?:uestion)?\s*)?(\d{1,3})\s*[\)\].:\-]\s+/gi;
+  const inlineMatches: Array<{ start: number; contentStart: number; number: number }> = [];
+  let inlineMatch: RegExpExecArray | null = inlinePattern.exec(inline);
+  while (inlineMatch) {
+    const number = Number(inlineMatch[1]);
+    if (Number.isFinite(number) && number > 0) {
+      inlineMatches.push({
+        start: inlineMatch.index,
+        contentStart: inlineMatch.index + inlineMatch[0].length,
+        number
+      });
+    }
+    inlineMatch = inlinePattern.exec(inline);
+  }
+
+  for (let i = 0; i < inlineMatches.length; i += 1) {
+    const current = inlineMatches[i];
+    const next = inlineMatches[i + 1];
+    const body = inline.slice(current.contentStart, next ? next.start : inline.length).trim();
+    if (body) {
+      blocks.push({ questionNumber: current.number, body });
+    }
+  }
+
+  return blocks;
+}
+
+function parseMcqFromExtractedText(raw: string): ParsedExamQuestion[] {
+  const normalized = raw
+    .replace(/\r/g, "\n")
+    .replace(/\u00A0/g, " ")
+    .replace(/\t/g, " ")
+    .replace(/[•●▪◦]/g, " ")
+    .trim();
+  if (!normalized) return [];
+
+  const answerKeyMap = extractAnswerKeyMap(normalized);
+  const answerAnchor = normalized.search(/\b(?:answer\s*key|correct\s*answers?|answer\s*sheet|key\s*answers?)\b/i);
+  const questionsSource = answerAnchor > 0 ? normalized.slice(0, answerAnchor) : normalized;
+  const blocks = extractQuestionBlocks(questionsSource);
+  if (blocks.length === 0) return [];
+
+  const results: ParsedExamQuestion[] = [];
+
+  for (const block of blocks) {
+    const compact = block.body.replace(/\s+/g, " ").trim();
+    if (!compact) continue;
+
+    const optionMarkerPattern = /(?:option\s*)?[\(\[]?([ABCD]|[1-4])[\)\].:\-]\s*/gi;
+    const markers: Array<{ label: OptionValue; start: number; textStart: number }> = [];
+    let markerMatch: RegExpExecArray | null = optionMarkerPattern.exec(compact);
+    while (markerMatch) {
+      const mapped = optionFromToken(markerMatch[1] ?? "");
+      if (mapped) {
+        markers.push({
+          label: mapped,
+          start: markerMatch.index,
+          textStart: markerMatch.index + markerMatch[0].length
+        });
+      }
+      markerMatch = optionMarkerPattern.exec(compact);
+    }
+
+    if (markers.length < 4) continue;
+
+    const prompt = compact
+      .slice(0, markers[0].start)
+      .replace(/^\s*(?:q(?:uestion)?\s*)?\d{1,3}\s*[\)\].:\-]?\s*/i, "")
+      .trim()
+      .slice(0, 600);
+    if (!prompt) continue;
+
+    const options: Partial<Record<OptionValue, string>> = {};
+    for (let i = 0; i < markers.length; i += 1) {
+      const marker = markers[i];
+      const next = markers[i + 1];
+      const rawValue = compact
+        .slice(marker.textStart, next ? next.start : compact.length)
+        .replace(/\b(?:answer|ans|correct(?:\s*option)?|marks?)\s*[:\-].*$/i, "")
+        .trim();
+      if (rawValue && !options[marker.label]) {
+        options[marker.label] = rawValue.slice(0, 300);
+      }
+    }
+
+    const optionA = options.A ?? "";
+    const optionB = options.B ?? "";
+    const optionC = options.C ?? "";
+    const optionD = options.D ?? "";
+    if (!optionA || !optionB || !optionC || !optionD) continue;
+
+    const inBlockAnswer = compact.match(/\b(?:answer|ans|correct(?:\s*option)?)\s*[:\-]?\s*([ABCD]|[1-4])\b/i);
+    const correctOption =
+      optionFromToken(inBlockAnswer?.[1] ?? "") ??
+      answerKeyMap.get(block.questionNumber) ??
+      null;
+    if (!correctOption) continue;
+
+    const marksMatch = compact.match(/\bmarks?\s*[:\-]?\s*([0-9]+(?:\.[0-9]+)?)\b/i);
+    const marksRaw = Number(marksMatch?.[1] ?? "1");
+    const marks = Number.isFinite(marksRaw) && marksRaw > 0 ? Math.round(marksRaw * 100) / 100 : 1;
+
+    results.push({
+      prompt,
+      optionA,
+      optionB,
+      optionC,
+      optionD,
+      correctOption,
+      marks,
+      sortOrder: results.length + 1
+    });
+  }
+
+  return results;
+}
+
 async function extractQuestionTextFromFile(file: File): Promise<string> {
   const ext = normalizeFileExtension(file.name);
   const mime = (file.type || "").toLowerCase();
@@ -449,6 +635,9 @@ export async function createSchoolExamAction(formData: FormData) {
       }
       if (extractedQuestions.length === 0) {
         extractedQuestions = parseInlineMcqSequence(extractedText);
+      }
+      if (extractedQuestions.length === 0) {
+        extractedQuestions = parseMcqFromExtractedText(extractedText);
       }
     }
 
