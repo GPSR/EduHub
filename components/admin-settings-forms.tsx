@@ -113,9 +113,9 @@ const MODULE_ICONS: Record<string, string> = {
   TIMETABLE:     "🗓️",
   COMMUNICATION: "📢",
   EXAMS:         "🧪",
+  TEACHERS:      "👩‍🏫",
   ACADEMICS:     "📚",
   LEARNING_CENTER:"🧠",
-  YOUTUBE_LEARNING:"▶️",
   SCHOOL_CALENDAR:"🗓️",
   LEAVE_REQUESTS: "📝",
   TEACHER_SALARY: "💼",
@@ -131,12 +131,13 @@ export function SchoolModulesClientForm(props: {
   modules: Array<{ id: string; key: string; name: string; enabled: boolean }>;
 }) {
   const [state, action, pending] = useActionState(updateSchoolModulesAction, initial);
+  const visibleModules = props.modules.filter((module) => module.key !== "YOUTUBE_LEARNING");
 
   return (
     <form action={action} className="space-y-4">
       <CheckboxBulkActions fieldName="enabledModuleIds" />
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-        {props.modules.map(m => (
+        {visibleModules.map(m => (
           <label
             key={m.id}
             className="flex items-center justify-between gap-3 rounded-[14px] border border-white/[0.08]
@@ -159,7 +160,7 @@ export function SchoolModulesClientForm(props: {
             />
           </label>
         ))}
-        {props.modules.length === 0 && (
+        {visibleModules.length === 0 && (
           <p className="text-sm text-white/50">No modules found.</p>
         )}
       </div>

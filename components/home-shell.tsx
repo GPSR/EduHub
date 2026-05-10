@@ -76,14 +76,8 @@ const MOBILE_FEATURES = [
   {
     icon: "🧠",
     label: "Learning",
-    desc: "Class resources",
+    desc: "GK, YouTube, Brain",
     className: "bg-[linear-gradient(135deg,rgba(34,197,94,0.2),rgba(16,185,129,0.08))] border-green-300/25",
-  },
-  {
-    icon: "▶️",
-    label: "YouTube",
-    desc: "Holiday videos",
-    className: "bg-[linear-gradient(135deg,rgba(37,99,235,0.22),rgba(59,130,246,0.08))] border-blue-300/25",
   },
   {
     icon: "🗓️",
@@ -126,8 +120,7 @@ const ALL_MODULES = [
   { icon: "🗓️", label: "Timetable", desc: "Class schedules" },
   { icon: "📢", label: "Feed", desc: "Announcements and updates" },
   { icon: "📚", label: "Academics", desc: "Subjects and curriculum" },
-  { icon: "🧠", label: "Learning Center", desc: "Class-based resources" },
-  { icon: "▶️", label: "YouTube Learning", desc: "Class-wise holiday video mapping" },
+  { icon: "🧠", label: "Learning Center", desc: "GK, YouTube, Brain and class resources" },
   { icon: "🗓️", label: "School Calendar", desc: "Holidays, functions, and exams" },
   { icon: "📝", label: "Leave Requests", desc: "Student and teacher leave approvals" },
   { icon: "💼", label: "Teacher Salary", desc: "Monthly/yearly salary with leave deduction" },

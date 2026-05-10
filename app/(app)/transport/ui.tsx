@@ -16,6 +16,16 @@ import {
 } from "./actions";
 
 const initialState: TransportState = { ok: true };
+type TransportPanel =
+  | "ALL"
+  | "BUS_SETUP"
+  | "DRIVER_ASSIGN"
+  | "ROUTE_SETUP"
+  | "STUDENT_ASSIGN"
+  | "TRIP_CONTROL"
+  | "GPS_UPDATE"
+  | "GPS_STREAM"
+  | "STUDENT_DROP";
 
 const fetcher = async (url: string) => {
   const res = await fetch(url, { cache: "no-store" });
@@ -146,6 +156,7 @@ export function TransportOpsForms({
   const [streamBusId, setStreamBusId] = useState("");
   const [streaming, setStreaming] = useState(false);
   const [streamMsg, setStreamMsg] = useState<string>("");
+  const [activePanel, setActivePanel] = useState<TransportPanel>("ALL");
   const watchIdRef = useRef<number | null>(null);
 
   const detectLocation = () => {
@@ -226,11 +237,46 @@ export function TransportOpsForms({
     };
   }, []);
 
+  const panelButtons: Array<{ key: TransportPanel; label: string; visible: boolean }> = [
+    { key: "ALL", label: "All", visible: true },
+    { key: "BUS_SETUP", label: "Add Bus", visible: canAdminOps },
+    { key: "DRIVER_ASSIGN", label: "Assign Driver", visible: canAdminOps },
+    { key: "ROUTE_SETUP", label: "Create Route", visible: canAdminOps },
+    { key: "STUDENT_ASSIGN", label: "Assign Student", visible: canAdminOps },
+    { key: "TRIP_CONTROL", label: "Trip Control", visible: canTrackOps },
+    { key: "GPS_UPDATE", label: "Update GPS", visible: canTrackOps },
+    { key: "GPS_STREAM", label: "Live Stream", visible: canTrackOps },
+    { key: "STUDENT_DROP", label: "Student Drop", visible: canTrackOps }
+  ].filter((button): button is { key: TransportPanel; label: string; visible: true } => button.visible);
+
+  const showPanel = (panel: TransportPanel) => activePanel === "ALL" || activePanel === panel;
+
   return (
     <div className="space-y-4">
+      {(canAdminOps || canTrackOps) ? (
+        <div className="flex flex-wrap gap-2">
+          {panelButtons.map((button) => (
+            <button
+              key={button.key}
+              type="button"
+              onClick={() => setActivePanel(button.key)}
+              className={[
+                "inline-flex items-center rounded-full border px-3 py-1.5 text-[12px] font-medium transition",
+                activePanel === button.key
+                  ? "border-blue-400/35 bg-blue-500/[0.18] text-white"
+                  : "border-white/[0.10] text-white/60 hover:bg-white/[0.06] hover:text-white/88"
+              ].join(" ")}
+              aria-pressed={activePanel === button.key}
+            >
+              {button.label}
+            </button>
+          ))}
+        </div>
+      ) : null}
+
       {canAdminOps ? (
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-          <Card title="Add Bus" accent="teal">
+          {showPanel("BUS_SETUP") ? <Card title="Add Bus" accent="teal">
             <form action={createAct} className="space-y-3">
               <div><Label required>Bus name</Label><Input name="name" placeholder="Bus A" required /></div>
               <div><Label>Plate number</Label><Input name="plateNumber" placeholder="TN-01-AB-1234" /></div>
@@ -238,9 +284,9 @@ export function TransportOpsForms({
               <ActionMsg state={createState} />
               <Button type="submit" disabled={createPending}>{createPending ? "Saving..." : "Create bus"}</Button>
             </form>
-          </Card>
+          </Card> : null}
 
-          <Card title="Assign Driver to Bus" accent="indigo">
+          {showPanel("DRIVER_ASSIGN") ? <Card title="Assign Driver to Bus" accent="indigo">
             <form action={assignDriverAct} className="space-y-3">
               <div>
                 <Label required>Bus</Label>
@@ -259,9 +305,9 @@ export function TransportOpsForms({
               <ActionMsg state={assignDriverState} />
               <Button type="submit" disabled={assignDriverPending}>{assignDriverPending ? "Assigning..." : "Assign driver"}</Button>
             </form>
-          </Card>
+          </Card> : null}
 
-          <Card title="Create Route" accent="teal">
+          {showPanel("ROUTE_SETUP") ? <Card title="Create Route" accent="teal">
             <form action={createRouteAct} className="space-y-3">
               <div>
                 <Label required>Bus</Label>
@@ -275,9 +321,9 @@ export function TransportOpsForms({
               <ActionMsg state={createRouteState} />
               <Button type="submit" disabled={createRoutePending}>{createRoutePending ? "Saving..." : "Create route"}</Button>
             </form>
-          </Card>
+          </Card> : null}
 
-          <Card title="Assign Student to Bus" accent="indigo">
+          {showPanel("STUDENT_ASSIGN") ? <Card title="Assign Student to Bus" accent="indigo">
             <form action={assignStudentAct} className="space-y-3">
               <div>
                 <Label required>Student</Label>
@@ -304,13 +350,13 @@ export function TransportOpsForms({
               <ActionMsg state={assignStudentState} />
               <Button type="submit" disabled={assignStudentPending}>{assignStudentPending ? "Saving..." : "Assign student"}</Button>
             </form>
-          </Card>
+          </Card> : null}
         </div>
       ) : null}
 
       {canTrackOps ? (
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-          <Card title="Trip Control" accent="emerald">
+          {showPanel("TRIP_CONTROL") ? <Card title="Trip Control" accent="emerald">
             <form action={startAct} className="space-y-3">
               <div>
                 <Label required>Bus</Label>
@@ -347,9 +393,9 @@ export function TransportOpsForms({
               <Button type="submit" variant="secondary" disabled={stopPending || !canTrack}>{stopPending ? "Stopping..." : "End Trip"}</Button>
               <ActionMsg state={stopState} />
             </form>
-          </Card>
+          </Card> : null}
 
-          <Card title="Update Live GPS" accent="indigo">
+          {showPanel("GPS_UPDATE") ? <Card title="Update Live GPS" accent="indigo">
             <form action={locAct} className="space-y-3">
               <div>
                 <Label required>Bus</Label>
@@ -375,9 +421,9 @@ export function TransportOpsForms({
               </div>
               <ActionMsg state={locState} />
             </form>
-          </Card>
+          </Card> : null}
 
-          <Card title="Auto Live GPS Streaming" accent="teal">
+          {showPanel("GPS_STREAM") ? <Card title="Auto Live GPS Streaming" accent="teal">
             <div className="space-y-3">
               <div>
                 <Label required>Bus</Label>
@@ -404,9 +450,9 @@ export function TransportOpsForms({
               </div>
               {streamMsg ? <p className={`text-xs ${streaming ? "text-emerald-300" : "text-white/55"}`}>{streamMsg}</p> : null}
             </div>
-          </Card>
+          </Card> : null}
 
-          <Card title="Student Drop Update" accent="emerald">
+          {showPanel("STUDENT_DROP") ? <Card title="Student Drop Update" accent="emerald">
             <form action={dropAct} className="space-y-3">
               <div>
                 <Label required>Bus</Label>
@@ -436,7 +482,7 @@ export function TransportOpsForms({
               </div>
               <ActionMsg state={dropState} />
             </form>
-          </Card>
+          </Card> : null}
         </div>
       ) : null}
 

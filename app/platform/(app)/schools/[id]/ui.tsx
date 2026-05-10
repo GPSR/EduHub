@@ -157,13 +157,14 @@ export function PlatformSchoolModulesForm(props: {
   modules: Array<{ id: string; key: string; name: string; enabled: boolean }>;
 }) {
   const [state, action, pending] = useActionState(updatePlatformSchoolModulesAction, initialModulesState);
+  const visibleModules = props.modules.filter((module) => module.key !== "YOUTUBE_LEARNING");
 
   return (
     <form action={action} className="space-y-4">
       <input type="hidden" name="schoolId" value={props.schoolId} />
       <CheckboxBulkActions fieldName="enabledModuleIds" />
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-        {props.modules.map((m) => (
+        {visibleModules.map((m) => (
           <label
             key={m.id}
             className="flex items-center justify-between gap-3 rounded-3xl border border-white/10 bg-white/[0.04] px-4 py-3 hover:bg-white/[0.06] transition"
@@ -181,7 +182,7 @@ export function PlatformSchoolModulesForm(props: {
             />
           </label>
         ))}
-        {props.modules.length === 0 ? <div className="text-sm text-white/60">No modules found.</div> : null}
+        {visibleModules.length === 0 ? <div className="text-sm text-white/60">No modules found.</div> : null}
       </div>
 
       {state.message ? (

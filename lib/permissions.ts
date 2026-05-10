@@ -20,6 +20,7 @@ export type ModuleKey =
   | "YOUTUBE_LEARNING"
   | "SCHOOL_CALENDAR"
   | "LEAVE_REQUESTS"
+  | "TEACHERS"
   | "TEACHER_SALARY"
   | "SETTINGS"
   | "USERS";
@@ -43,6 +44,7 @@ export const DEFAULT_MODULES: Array<{ key: ModuleKey; name: string; mvp: boolean
   { key: "YOUTUBE_LEARNING", name: "YouTube Learning", mvp: true },
   { key: "SCHOOL_CALENDAR", name: "School Calendar", mvp: true },
   { key: "LEAVE_REQUESTS", name: "Leave Requests", mvp: true },
+  { key: "TEACHERS", name: "Teachers", mvp: true },
   { key: "TEACHER_SALARY", name: "Teacher Salary", mvp: true },
   { key: "SETTINGS", name: "School Settings", mvp: true },
   { key: "USERS", name: "Users", mvp: true }
@@ -157,10 +159,11 @@ export async function seedSchoolModulesAndRolePerms(schoolId: string) {
   await setRoleModuleLevel("ADMIN", "ACADEMICS", "ADMIN");
   await setRoleModuleLevel("ADMIN", "EXAMS", "ADMIN");
   await setRoleModuleLevel("ADMIN", "USERS", "ADMIN");
+  await setRoleModuleLevel("ADMIN", "TEACHERS", "ADMIN");
   await setRoleModuleLevel("ADMIN", "SETTINGS", "ADMIN");
 
   // Headmaster/Principal: approve where relevant, otherwise admin-lite
-  for (const key of ["DASHBOARD", "STUDENTS", "FEES", "ATTENDANCE", "TIMETABLE", "COMMUNICATION", "HOMEWORK", "PROGRESS_CARD", "EXAMS", "ACADEMICS", "REPORTS"] as const) {
+  for (const key of ["DASHBOARD", "STUDENTS", "FEES", "ATTENDANCE", "TIMETABLE", "COMMUNICATION", "HOMEWORK", "PROGRESS_CARD", "EXAMS", "ACADEMICS", "REPORTS", "TEACHERS"] as const) {
     await setRoleModuleLevel("HEAD_MASTER", key, key === "COMMUNICATION" || key === "REPORTS" ? "APPROVE" : "EDIT");
     await setRoleModuleLevel("PRINCIPAL", key, key === "COMMUNICATION" || key === "REPORTS" ? "APPROVE" : "EDIT");
   }
@@ -190,6 +193,8 @@ export async function seedSchoolModulesAndRolePerms(schoolId: string) {
   await setRoleModuleLevel("CLASS_TEACHER", "LEAVE_REQUESTS", "APPROVE");
   await setRoleModuleLevel("TEACHER", "REPORTS", "VIEW");
   await setRoleModuleLevel("CLASS_TEACHER", "REPORTS", "VIEW");
+  await setRoleModuleLevel("TEACHER", "TEACHERS", "VIEW");
+  await setRoleModuleLevel("CLASS_TEACHER", "TEACHERS", "VIEW");
 
   // Parents: view-only on relevant modules
   for (const key of ["DASHBOARD", "STUDENTS", "FEES", "ATTENDANCE", "TIMETABLE", "COMMUNICATION", "HOMEWORK", "PROGRESS_CARD", "EXAMS", "ACADEMICS", "GALLERY", "LEARNING_CENTER"] as const) {
@@ -266,6 +271,7 @@ export async function getEffectivePermissions({
   const youtubeLearningNotConfigured = !moduleStateByKey.has("YOUTUBE_LEARNING");
   const calendarNotConfigured = !moduleStateByKey.has("SCHOOL_CALENDAR");
   const leaveRequestsNotConfigured = !moduleStateByKey.has("LEAVE_REQUESTS");
+  const teachersNotConfigured = !moduleStateByKey.has("TEACHERS");
   const teacherSalaryNotConfigured = !moduleStateByKey.has("TEACHER_SALARY");
   const academicsNotConfigured = !moduleStateByKey.has("ACADEMICS");
   const examsNotConfigured = !moduleStateByKey.has("EXAMS");
@@ -309,6 +315,12 @@ export async function getEffectivePermissions({
       map.LEAVE_REQUESTS = "APPROVE";
     else if (role?.key === "TEACHER" || role?.key === "PARENT") map.LEAVE_REQUESTS = "EDIT";
     else map.LEAVE_REQUESTS = "VIEW";
+  }
+
+  if ((enabled.has("TEACHERS") || teachersNotConfigured) && !map.TEACHERS) {
+    if (role?.key === "ADMIN") map.TEACHERS = "ADMIN";
+    else if (role?.key === "HEAD_MASTER" || role?.key === "PRINCIPAL") map.TEACHERS = "EDIT";
+    else if (role?.key === "TEACHER" || role?.key === "CLASS_TEACHER") map.TEACHERS = "VIEW";
   }
 
   if ((enabled.has("TEACHER_SALARY") || teacherSalaryNotConfigured) && !map.TEACHER_SALARY) {

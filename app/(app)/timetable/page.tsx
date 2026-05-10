@@ -114,13 +114,23 @@ export default async function TimetablePage({
     take: 800
   });
 
-  const rowsByDay = new Map<number, typeof rows>();
-  for (const dayDef of WEEKDAYS) rowsByDay.set(dayDef.value, []);
-  for (const row of rows) {
-    rowsByDay.set(row.weekday, [...(rowsByDay.get(row.weekday) ?? []), row]);
-  }
-
   const shownDays = validDay ? WEEKDAYS.filter((dayDef) => dayDef.value === validDay) : WEEKDAYS;
+  const classById = new Map(classes.map((item) => [item.id, item]));
+  const rowsByClassId = new Map<string, typeof rows>();
+  for (const row of rows) {
+    rowsByClassId.set(row.classId, [...(rowsByClassId.get(row.classId) ?? []), row]);
+  }
+  const shownClassIds = classId
+    ? classById.has(classId)
+      ? [classId]
+      : []
+    : Array.from(new Set(rows.map((row) => row.classId))).sort((leftId, rightId) => {
+        const left = classById.get(leftId);
+        const right = classById.get(rightId);
+        const leftLabel = left ? classLabel(left.name, left.section) : leftId;
+        const rightLabel = right ? classLabel(right.name, right.section) : rightId;
+        return leftLabel.localeCompare(rightLabel);
+      });
 
   return (
     <div className="space-y-5 animate-fade-up">
@@ -131,8 +141,8 @@ export default async function TimetablePage({
       ) : null}
       <div className="flex items-start justify-between gap-4">
         <SectionHeader
-          title="Teacher Timetable"
-          subtitle={`Class-wise teacher schedule with subject and timing · ${selectedYear.name}`}
+          title="Class Timetable"
+          subtitle={`Class-wise schedule with subject and timing · ${selectedYear.name}`}
         />
         {canManage ? (
           <Link
@@ -215,7 +225,7 @@ export default async function TimetablePage({
 
       {canManage && composeOpen ? <CreateTimetableEntryCard teachers={teachers} classes={classes} academicYearId={selectedYear.id} /> : null}
 
-      <Card title="Weekly Schedule" description={`${rows.length} timetable row(s)`} accent="teal">
+      <Card title="Class-wise Weekly Schedule" description={`${rows.length} timetable row(s)`} accent="teal">
         {rows.length === 0 ? (
           <EmptyState
             icon="🗓️"
@@ -224,43 +234,68 @@ export default async function TimetablePage({
           />
         ) : (
           <div className="space-y-4">
-            {shownDays.map((dayDef) => {
-              const dayRows = rowsByDay.get(dayDef.value) ?? [];
+            {shownClassIds.map((classIdEntry) => {
+              const classInfo = classById.get(classIdEntry);
+              if (!classInfo) return null;
+              const classRows = (rowsByClassId.get(classIdEntry) ?? [])
+                .slice()
+                .sort((left, right) => left.weekday - right.weekday || left.startTime.localeCompare(right.startTime));
+              const classSubjects = Array.from(new Set(classRows.map((row) => row.subjectName))).sort((a, b) => a.localeCompare(b));
 
               return (
                 <section
-                  key={dayDef.value}
+                  key={classIdEntry}
                   className="rounded-[14px] border border-white/[0.08] bg-white/[0.03] p-3.5"
                 >
                   <div className="mb-3 flex items-center justify-between gap-2">
-                    <p className="text-[14px] font-semibold text-white/90">{weekdayLabel(dayDef.value)}</p>
-                    <Badge tone="info">{dayRows.length} slot(s)</Badge>
+                    <div>
+                      <p className="text-[14px] font-semibold text-white/90">{classLabel(classInfo.name, classInfo.section)}</p>
+                      <p className="mt-1 text-[11px] text-white/45">
+                        Subjects: {classSubjects.length > 0 ? classSubjects.join(", ") : "No subjects"}
+                      </p>
+                    </div>
+                    <Badge tone="info">{classRows.length} slot(s)</Badge>
                   </div>
 
-                  {dayRows.length === 0 ? (
+                  {classRows.length === 0 ? (
                     <p className="text-[12px] text-white/45">No classes scheduled.</p>
                   ) : (
-                    <div className="space-y-2">
-                      {dayRows.map((row) => (
-                        <article
-                          key={row.id}
-                          className="rounded-[12px] border border-white/[0.08] bg-black/20 px-3 py-2.5"
-                        >
-                          <div className="flex flex-wrap items-start justify-between gap-2">
-                            <div className="min-w-0">
-                              <div className="flex flex-wrap items-center gap-2">
-                                <p className="text-[13px] font-semibold text-white/90">{row.subjectName}</p>
-                                <Badge tone="neutral">{row.startTime} - {row.endTime}</Badge>
-                                <Badge tone="info">{classLabel(row.class.name, row.class.section)}</Badge>
-                              </div>
-                              <p className="mt-1 text-[12px] text-white/55">Teacher: {row.teacherUser.name}</p>
-                              {row.room ? <p className="text-[11px] text-white/40">Room: {row.room}</p> : null}
+                    <div className="space-y-3">
+                      {shownDays.map((dayDef) => {
+                        const dayRows = classRows.filter((row) => row.weekday === dayDef.value);
+                        if (dayRows.length === 0) return null;
+
+                        return (
+                          <div key={`${classIdEntry}-${dayDef.value}`} className="rounded-[12px] border border-white/[0.08] bg-black/20 p-2.5">
+                            <div className="mb-2 flex items-center justify-between gap-2">
+                              <p className="text-[12px] font-semibold text-white/85">{weekdayLabel(dayDef.value)}</p>
+                              <Badge tone="neutral">{dayRows.length} subject slot(s)</Badge>
                             </div>
 
-                            {canManage ? <DeleteTimetableEntryButton entryId={row.id} academicYearId={selectedYear.id} /> : null}
+                            <div className="space-y-2">
+                              {dayRows.map((row) => (
+                                <article
+                                  key={row.id}
+                                  className="rounded-[10px] border border-white/[0.07] bg-white/[0.03] px-3 py-2"
+                                >
+                                  <div className="flex flex-wrap items-start justify-between gap-2">
+                                    <div className="min-w-0">
+                                      <div className="flex flex-wrap items-center gap-2">
+                                        <p className="text-[13px] font-semibold text-white/92">{row.subjectName}</p>
+                                        <Badge tone="info">{row.startTime} - {row.endTime}</Badge>
+                                      </div>
+                                      <p className="mt-1 text-[12px] text-white/55">Teacher: {row.teacherUser.name}</p>
+                                      {row.room ? <p className="text-[11px] text-white/40">Room: {row.room}</p> : null}
+                                    </div>
+
+                                    {canManage ? <DeleteTimetableEntryButton entryId={row.id} academicYearId={selectedYear.id} /> : null}
+                                  </div>
+                                </article>
+                              ))}
+                            </div>
                           </div>
-                        </article>
-                      ))}
+                        );
+                      })}
                     </div>
                   )}
                 </section>

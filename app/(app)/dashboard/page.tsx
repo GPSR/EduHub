@@ -14,12 +14,12 @@ const DASHBOARD_MODULE_LINKS = [
   { href: "/fees", icon: "💳", label: "Fees" },
   { href: "/attendance", icon: "✅", label: "Attendance" },
   { href: "/feed", icon: "📢", label: "Feed" },
+  { href: "/teachers", icon: "👩‍🏫", label: "Teachers" },
   { href: "/academics", icon: "📚", label: "Academics" },
   { href: "/exams", icon: "🧪", label: "Exams" },
   { href: "/academics/homework", icon: "📝", label: "Homework" },
   { href: "/academics/progress-card", icon: "🎓", label: "Progress Card" },
   { href: "/learning-center", icon: "🧠", label: "Learning Center" },
-  { href: "/youtube-learning", icon: "▶️", label: "YouTube Learning" },
   { href: "/calendar", icon: "🗓️", label: "Calendar" },
   { href: "/timetable", icon: "🧾", label: "Timetable" },
   { href: "/leave-requests", icon: "🗒️", label: "Leave Requests" },
@@ -50,6 +50,19 @@ function centsToUsd(cents: number) {
   }).format(cents / 100);
 }
 
+function isoDate(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function startOfDay(date: Date) {
+  const value = new Date(date);
+  value.setHours(0, 0, 0, 0);
+  return value;
+}
+
 export default async function DashboardPage({
   searchParams
 }: {
@@ -63,6 +76,8 @@ export default async function DashboardPage({
   const selectedYear = yearContext.selectedYear;
   const query = (q ?? "").trim();
   const feeView = fees === "paid" || fees === "pending" ? fees : null;
+  const attendanceDate = startOfDay(new Date());
+  const attendanceDateStr = isoDate(attendanceDate);
 
   const [
     teachers,
@@ -73,7 +88,10 @@ export default async function DashboardPage({
     feeInvoicedTotals,
     feeCollectedTotals,
     latestSlideshow,
-    currentUser
+    currentUser,
+    classes,
+    studentCountsByClass,
+    todayAttendanceRecords
   ] = await Promise.all([
     db.user.count({
       where: { schoolId: session.schoolId, schoolRole: { key: { in: ["TEACHER", "CLASS_TEACHER"] } } }
@@ -127,6 +145,27 @@ export default async function DashboardPage({
     db.user.findUnique({
       where: { id: session.userId },
       select: { name: true }
+    }),
+    db.class.findMany({
+      where: { schoolId: session.schoolId },
+      select: { id: true, name: true, section: true },
+      orderBy: [{ name: "asc" }, { section: "asc" }]
+    }),
+    db.student.groupBy({
+      by: ["classId"],
+      where: { schoolId: session.schoolId, classId: { not: null } },
+      _count: { _all: true }
+    }),
+    db.attendanceRecord.findMany({
+      where: {
+        schoolId: session.schoolId,
+        academicYearId: selectedYear.id,
+        date: attendanceDate
+      },
+      select: {
+        status: true,
+        student: { select: { classId: true } }
+      }
     })
   ]);
 
@@ -258,6 +297,43 @@ export default async function DashboardPage({
     }
   }
   const pendingStudents = Array.from(pendingByStudent.values()).sort((a, b) => b.pendingCents - a.pendingCents);
+  const studentCountByClassId = new Map(
+    studentCountsByClass
+      .filter((row): row is { classId: string; _count: { _all: number } } => Boolean(row.classId))
+      .map((row) => [row.classId, row._count._all])
+  );
+  const attendanceByClassId = new Map<
+    string,
+    { marked: number; present: number; leave: number; absent: number; late: number }
+  >();
+  for (const record of todayAttendanceRecords) {
+    const classId = record.student.classId;
+    if (!classId) continue;
+    const bucket = attendanceByClassId.get(classId) ?? { marked: 0, present: 0, leave: 0, absent: 0, late: 0 };
+    bucket.marked += 1;
+    if (record.status === "PRESENT") bucket.present += 1;
+    if (record.status === "LEAVE") bucket.leave += 1;
+    if (record.status === "ABSENT") bucket.absent += 1;
+    if (record.status === "LATE") bucket.late += 1;
+    attendanceByClassId.set(classId, bucket);
+  }
+  const classWiseAttendanceRows = classes.map((cls) => {
+    const classLabel = `${cls.name}${cls.section ? `-${cls.section}` : ""}`;
+    const total = studentCountByClassId.get(cls.id) ?? 0;
+    const bucket = attendanceByClassId.get(cls.id) ?? { marked: 0, present: 0, leave: 0, absent: 0, late: 0 };
+    const pending = Math.max(0, total - bucket.marked);
+    const presentRate = total > 0 ? Math.round((bucket.present / total) * 100) : 0;
+    return {
+      classId: cls.id,
+      classLabel,
+      total,
+      marked: bucket.marked,
+      present: bucket.present,
+      leave: bucket.leave,
+      pending,
+      presentRate
+    };
+  });
 
   const normalizedQuery = query.toLowerCase();
   const matchedStudents = query
@@ -469,6 +545,44 @@ export default async function DashboardPage({
           color="violet" delay="stagger-5" href="/feed"
         />
       </div>
+
+      <Card
+        title="Class-wise Attendance"
+        description={`Entire school attendance by class · ${attendanceDate.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" })}`}
+        accent="teal"
+      >
+        {classWiseAttendanceRows.length === 0 ? (
+          <p className="py-5 text-center text-sm text-white/45">No classes found for this school.</p>
+        ) : (
+          <div className="space-y-2">
+            {classWiseAttendanceRows.map((row) => (
+              <Link
+                key={row.classId}
+                href={withAcademicYearParam(`/attendance?date=${encodeURIComponent(attendanceDateStr)}&classId=${encodeURIComponent(row.classId)}`, selectedYear.id)}
+                className="flex flex-wrap items-center justify-between gap-3 rounded-[12px] border border-white/[0.06] bg-white/[0.03] px-3 py-2.5 transition hover:bg-white/[0.06]"
+              >
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-semibold text-white/90">{row.classLabel}</p>
+                  <p className="truncate text-xs text-white/45">
+                    Total {row.total} · Marked {row.marked} · Pending {row.pending}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2 text-[11px]">
+                  <span className="rounded-full border border-emerald-500/35 bg-emerald-500/12 px-2 py-0.5 text-emerald-200">
+                    Present {row.present}
+                  </span>
+                  <span className="rounded-full border border-amber-500/35 bg-amber-500/12 px-2 py-0.5 text-amber-200">
+                    Leave {row.leave}
+                  </span>
+                  <span className="rounded-full border border-blue-500/35 bg-blue-500/12 px-2 py-0.5 text-blue-200">
+                    {row.presentRate}%
+                  </span>
+                </div>
+              </Link>
+            ))}
+          </div>
+        )}
+      </Card>
 
       {feeView === "paid" && (
         <Card

@@ -30,6 +30,17 @@ function startOfMonth(d: Date) {
 function addMonths(d: Date, delta: number) {
   return new Date(d.getFullYear(), d.getMonth() + delta, 1);
 }
+function classLabel(name: string, section: string) {
+  return section ? `${name}-${section}` : name;
+}
+function buildAttendanceHref(args: { date?: string; month?: string; classId?: string | null }) {
+  const params = new URLSearchParams();
+  if (args.date) params.set("date", args.date);
+  if (args.month) params.set("month", args.month);
+  if (args.classId) params.set("classId", args.classId);
+  const query = params.toString();
+  return query ? `/attendance?${query}` : "/attendance";
+}
 
 function statusCellConfig(status: string) {
   switch (status) {
@@ -68,11 +79,11 @@ function statusConfig(status: string) {
 export default async function AttendancePage({
   searchParams,
 }: {
-  searchParams: Promise<{ date?: string; month?: string; ay?: string }>;
+  searchParams: Promise<{ date?: string; month?: string; classId?: string; ay?: string }>;
 }) {
   await requirePermission("ATTENDANCE", "VIEW");
   const session = await requireSession();
-  const { date: dateParam, month: monthParam, ay } = await searchParams;
+  const { date: dateParam, month: monthParam, classId: classIdParam, ay } = await searchParams;
   const yearContext = await getAcademicYearContext({
     schoolId: session.schoolId,
     requestedYearId: ay
@@ -119,7 +130,13 @@ export default async function AttendancePage({
             Academic year {selectedYear.name} is closed. Attendance is read-only.
           </div>
         ) : null}
-        <DateHeader date={date} isToday={isToday} academicYearName={selectedYear.name} academicYearId={selectedYear.id} />
+        <DateHeader
+          date={date}
+          isToday={isToday}
+          academicYearName={selectedYear.name}
+          academicYearId={selectedYear.id}
+          selectedClassId={null}
+        />
         <Card title="Attendance" description="Your children's attendance for the selected date">
           {students.length === 0 ? (
             <EmptyState icon="👨‍👩‍👧" title="No linked students" />
@@ -145,6 +162,7 @@ export default async function AttendancePage({
           previousMonthKey={previousMonthKey}
           nextMonthKey={nextMonthKey}
           academicYearId={selectedYear.id}
+          selectedClassId={null}
           monthStart={monthStart}
           monthDays={monthDays}
           students={students.map((s) => ({ id: s.id, fullName: s.fullName }))}
@@ -155,15 +173,35 @@ export default async function AttendancePage({
   }
 
   /* Staff / Admin view */
-  const students = await db.student.findMany({
+  const classes = await db.class.findMany({
     where: { schoolId: session.schoolId },
+    select: { id: true, name: true, section: true },
+    orderBy: [{ name: "asc" }, { section: "asc" }]
+  });
+  const selectedClassId = classes.some((cls) => cls.id === classIdParam) ? classIdParam ?? null : (classes[0]?.id ?? null);
+  const selectedClass = selectedClassId ? classes.find((cls) => cls.id === selectedClassId) ?? null : null;
+  const selectedClassLabel = selectedClass ? classLabel(selectedClass.name, selectedClass.section) : "all students";
+
+  const students = await db.student.findMany({
+    where: {
+      schoolId: session.schoolId,
+      ...(selectedClassId ? { classId: selectedClassId } : {})
+    },
     orderBy: { fullName: "asc" },
-    take: 200,
+    take: 200
   });
-  const existing = await db.attendanceRecord.findMany({
-    where: { schoolId: session.schoolId, academicYearId: selectedYear.id, date },
-    select: { studentId: true, status: true },
-  });
+  const existing =
+    students.length > 0
+      ? await db.attendanceRecord.findMany({
+          where: {
+            schoolId: session.schoolId,
+            academicYearId: selectedYear.id,
+            date,
+            studentId: { in: students.map((student) => student.id) }
+          },
+          select: { studentId: true, status: true }
+        })
+      : [];
   const statusMap = new Map(existing.map(r => [r.studentId, r.status]));
 
   const perms = await getEffectivePermissions({
@@ -175,7 +213,7 @@ export default async function AttendancePage({
 
   const markedCount = existing.length;
   const presentCount = existing.filter(r => r.status === "PRESENT").length;
-  const absentCount  = existing.filter(r => r.status === "ABSENT").length;
+  const leaveCount   = existing.filter(r => r.status === "LEAVE").length;
   const scopedStudentIds = students.map((s) => s.id);
 
   const trendDays: TrendPoint[] = [];
@@ -240,7 +278,42 @@ export default async function AttendancePage({
           Academic year {selectedYear.name} is closed. Attendance is read-only.
         </div>
       ) : null}
-      <DateHeader date={date} isToday={isToday} academicYearName={selectedYear.name} academicYearId={selectedYear.id} />
+      <DateHeader
+        date={date}
+        isToday={isToday}
+        academicYearName={selectedYear.name}
+        academicYearId={selectedYear.id}
+        selectedClassId={selectedClassId}
+      />
+
+      <Card title="Class-wise Attendance" description="Select a class and mark only leave students. Others stay Present by default." accent="indigo">
+        {classes.length === 0 ? (
+          <p className="text-sm text-white/50">No classes configured yet. Add classes in settings first.</p>
+        ) : (
+          <div className="flex flex-wrap gap-2">
+            {classes.map((cls) => {
+              const active = cls.id === selectedClassId;
+              return (
+                <Link
+                  key={cls.id}
+                  href={withAcademicYearParam(buildAttendanceHref({ date: dateStr, month: formatMonthKey(monthStart), classId: cls.id }), selectedYear.id)}
+                >
+                  <span
+                    className={[
+                      "inline-flex items-center rounded-full border px-3 py-1.5 text-[12px] font-medium transition",
+                      active
+                        ? "border-blue-400/35 bg-blue-500/[0.18] text-white"
+                        : "border-white/[0.10] text-white/60 hover:bg-white/[0.06] hover:text-white/88"
+                    ].join(" ")}
+                  >
+                    {classLabel(cls.name, cls.section)}
+                  </span>
+                </Link>
+              );
+            })}
+          </div>
+        )}
+      </Card>
 
       {/* Summary */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
@@ -248,7 +321,7 @@ export default async function AttendancePage({
           { label: "Total",   value: students.length, color: "text-white/80" },
           { label: "Marked",  value: markedCount,     color: "text-white/80" },
           { label: "Present", value: presentCount,    color: "text-emerald-300" },
-          { label: "Absent",  value: absentCount,     color: "text-rose-300" },
+          { label: "Leave",   value: leaveCount,      color: "text-amber-300" },
         ].map(s => (
           <div key={s.label} className="rounded-[14px] border border-white/[0.07] bg-white/[0.03] px-3 py-3 text-center">
             <div className={`text-xl font-bold ${s.color}`}>{s.value}</div>
@@ -259,10 +332,11 @@ export default async function AttendancePage({
 
       <MonthlyAttendanceGrid
         title="Monthly Attendance Grid"
-        description="Monthly view across all students and all days."
+        description={`Monthly view for ${selectedClassLabel} and all days.`}
         previousMonthKey={previousMonthKey}
         nextMonthKey={nextMonthKey}
         academicYearId={selectedYear.id}
+        selectedClassId={selectedClassId}
         monthStart={monthStart}
         monthDays={monthDays}
         students={students.map((s) => ({ id: s.id, fullName: s.fullName }))}
@@ -317,20 +391,16 @@ export default async function AttendancePage({
         ) : students.length === 0 ? (
           <EmptyState icon="👥" title="No students" description="Add students to start marking attendance." />
         ) : (
-          <div className="divide-y divide-white/[0.05]">
-            {students.map((s, i) => (
-              <AttendanceRow
-                key={s.id}
-                date={dateStr}
-                studentId={s.id}
-                academicYearId={selectedYear.id}
-                name={s.fullName}
-                current={statusMap.get(s.id) ?? "NOT_MARKED"}
-                isFirst={i === 0}
-                isLast={i === students.length - 1}
-              />
-            ))}
-          </div>
+          <ClassAttendanceLeaveForm
+            date={dateStr}
+            classId={selectedClassId}
+            academicYearId={selectedYear.id}
+            students={students.map((student) => ({
+              id: student.id,
+              name: student.fullName,
+              status: statusMap.get(student.id) ?? "NOT_MARKED"
+            }))}
+          />
         )}
       </Card>
     </div>
@@ -343,6 +413,7 @@ function MonthlyAttendanceGrid({
   previousMonthKey,
   nextMonthKey,
   academicYearId,
+  selectedClassId,
   monthStart,
   monthDays,
   students,
@@ -353,6 +424,7 @@ function MonthlyAttendanceGrid({
   previousMonthKey: string;
   nextMonthKey: string;
   academicYearId: string;
+  selectedClassId: string | null;
   monthStart: Date;
   monthDays: Date[];
   students: Array<{ id: string; fullName: string }>;
@@ -373,13 +445,13 @@ function MonthlyAttendanceGrid({
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Link href={withAcademicYearParam(`/attendance?month=${encodeURIComponent(previousMonthKey)}&date=${encodeURIComponent(`${previousMonthKey}-01`)}`, academicYearId)}>
+          <Link href={withAcademicYearParam(buildAttendanceHref({ month: previousMonthKey, date: `${previousMonthKey}-01`, classId: selectedClassId }), academicYearId)}>
             <Button variant="secondary" size="sm">← Prev</Button>
           </Link>
-          <Link href={withAcademicYearParam(`/attendance?month=${encodeURIComponent(formatMonthKey(new Date()))}&date=${encodeURIComponent(isoDate(new Date()))}`, academicYearId)}>
+          <Link href={withAcademicYearParam(buildAttendanceHref({ month: formatMonthKey(new Date()), date: isoDate(new Date()), classId: selectedClassId }), academicYearId)}>
             <Button variant="secondary" size="sm">Today</Button>
           </Link>
-          <Link href={withAcademicYearParam(`/attendance?month=${encodeURIComponent(nextMonthKey)}&date=${encodeURIComponent(`${nextMonthKey}-01`)}`, academicYearId)}>
+          <Link href={withAcademicYearParam(buildAttendanceHref({ month: nextMonthKey, date: `${nextMonthKey}-01`, classId: selectedClassId }), academicYearId)}>
             <Button variant="secondary" size="sm">Next →</Button>
           </Link>
         </div>
@@ -472,12 +544,14 @@ function DateHeader({
   date,
   isToday,
   academicYearName,
-  academicYearId
+  academicYearId,
+  selectedClassId
 }: {
   date: Date;
   isToday: boolean;
   academicYearName: string;
   academicYearId: string;
+  selectedClassId: string | null;
 }) {
   const dateStr = isoDate(date);
   const prev = new Date(date); prev.setDate(prev.getDate() - 1);
@@ -491,11 +565,12 @@ function DateHeader({
         subtitle={`${date.toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}${isToday ? " · Today" : ""} · ${academicYearName}`}
       />
       <div className="flex flex-wrap items-center gap-2">
-        <Link href={withAcademicYearParam(`/attendance?date=${isoDate(prev)}`, academicYearId)}>
+        <Link href={withAcademicYearParam(buildAttendanceHref({ date: isoDate(prev), classId: selectedClassId }), academicYearId)}>
           <Button variant="secondary" size="sm">←</Button>
         </Link>
         <form action="/attendance" method="get" className="flex items-center gap-2">
           <input type="hidden" name="ay" value={academicYearId} />
+          {selectedClassId ? <input type="hidden" name="classId" value={selectedClassId} /> : null}
           <input
             type="date"
             name="date"
@@ -505,11 +580,11 @@ function DateHeader({
           <Button type="submit" variant="secondary" size="sm">Go</Button>
         </form>
         {!isToday && (
-          <Link href={withAcademicYearParam(`/attendance?date=${today}`, academicYearId)}>
+          <Link href={withAcademicYearParam(buildAttendanceHref({ date: today, classId: selectedClassId }), academicYearId)}>
             <Button variant="secondary" size="sm">Today</Button>
           </Link>
         )}
-        <Link href={withAcademicYearParam(`/attendance?date=${isoDate(next)}`, academicYearId)}>
+        <Link href={withAcademicYearParam(buildAttendanceHref({ date: isoDate(next), classId: selectedClassId }), academicYearId)}>
           <Button variant="secondary" size="sm">→</Button>
         </Link>
       </div>
@@ -517,43 +592,64 @@ function DateHeader({
   );
 }
 
-async function AttendanceRow({
-  date, studentId, name, current, isFirst, isLast,
+async function ClassAttendanceLeaveForm({
+  date,
+  classId,
   academicYearId,
+  students
 }: {
-  date: string; studentId: string; name: string; current: string;
+  date: string;
+  classId: string | null;
   academicYearId: string;
-  isFirst: boolean; isLast: boolean;
+  students: Array<{ id: string; name: string; status: string }>;
 }) {
-  const { markAttendanceAction } = await import("./actions");
-  const cfg = statusConfig(current);
+  const { markClassAttendanceAction } = await import("./actions");
+
+  if (!classId) {
+    return <p className="px-4 py-4 text-sm text-white/55">Select a class to mark attendance.</p>;
+  }
 
   return (
-    <div className={`flex flex-wrap sm:flex-nowrap items-start sm:items-center gap-2 sm:gap-4 px-3.5 sm:px-4 py-3.5 hover:bg-white/[0.03] transition-colors
-                     ${isFirst ? "rounded-t-[16px]" : ""}
-                     ${isLast  ? "rounded-b-[16px]" : ""}`}>
-      <div className="flex-1 min-w-0">
-        <div className="text-[14px] font-semibold text-white/85">{name}</div>
-        <div className="flex items-center gap-1.5 mt-1">
-          <Badge tone={cfg.tone}>{cfg.emoji} {cfg.label}</Badge>
-        </div>
+    <form action={markClassAttendanceAction} className="space-y-3">
+      <input type="hidden" name="date" value={date} />
+      <input type="hidden" name="classId" value={classId} />
+      <input type="hidden" name="academicYearId" value={academicYearId} />
+
+      <div className="rounded-[12px] border border-emerald-500/30 bg-emerald-500/10 px-3.5 py-2.5 text-[12px] text-emerald-100">
+        Present is default for all students. Select only students on leave, then save once for the whole class.
       </div>
-      <form action={markAttendanceAction} className="flex items-center gap-2 w-full sm:w-auto sm:shrink-0 mt-2 sm:mt-0">
-        <input type="hidden" name="date" value={date} />
-        <input type="hidden" name="studentId" value={studentId} />
-        <input type="hidden" name="academicYearId" value={academicYearId} />
-        <select
-          name="status"
-          defaultValue={current === "NOT_MARKED" ? "PRESENT" : current}
-          className="rounded-[11px] bg-black/25 border border-white/[0.09] px-3 py-2 text-base sm:text-sm text-white outline-none focus:border-indigo-400/50 transition"
-        >
-          <option value="PRESENT">✅ Present</option>
-          <option value="ABSENT">❌ Absent</option>
-          <option value="LATE">🕐 Late</option>
-          <option value="LEAVE">🏠 Leave</option>
-        </select>
-        <Button type="submit" variant="secondary" size="sm">Save</Button>
-      </form>
-    </div>
+
+      <div className="divide-y divide-white/[0.05] rounded-[14px] border border-white/[0.08] bg-white/[0.02]">
+        {students.map((student, index) => (
+          <label
+            key={student.id}
+            className={[
+              "flex items-center justify-between gap-3 px-3.5 py-3 hover:bg-white/[0.03] transition",
+              index === 0 ? "rounded-t-[14px]" : "",
+              index === students.length - 1 ? "rounded-b-[14px]" : ""
+            ].join(" ")}
+          >
+            <div className="min-w-0">
+              <p className="truncate text-[14px] font-semibold text-white/88">{student.name}</p>
+              <p className="text-[11px] text-white/45">Default: Present</p>
+            </div>
+            <span className="inline-flex items-center gap-2 text-[12px] text-white/70">
+              <input
+                type="checkbox"
+                name="leaveStudentIds"
+                value={student.id}
+                defaultChecked={student.status === "LEAVE"}
+                className="h-[16px] w-[16px] rounded-[4px] accent-indigo-500"
+              />
+              Leave
+            </span>
+          </label>
+        ))}
+      </div>
+
+      <div className="flex justify-end px-1">
+        <Button type="submit" variant="secondary">Save Class Attendance</Button>
+      </div>
+    </form>
   );
 }

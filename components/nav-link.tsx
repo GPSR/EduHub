@@ -15,7 +15,6 @@ const NAV_ICONS: Record<string, string> = {
   "/timetable":          "🗓️",
   "/academics":          "📚",
   "/learning-center":    "🧠",
-  "/youtube-learning":   "▶️",
   "/calendar":           "🗓️",
   "/leave-requests":     "📝",
   "/gallery":            "🖼️",

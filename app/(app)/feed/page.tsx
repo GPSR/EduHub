@@ -5,6 +5,7 @@ import { atLeastLevel, getEffectivePermissions } from "@/lib/permissions";
 import { requirePermission } from "@/lib/require-permission";
 import Link from "next/link";
 import { markFeedSeen } from "@/lib/feed-unread";
+import { DEFAULT_FEED_CATEGORY, FEED_CATEGORIES, getFeedCategoryLabel } from "@/lib/feed-categories";
 
 function timeAgo(date: Date): string {
   const diff = Date.now() - date.getTime();
@@ -24,6 +25,13 @@ function buildFeedHref(args: { classId?: string | null; compose?: boolean }) {
   if (args.compose) params.set("compose", "1");
   const query = params.toString();
   return query ? `/feed?${query}` : "/feed";
+}
+
+function categoryTone(category: string): "neutral" | "success" | "danger" | "info" | "warning" {
+  if (category === "HOLIDAY" || category === "SCHOOL_OPEN") return "success";
+  if (category === "FEES_REMINDER" || category === "EMERGENCY") return "warning";
+  if (category === "GRADUATION" || category === "AWARD") return "info";
+  return "neutral";
 }
 
 export default async function FeedPage({
@@ -135,8 +143,9 @@ export default async function FeedPage({
                     </div>
                     <div>
                       <p className="text-[14px] font-bold text-white/90">{p.title}</p>
-                      <div className="flex items-center gap-2 mt-0.5">
+                      <div className="mt-0.5 flex flex-wrap items-center gap-2">
                         <p className="text-[11px] text-white/35">{authorName}</p>
+                        <Badge tone={categoryTone(p.category)}>{getFeedCategoryLabel(p.category)}</Badge>
                         {className && <Badge tone="neutral">{className}</Badge>}
                         {!isClassPost && <Badge tone="info">School-wide</Badge>}
                       </div>
@@ -161,6 +170,21 @@ async function CreatePostCard({ classes }: { classes: { id: string; name: string
     <Card title="New Announcement" description="Share with the whole school or a specific class" accent="indigo">
       <form action={createPostAction} className="space-y-4">
         <div className="grid grid-cols-1 gap-3">
+          <div>
+            <Label required>Category</Label>
+            <select
+              name="category"
+              defaultValue={DEFAULT_FEED_CATEGORY}
+              className="w-full rounded-[13px] border border-white/[0.09] bg-black/25 px-3.5 py-2.5 text-base text-white outline-none transition-all focus:border-indigo-400/50 sm:text-sm"
+              required
+            >
+              {FEED_CATEGORIES.map((category) => (
+                <option key={category.value} value={category.value}>
+                  {category.label}
+                </option>
+              ))}
+            </select>
+          </div>
           <div>
             <Label required>Title</Label>
             <Input name="title" placeholder="Holiday Notice, Exam Schedule…" required />

@@ -5,9 +5,15 @@ import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { requirePermission } from "@/lib/require-permission";
 import { saveUploadedImage } from "@/lib/uploads";
+import { DEFAULT_LEARNING_CENTER_CATEGORY, LEARNING_CENTER_CATEGORIES } from "@/lib/learning-center-categories";
+
+const LearningCenterCategorySchema = z.enum(
+  LEARNING_CENTER_CATEGORIES.map((category) => category.value) as [string, ...string[]]
+);
 
 const CreateLearningResourceSchema = z.object({
   classId: z.string().optional(),
+  category: LearningCenterCategorySchema.default(DEFAULT_LEARNING_CENTER_CATEGORY),
   title: z.string().trim().min(2).max(140),
   summary: z.string().trim().max(300).optional(),
   resourceType: z.enum(["NOTE", "VIDEO", "LINK", "DOCUMENT"]),
@@ -31,6 +37,7 @@ export async function createLearningResourceAction(formData: FormData) {
 
   const parsed = CreateLearningResourceSchema.safeParse({
     classId: String(formData.get("classId") ?? "").trim() || undefined,
+    category: String(formData.get("category") ?? "").trim() || DEFAULT_LEARNING_CENTER_CATEGORY,
     title: formData.get("title"),
     summary: String(formData.get("summary") ?? "").trim() || undefined,
     resourceType: formData.get("resourceType"),
@@ -79,6 +86,7 @@ export async function createLearningResourceAction(formData: FormData) {
     data: {
       schoolId: session.schoolId,
       classId,
+      category: parsed.data.category,
       title: parsed.data.title,
       summary: parsed.data.summary,
       resourceType: parsed.data.resourceType,
@@ -89,6 +97,9 @@ export async function createLearningResourceAction(formData: FormData) {
     }
   });
 
-  const query = classId ? `?classId=${encodeURIComponent(classId)}` : "";
-  redirect(`/learning-center${query}`);
+  const params = new URLSearchParams();
+  if (classId) params.set("classId", classId);
+  params.set("category", parsed.data.category);
+  const query = params.toString();
+  redirect(query ? `/learning-center?${query}` : "/learning-center");
 }

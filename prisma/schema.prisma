@@ -733,6 +733,7 @@ model LearningCenterResource {
   id              String                     @id @default(cuid())
   schoolId        String
   classId         String?
+  category        String                     @default("GENERAL_KNOWLEDGE")
   title           String
   summary         String?
   resourceType    LearningCenterResourceType @default(NOTE)
@@ -1150,6 +1151,7 @@ model FeedPost {
   authorId  String
   scope     String   @default("SCHOOL") // SCHOOL or CLASS
   classId   String?
+  category  String   @default("ANNOUNCEMENT")
   title     String
   body      String
   createdAt DateTime @default(now())

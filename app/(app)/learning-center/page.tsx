@@ -4,6 +4,11 @@ import { db } from "@/lib/db";
 import { atLeastLevel, getEffectivePermissions } from "@/lib/permissions";
 import { requirePermission } from "@/lib/require-permission";
 import { requireSession } from "@/lib/require";
+import {
+  DEFAULT_LEARNING_CENTER_CATEGORY,
+  LEARNING_CENTER_CATEGORIES,
+  getLearningCenterCategoryLabel
+} from "@/lib/learning-center-categories";
 
 function classLabel(name: string, section: string) {
   return section ? `${name}-${section}` : name;
@@ -19,9 +24,10 @@ function timeAgo(date: Date) {
   return `${Math.floor(hrs / 24)}d ago`;
 }
 
-function buildLearningCenterHref(args: { classId?: string | null; compose?: boolean }) {
+function buildLearningCenterHref(args: { classId?: string | null; category?: string | null; compose?: boolean }) {
   const params = new URLSearchParams();
   if (args.classId) params.set("classId", args.classId);
+  if (args.category) params.set("category", args.category);
   if (args.compose) params.set("compose", "1");
   const query = params.toString();
   return query ? `/learning-center?${query}` : "/learning-center";
@@ -41,15 +47,24 @@ const RESOURCE_ICONS = {
   DOCUMENT: "📄"
 } as const;
 
+function categoryTone(category: string): "neutral" | "success" | "danger" | "info" | "warning" {
+  if (category === "YOUTUBE_LEARNING" || category === "STEM_ACTIVITY") return "info";
+  if (category === "HOLIDAY_LEARNING" || category === "EXAM_PREPARATION") return "warning";
+  if (category === "LIFE_SKILLS" || category === "BRAIN_LEARNING") return "success";
+  return "neutral";
+}
+
 export default async function LearningCenterPage({
   searchParams
 }: {
-  searchParams: Promise<{ classId?: string; compose?: string }>;
+  searchParams: Promise<{ classId?: string; category?: string; compose?: string }>;
 }) {
   await requirePermission("LEARNING_CENTER", "VIEW");
   const session = await requireSession();
-  const { classId: filterClassId, compose } = await searchParams;
+  const { classId: filterClassId, category, compose } = await searchParams;
   const composeOpen = compose === "1";
+  const categorySet = new Set<string>(LEARNING_CENTER_CATEGORIES.map((item) => item.value));
+  const selectedCategory = category && categorySet.has(category) ? category : null;
 
   const perms = await getEffectivePermissions({
     schoolId: session.schoolId,
@@ -102,6 +117,7 @@ export default async function LearningCenterPage({
   const resources = await db.learningCenterResource.findMany({
     where: {
       schoolId: session.schoolId,
+      ...(selectedCategory ? { category: selectedCategory } : {}),
       ...visibilityWhere
     },
     include: {
@@ -122,11 +138,11 @@ export default async function LearningCenterPage({
       <div className="flex items-start justify-between gap-4">
         <SectionHeader
           title="Learning Center"
-          subtitle="Class-based resources, notes, videos, and documents"
+          subtitle="General knowledge, YouTube learning, brain learning, and class-wise resources"
         />
         {canCreate ? (
           <Link
-            href={buildLearningCenterHref({ classId: filterClassId, compose: !composeOpen })}
+            href={buildLearningCenterHref({ classId: filterClassId, category: selectedCategory, compose: !composeOpen })}
             aria-label={composeOpen ? "Close learning resource form" : "Add learning resource"}
             className="sm-btn min-h-0 mt-0.5 inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-[12px] bg-gradient-to-b from-[#67b4ff] to-[#4f8dfd] text-[26px] leading-none text-white shadow-[0_14px_30px_-18px_rgba(79,141,253,0.95)] transition hover:brightness-105 active:scale-[0.98]"
             title={composeOpen ? "Close" : "Add resource"}
@@ -137,7 +153,7 @@ export default async function LearningCenterPage({
       </div>
 
       <div className="flex flex-wrap gap-2">
-        <Link href={buildLearningCenterHref({ compose: composeOpen })}>
+        <Link href={buildLearningCenterHref({ compose: composeOpen, category: selectedCategory })}>
           <span
             className={[
               "inline-flex items-center rounded-full border px-3 py-1.5 text-[12px] font-medium transition",
@@ -153,7 +169,7 @@ export default async function LearningCenterPage({
           const label = classLabel(cls.name, cls.section);
           const active = filterClassId === cls.id;
           return (
-            <Link key={cls.id} href={buildLearningCenterHref({ classId: cls.id, compose: composeOpen })}>
+            <Link key={cls.id} href={buildLearningCenterHref({ classId: cls.id, category: selectedCategory, compose: composeOpen })}>
               <span
                 className={[
                   "inline-flex items-center rounded-full border px-3 py-1.5 text-[12px] font-medium transition",
@@ -169,17 +185,53 @@ export default async function LearningCenterPage({
         })}
       </div>
 
+      <div className="flex flex-wrap gap-2">
+        <Link href={buildLearningCenterHref({ classId: filterClassId, compose: composeOpen })}>
+          <span
+            className={[
+              "inline-flex items-center rounded-full border px-3 py-1.5 text-[12px] font-medium transition",
+              !selectedCategory
+                ? "border-blue-400/35 bg-blue-500/[0.18] text-white"
+                : "border-white/[0.10] text-white/60 hover:bg-white/[0.06] hover:text-white/88"
+            ].join(" ")}
+          >
+            All categories
+          </span>
+        </Link>
+        {LEARNING_CENTER_CATEGORIES.map((item) => {
+          const active = selectedCategory === item.value;
+          return (
+            <Link
+              key={item.value}
+              href={buildLearningCenterHref({ classId: filterClassId, category: item.value, compose: composeOpen })}
+            >
+              <span
+                className={[
+                  "inline-flex items-center rounded-full border px-3 py-1.5 text-[12px] font-medium transition",
+                  active
+                    ? "border-blue-400/35 bg-blue-500/[0.18] text-white"
+                    : "border-white/[0.10] text-white/60 hover:bg-white/[0.06] hover:text-white/88"
+                ].join(" ")}
+              >
+                {item.label}
+              </span>
+            </Link>
+          );
+        })}
+      </div>
+
       {canCreate && composeOpen ? (
         <CreateLearningResourceCard
           classes={visibleClasses}
           roleKey={session.roleKey}
           selectedClassId={filterClassId}
+          selectedCategory={selectedCategory ?? DEFAULT_LEARNING_CENTER_CATEGORY}
         />
       ) : null}
 
       <Card
         title="Resources"
-        description={`${resources.length} item(s) available${hasClassFilter && filterClassId ? ` · ${classLabelById.get(filterClassId)}` : ""}`}
+        description={`${resources.length} item(s) available${hasClassFilter && filterClassId ? ` · ${classLabelById.get(filterClassId)}` : ""}${selectedCategory ? ` · ${getLearningCenterCategoryLabel(selectedCategory)}` : ""}`}
         accent="teal"
       >
         {resources.length === 0 ? (
@@ -205,6 +257,9 @@ export default async function LearningCenterPage({
                         <span className="text-lg">{typeIcon}</span>
                         <p className="text-[14px] font-semibold text-white/90">{resource.title}</p>
                         <Badge tone={typeTone}>{resource.resourceType}</Badge>
+                        <Badge tone={categoryTone(resource.category)}>
+                          {getLearningCenterCategoryLabel(resource.category)}
+                        </Badge>
                         <Badge tone="neutral">
                           {resource.class ? classLabel(resource.class.name, resource.class.section) : "All classes"}
                         </Badge>
@@ -258,11 +313,13 @@ export default async function LearningCenterPage({
 async function CreateLearningResourceCard({
   classes,
   roleKey,
-  selectedClassId
+  selectedClassId,
+  selectedCategory
 }: {
   classes: Array<{ id: string; name: string; section: string }>;
   roleKey: string;
   selectedClassId?: string;
+  selectedCategory: string;
 }) {
   const { createLearningResourceAction } = await import("./actions");
   const teacherScoped = roleKey === "TEACHER" || roleKey === "CLASS_TEACHER";
@@ -316,6 +373,22 @@ async function CreateLearningResourceCard({
         <div>
           <Label>Summary</Label>
           <Textarea name="summary" rows={2} placeholder="Quick summary for students and parents" />
+        </div>
+
+        <div>
+          <Label required>Category</Label>
+          <select
+            name="category"
+            defaultValue={selectedCategory}
+            className="w-full rounded-[12px] border border-white/[0.12] bg-[#0f1728]/75 px-3.5 py-2.5 text-sm text-white outline-none transition-all focus:border-blue-300/70 focus:ring-4 focus:ring-blue-500/22"
+            required
+          >
+            {LEARNING_CENTER_CATEGORIES.map((item) => (
+              <option key={item.value} value={item.value}>
+                {item.label}
+              </option>
+            ))}
+          </select>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

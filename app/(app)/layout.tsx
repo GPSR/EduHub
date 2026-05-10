@@ -13,19 +13,17 @@ import { db } from "@/lib/db";
 import { getUserProfileImageUrl } from "@/lib/uploads";
 import { getUnreadFeedCount } from "@/lib/feed-unread";
 import { getUnreadSupportConversationCount } from "@/lib/support-unread";
-import { getUnreadYouTubeLearningCount } from "@/lib/youtube-learning-unread";
 import { getDefaultSchoolHomePath } from "@/lib/default-school-home";
 import { getAcademicYearContext } from "@/lib/academic-year";
 import { AcademicYearSwitcher } from "@/components/academic-year-switcher";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const { user, session } = await requireUser();
-  const [perms, unreadCount, feedUnreadCount, supportUnreadCount, youtubeUnreadCount, school, userPhotoUrl, academicYearContext] = await Promise.all([
+  const [perms, unreadCount, feedUnreadCount, supportUnreadCount, school, userPhotoUrl, academicYearContext] = await Promise.all([
     getEffectivePermissions({ schoolId: session.schoolId, userId: session.userId, roleId: session.roleId }),
     db.notification.count({ where: { schoolId: session.schoolId, userId: session.userId, readAt: null } }),
     getUnreadFeedCount({ schoolId: session.schoolId, userId: session.userId, roleKey: session.roleKey }),
     getUnreadSupportConversationCount({ schoolId: session.schoolId, userId: session.userId }),
-    getUnreadYouTubeLearningCount({ schoolId: session.schoolId, userId: session.userId, roleKey: session.roleKey }),
     db.school.findUnique({ where: { id: session.schoolId }, select: { brandingLogoUrl: true, name: true } }),
     getUserProfileImageUrl(session.schoolId, user.id),
     getAcademicYearContext({ schoolId: session.schoolId })
@@ -51,6 +49,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     canView("FEES") ? { href: "/fees", label: "Fees" } : null,
     canView("ATTENDANCE") ? { href: "/attendance", label: "Attendance" } : null,
     canView("TIMETABLE") ? { href: "/timetable", label: "Timetable" } : null,
+    canView("TEACHERS") ? { href: "/teachers", label: "Teachers" } : null,
     canView("COMMUNICATION") ? { href: "/feed", label: "Feed" } : null,
     canViewAcademics ? { href: "/academics", label: "Academics" } : null,
     canViewExams ? { href: "/exams", label: "Exams" } : null,
@@ -59,7 +58,6 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     canView("REPORTS") ? { href: "/reports", label: "Reports" } : null,
     canView("GALLERY") ? { href: "/gallery", label: "Gallery" } : null,
     canView("LEARNING_CENTER") ? { href: "/learning-center", label: "Learning Center" } : null,
-    canView("YOUTUBE_LEARNING") ? { href: "/youtube-learning", label: "YouTube Learning" } : null,
     canView("SCHOOL_CALENDAR") ? { href: "/calendar", label: "School Calendar" } : null,
     canView("LEAVE_REQUESTS") ? { href: "/leave-requests", label: "Leave Requests" } : null,
     canView("TRANSPORT") ? { href: "/transport", label: "Transport" } : null,
@@ -208,8 +206,6 @@ export default async function AppLayout({ children }: { children: React.ReactNod
                         ? feedUnreadCount
                         : item.href === "/support"
                           ? supportUnreadCount
-                          : item.href === "/youtube-learning"
-                            ? youtubeUnreadCount
                             : 0
                   }
                 />
@@ -235,7 +231,6 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             unreadCount={unreadCount}
             feedUnreadCount={feedUnreadCount}
             supportUnreadCount={supportUnreadCount}
-            youtubeUnreadCount={youtubeUnreadCount}
           />
         </div>
 

@@ -19,7 +19,6 @@ const ICONS: Record<string, string> = {
   "/academics":                "📚",
   "/exams":                    "🧪",
   "/learning-center":          "🧠",
-  "/youtube-learning":         "▶️",
   "/calendar":                 "🗓️",
   "/leave-requests":           "📝",
   "/gallery":                  "🖼️",
@@ -49,11 +48,10 @@ export function MobileNav({
   unreadCount = 0,
   feedUnreadCount = 0,
   supportUnreadCount = 0,
-  youtubeUnreadCount = 0,
 }: {
   role: string; userName: string; userEmail: string;
   items: NavItem[]; moreItems: NavItem[];
-  unreadCount?: number; feedUnreadCount?: number; supportUnreadCount?: number; youtubeUnreadCount?: number;
+  unreadCount?: number; feedUnreadCount?: number; supportUnreadCount?: number;
 }) {
   const pathname = usePathname();
   const router = useRouter();
@@ -108,7 +106,6 @@ export function MobileNav({
     if (href === "/notifications" && unreadCount > 0) return unreadCount;
     if (href === "/feed" && feedUnreadCount > 0) return feedUnreadCount;
     if (href === "/support" && supportUnreadCount > 0) return supportUnreadCount;
-    if (href === "/youtube-learning" && youtubeUnreadCount > 0) return youtubeUnreadCount;
     return 0;
   }
 

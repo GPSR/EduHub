@@ -12,6 +12,7 @@ export async function requirePermission(moduleKey: string, required: PermissionL
     "YOUTUBE_LEARNING",
     "SCHOOL_CALENDAR",
     "LEAVE_REQUESTS",
+    "TEACHERS",
     "TEACHER_SALARY",
     "EXAMS"
   ]);
@@ -36,6 +37,7 @@ export async function requireAnyPermission(moduleKeys: string[], required: Permi
     "YOUTUBE_LEARNING",
     "SCHOOL_CALENDAR",
     "LEAVE_REQUESTS",
+    "TEACHERS",
     "TEACHER_SALARY",
     "EXAMS"
   ]);

@@ -261,34 +261,16 @@ export const INDUSTRY_MODULE_TEMPLATES: IndustryModuleTemplate[] = [
         fieldType: "DROPDOWN",
         options: ["Note", "Worksheet", "Presentation", "Assignment", "Reference Link", "Video"]
       },
+      {
+        key: "RESOURCE_CATEGORY",
+        label: "Resource Category",
+        fieldType: "DROPDOWN",
+        options: ["General Knowledge", "YouTube Learning", "Brain Learning", "Exam Preparation", "STEM Activity", "Language Lab", "Life Skills", "Career Guidance", "Arts & Creativity", "Holiday Learning"]
+      },
       { key: "SUBJECT", label: "Subject", fieldType: "TEXT", isRequired: true },
       { key: "DIFFICULTY_LEVEL", label: "Difficulty Level", fieldType: "DROPDOWN", options: ["Beginner", "Intermediate", "Advanced"] },
       { key: "HOLIDAY_PROGRAM", label: "Holiday Program", fieldType: "CHECKBOX" },
       { key: "APPROVAL_STATUS", label: "Approval Status", fieldType: "DROPDOWN", options: ["Draft", "Under Review", "Approved", "Published"] }
-    ]
-  },
-  {
-    moduleKey: "YOUTUBE_LEARNING",
-    purpose: "Manage curated video playlists with class-wise outcomes and review gates.",
-    workflow: [
-      "Curate class-wise video content and playlist metadata.",
-      "Tag intended outcomes and language.",
-      "Review and approve for holiday/live session usage.",
-      "Retire outdated links and keep fresh recommendations."
-    ],
-    fields: [
-      { key: "CLASS_LEVEL", label: "Class Level", fieldType: "TEXT", isRequired: true },
-      { key: "SUBJECT", label: "Subject", fieldType: "TEXT", isRequired: true },
-      { key: "PLAYLIST_NAME", label: "Playlist Name", fieldType: "TEXT" },
-      {
-        key: "VIDEO_LANGUAGE",
-        label: "Video Language",
-        fieldType: "DROPDOWN",
-        options: ["English", "Hindi", "Telugu", "Tamil", "Kannada", "Malayalam", "Other"]
-      },
-      { key: "LEARNING_OUTCOME", label: "Learning Outcome", fieldType: "TEXTAREA" },
-      { key: "HOLIDAY_ONLY", label: "Holiday Only", fieldType: "CHECKBOX" },
-      { key: "REVIEW_STATUS", label: "Review Status", fieldType: "DROPDOWN", options: ["Pending", "Approved", "Archived"] }
     ]
   },
   {

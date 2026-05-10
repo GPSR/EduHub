@@ -113,6 +113,13 @@ export default async function AdminUsersPage({
         </div>
       )}
 
+      <AdminCreateUserPanel
+        roles={roles.map(r => ({ id: r.id, key: r.key, name: r.name }))}
+        modules={modules.map(m => ({ id: m.module.id, key: m.module.key, name: m.module.name }))}
+        students={students.map(s => ({ id: s.id, fullName: s.fullName, classId: s.classId ?? null }))}
+        classes={classes.map(c => ({ id: c.id, label: `${c.name}${c.section ? `-${c.section}` : ""}` }))}
+      />
+
       <Card>
         <div className="divide-y divide-white/[0.06]">
           {users.map((u, i) => {
@@ -322,13 +329,6 @@ export default async function AdminUsersPage({
           )}
         </div>
       </Card>
-
-      <AdminCreateUserPanel
-        roles={roles.map(r => ({ id: r.id, key: r.key, name: r.name }))}
-        modules={modules.map(m => ({ id: m.module.id, key: m.module.key, name: m.module.name }))}
-        students={students.map(s => ({ id: s.id, fullName: s.fullName, classId: s.classId ?? null }))}
-        classes={classes.map(c => ({ id: c.id, label: `${c.name}${c.section ? `-${c.section}` : ""}` }))}
-      />
     </div>
   );
 }

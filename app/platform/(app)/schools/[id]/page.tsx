@@ -9,9 +9,9 @@ import { ManageSchoolAdminPasswordPopup } from "../../onboarding-requests/ui";
 
 const MODULE_ICONS: Record<string, string> = {
   STUDENTS: "👥", FEES: "💳", ATTENDANCE: "✅", TIMETABLE: "🗓️", COMMUNICATION: "📢",
-  EXAMS: "🧪",
+  EXAMS: "🧪", TEACHERS: "👩‍🏫",
   ACADEMICS: "📚", LEARNING_CENTER: "🧠", REPORTS: "📊", NOTIFICATIONS: "🔔",
-  GALLERY: "🖼️", YOUTUBE_LEARNING: "▶️", SCHOOL_CALENDAR: "🗓️", LEAVE_REQUESTS: "📝",
+  GALLERY: "🖼️", SCHOOL_CALENDAR: "🗓️", LEAVE_REQUESTS: "📝",
   TEACHER_SALARY: "💼", SETTINGS: "⚙️", DASHBOARD: "◈", USERS: "🛡",
 };
 
@@ -45,7 +45,9 @@ export default async function PlatformSchoolPage({ params }: { params: Promise<{
 
   const modules = await db.module.findMany({ orderBy: { name: "asc" } });
   const enabledByModuleId = new Map(school.modules.map(m => [m.moduleId, m.enabled]));
-  const schoolModules = modules.map(m => ({ id: m.id, key: m.key, name: m.name, enabled: enabledByModuleId.get(m.id) ?? false }));
+  const schoolModules = modules
+    .map((m) => ({ id: m.id, key: m.key, name: m.name, enabled: enabledByModuleId.get(m.id) ?? false }))
+    .filter((module) => module.key !== "YOUTUBE_LEARNING");
   const plan = school.subscription?.plan ?? "TRIAL";
 
   return (

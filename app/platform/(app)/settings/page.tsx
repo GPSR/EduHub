@@ -8,9 +8,9 @@ import { ensureSubscriptionPlanSettings } from "@/lib/subscription";
 
 const MODULE_ICONS: Record<string, string> = {
   STUDENTS: "👥", FEES: "💳", ATTENDANCE: "✅", TIMETABLE: "🗓️", COMMUNICATION: "📢",
-  EXAMS: "🧪",
+  EXAMS: "🧪", TEACHERS: "👩‍🏫",
   ACADEMICS: "📚", LEARNING_CENTER: "🧠", REPORTS: "📊", NOTIFICATIONS: "🔔",
-  GALLERY: "🖼️", YOUTUBE_LEARNING: "▶️", SCHOOL_CALENDAR: "🗓️", LEAVE_REQUESTS: "📝",
+  GALLERY: "🖼️", SCHOOL_CALENDAR: "🗓️", LEAVE_REQUESTS: "📝",
   TEACHER_SALARY: "💼", SETTINGS: "⚙️", DASHBOARD: "◈", USERS: "🛡",
 };
 
@@ -32,6 +32,8 @@ export default async function PlatformSettingsPage() {
   const planByKey       = new Map(planSettings.map(p => [p.plan, p.durationDays]));
   const planAmountByKey = new Map(planSettings.map(p => [p.plan, p.amountCents]));
 
+  const visibleModules = modules.filter((module) => module.key !== "YOUTUBE_LEARNING");
+
   return (
     <div className="space-y-5 animate-fade-up pb-safe">
       <SectionHeader title="Platform Settings" subtitle="Modules, subscription plans and global configuration" />
@@ -45,7 +47,7 @@ export default async function PlatformSettingsPage() {
           <ApplyIndustryTemplatesForm />
         </div>
         <div className="grid grid-cols-1 min-[430px]:grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
-          {modules.map(m => (
+          {visibleModules.map(m => (
             <Link
               key={m.id}
               href={`/platform/settings/modules/${m.id}`}
@@ -61,7 +63,7 @@ export default async function PlatformSettingsPage() {
               </div>
             </Link>
           ))}
-          {modules.length === 0 && <p className="text-sm text-white/40 col-span-full">No modules found.</p>}
+          {visibleModules.length === 0 && <p className="text-sm text-white/40 col-span-full">No modules found.</p>}
         </div>
       </Card>
 

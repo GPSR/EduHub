@@ -9,9 +9,21 @@ import { z } from "zod";
 import type { PermissionLevel } from "@/lib/db-types";
 import { createPasswordResetToken, sendPasswordResetEmail } from "@/lib/password-reset";
 import { auditLog } from "@/lib/audit";
+import { ensureActiveAcademicYearForSchool } from "@/lib/academic-year";
 
 export type CreateUserState = { ok: boolean; message?: string };
 export type UpdateUserPasswordState = { ok: boolean; message?: string };
+
+type TeacherScheduleInput = {
+  classId: string;
+  subjectName: string;
+  weekday: number;
+  startTime: string;
+  endTime: string;
+  room?: string;
+};
+
+const TIME_VALUE_PATTERN = /^([01]\d|2[0-3]):[0-5]\d$/;
 
 function isSchoolAdminPasswordAllowedRole(roleKey: string) {
   const normalized = roleKey.toUpperCase();
@@ -37,6 +49,75 @@ const CreateUserSchema = z.object({
   classIds: z.array(z.string()).optional()
 });
 
+function toMinutes(value: string) {
+  const [hh, mm] = value.split(":").map((part) => Number(part));
+  return hh * 60 + mm;
+}
+
+function parseTeacherScheduleRows(formData: FormData): {
+  rows: TeacherScheduleInput[];
+  error?: string;
+} {
+  const classIds = formData.getAll("teacherScheduleClassId").map((value) => String(value ?? "").trim());
+  const subjectNames = formData.getAll("teacherScheduleSubject").map((value) => String(value ?? "").trim());
+  const weekdays = formData.getAll("teacherScheduleWeekday").map((value) => String(value ?? "").trim());
+  const startTimes = formData.getAll("teacherScheduleStartTime").map((value) => String(value ?? "").trim());
+  const endTimes = formData.getAll("teacherScheduleEndTime").map((value) => String(value ?? "").trim());
+  const rooms = formData.getAll("teacherScheduleRoom").map((value) => String(value ?? "").trim());
+
+  const rowCount = Math.max(
+    classIds.length,
+    subjectNames.length,
+    weekdays.length,
+    startTimes.length,
+    endTimes.length,
+    rooms.length
+  );
+  const rows: TeacherScheduleInput[] = [];
+
+  for (let index = 0; index < rowCount; index += 1) {
+    const classId = classIds[index] ?? "";
+    const subjectName = subjectNames[index] ?? "";
+    const weekdayRaw = weekdays[index] ?? "";
+    const startTime = startTimes[index] ?? "";
+    const endTime = endTimes[index] ?? "";
+    const room = rooms[index] ?? "";
+
+    const allBlank = !classId && !subjectName && !weekdayRaw && !startTime && !endTime && !room;
+    if (allBlank) continue;
+
+    if (!classId || !subjectName || !weekdayRaw || !startTime || !endTime) {
+      return { rows: [], error: `Complete all fields for teacher schedule row ${index + 1}.` };
+    }
+
+    const weekday = Number(weekdayRaw);
+    if (!Number.isInteger(weekday) || weekday < 1 || weekday > 7) {
+      return { rows: [], error: `Weekday is invalid in teacher schedule row ${index + 1}.` };
+    }
+    if (!TIME_VALUE_PATTERN.test(startTime) || !TIME_VALUE_PATTERN.test(endTime)) {
+      return { rows: [], error: `Time format should be HH:MM in teacher schedule row ${index + 1}.` };
+    }
+    if (toMinutes(endTime) <= toMinutes(startTime)) {
+      return { rows: [], error: `End time must be after start time in teacher schedule row ${index + 1}.` };
+    }
+
+    rows.push({
+      classId,
+      subjectName,
+      weekday,
+      startTime,
+      endTime,
+      room: room || undefined
+    });
+  }
+
+  if (rows.length > 40) {
+    return { rows: [], error: "Teacher schedule has too many rows. Please keep it within 40 slots." };
+  }
+
+  return { rows };
+}
+
 export async function createUserAction(
   _prev: CreateUserState,
   formData: FormData
@@ -59,9 +140,92 @@ export async function createUserAction(
   });
   if (!role) return { ok: false, message: "Invalid role." };
 
+  const isTeacherRole = role.key === "TEACHER" || role.key === "CLASS_TEACHER";
   const classIds = Array.from(new Set(parsed.data.classIds ?? []));
   if (role.key === "CLASS_TEACHER" && classIds.length !== 1) {
     return { ok: false, message: "Class Teacher must be mapped to exactly one class." };
+  }
+
+  const teacherScheduleParsed = parseTeacherScheduleRows(formData);
+  if (teacherScheduleParsed.error) {
+    return { ok: false, message: teacherScheduleParsed.error };
+  }
+  if (teacherScheduleParsed.rows.length > 0 && !isTeacherRole) {
+    return { ok: false, message: "Teacher schedule can only be set for Teacher or Class Teacher roles." };
+  }
+
+  const teacherScheduleClassIds = Array.from(new Set(teacherScheduleParsed.rows.map((row) => row.classId)));
+  const teacherClassIds =
+    isTeacherRole
+      ? Array.from(new Set([...classIds, ...teacherScheduleClassIds]))
+      : classIds;
+
+  if (role.key === "CLASS_TEACHER" && teacherClassIds.length !== 1) {
+    return { ok: false, message: "Class Teacher schedule should use only one class." };
+  }
+
+  if (role.key === "CLASS_TEACHER" && teacherScheduleParsed.rows.length > 0) {
+    const onlyClassId = classIds[0] ?? "";
+    if (teacherScheduleParsed.rows.some((row) => row.classId !== onlyClassId)) {
+      return { ok: false, message: "Class Teacher schedule should match the selected class only." };
+    }
+  }
+
+  if (teacherClassIds.length > 0) {
+    const validClasses = await db.class.findMany({
+      where: { schoolId: session.schoolId, id: { in: teacherClassIds } },
+      select: { id: true }
+    });
+    const validSet = new Set(validClasses.map((item) => item.id));
+    if (validSet.size !== teacherClassIds.length) {
+      return { ok: false, message: "One or more selected classes are invalid." };
+    }
+  }
+
+  let teacherScheduleYearId: string | null = null;
+  if (teacherScheduleParsed.rows.length > 0) {
+    const activeYear = await ensureActiveAcademicYearForSchool(session.schoolId);
+    teacherScheduleYearId = activeYear.id;
+
+    for (let i = 0; i < teacherScheduleParsed.rows.length; i += 1) {
+      for (let j = i + 1; j < teacherScheduleParsed.rows.length; j += 1) {
+        const current = teacherScheduleParsed.rows[i]!;
+        const next = teacherScheduleParsed.rows[j]!;
+        if (current.weekday !== next.weekday) continue;
+        const overlaps =
+          toMinutes(current.startTime) < toMinutes(next.endTime) &&
+          toMinutes(current.endTime) > toMinutes(next.startTime);
+        if (overlaps) {
+          return { ok: false, message: `Schedule row ${i + 1} overlaps with row ${j + 1}.` };
+        }
+      }
+    }
+
+    for (let i = 0; i < teacherScheduleParsed.rows.length; i += 1) {
+      const row = teacherScheduleParsed.rows[i]!;
+      const classConflict = await db.teacherTimetableEntry.findFirst({
+        where: {
+          schoolId: session.schoolId,
+          academicYearId: teacherScheduleYearId,
+          classId: row.classId,
+          weekday: row.weekday,
+          startTime: { lt: row.endTime },
+          endTime: { gt: row.startTime }
+        },
+        select: {
+          subjectName: true,
+          startTime: true,
+          endTime: true,
+          teacherUser: { select: { name: true } }
+        }
+      });
+      if (classConflict) {
+        return {
+          ok: false,
+          message: `Class timing conflict in schedule row ${i + 1} with ${classConflict.teacherUser.name} · ${classConflict.subjectName} (${classConflict.startTime}-${classConflict.endTime}).`
+        };
+      }
+    }
   }
 
   const enabledModuleRows = await db.schoolModule.findMany({
@@ -97,14 +261,14 @@ export async function createUserAction(
       data: {
         schoolId: session.schoolId,
         userId: user.id,
-        classId: classIds[0]!,
+        classId: teacherClassIds[0]!,
         isClassTeacher: true
       }
     });
   } else if (role.key === "TEACHER") {
-    if (classIds.length > 0) {
+    if (teacherClassIds.length > 0) {
       await db.teacherClassAssignment.createMany({
-        data: classIds.map((classId) => ({
+        data: teacherClassIds.map((classId) => ({
           schoolId: session.schoolId,
           userId: user.id,
           classId,
@@ -112,6 +276,23 @@ export async function createUserAction(
         }))
       });
     }
+  }
+
+  if (isTeacherRole && teacherScheduleParsed.rows.length > 0 && teacherScheduleYearId) {
+    await db.teacherTimetableEntry.createMany({
+      data: teacherScheduleParsed.rows.map((row) => ({
+        schoolId: session.schoolId,
+        academicYearId: teacherScheduleYearId!,
+        teacherUserId: user.id,
+        classId: row.classId,
+        subjectName: row.subjectName,
+        weekday: row.weekday,
+        startTime: row.startTime,
+        endTime: row.endTime,
+        room: row.room,
+        createdByUserId: session.userId
+      }))
+    });
   }
 
   if (role.key === "PARENT" && parsed.data.linkStudentId) {
