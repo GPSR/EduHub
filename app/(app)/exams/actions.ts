@@ -360,11 +360,9 @@ async function extractQuestionTextFromFile(file: File): Promise<string> {
 
   if (mime === "application/pdf" || ext === "pdf") {
     try {
-      const pdfModule = await import("pdf-parse");
-      const parser = (pdfModule as unknown as { default?: (dataBuffer: Buffer) => Promise<{ text?: string }> }).default;
-      if (!parser) return "";
-      const parsed = await parser(bytes);
-      return String(parsed.text ?? "");
+      const { extractText } = await import("unpdf");
+      const parsed = await extractText(new Uint8Array(bytes), { mergePages: true });
+      return typeof parsed.text === "string" ? parsed.text : "";
     } catch (error) {
       console.warn("PDF auto-conversion unavailable in current runtime.", error);
       return "";

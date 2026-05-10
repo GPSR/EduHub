@@ -19,7 +19,7 @@ const serverActionBodySizeLimit: ServerActionBodySizeLimit =
   (process.env.SERVER_ACTION_BODY_LIMIT as ServerActionBodySizeLimit | undefined) ?? "12mb";
 
 const nextConfig: NextConfig = {
-  serverExternalPackages: ["pdf-parse", "pdfjs-dist"],
+  serverExternalPackages: ["unpdf"],
   experimental: {
     serverActions: {
       // Keep action payloads bounded to reduce abuse risk.
