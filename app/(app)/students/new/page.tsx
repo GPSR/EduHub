@@ -7,7 +7,21 @@ import { createStudentAction } from "../actions";
 import { getSchoolStudentDemographicsConfig } from "@/lib/student-demographics";
 import { formatSchoolId } from "@/lib/id-sequence";
 
-export default async function NewStudentPage() {
+export default async function NewStudentPage({
+  searchParams
+}: {
+  searchParams: Promise<{ error?: string }>;
+}) {
+  const { error = "" } = await searchParams;
+  const errorMessages: Record<string, string> = {
+    parentContactRequired: "Parent email or parent mobile is required to invite/signup parent access.",
+    parentNameRequired: "Parent name is required.",
+    parentMobileInvalid: "Enter a valid parent mobile number.",
+    parentEmailInvalid: "Enter a valid parent email address.",
+    totalFeeInvalid: "Enter a valid total fee amount greater than 0."
+  };
+  const formError = error ? errorMessages[error] ?? "Please check the form details and try again." : null;
+
   const { session } = await requirePermission("STUDENTS", "EDIT");
   const [school, classes, demographicsConfig] = await Promise.all([
     db.school.findUnique({
@@ -47,6 +61,11 @@ export default async function NewStudentPage() {
       <SectionHeader title="Add Student" subtitle="Fill in the student's details below" />
 
       <Card>
+        {formError ? (
+          <div className="mb-4 rounded-[12px] border border-rose-500/25 bg-rose-500/12 px-3.5 py-2.5 text-[12px] text-rose-100">
+            {formError}
+          </div>
+        ) : null}
         <ConfirmableServerForm
           action={createStudentAction}
           className="grid grid-cols-1 md:grid-cols-2 gap-5"
@@ -152,17 +171,37 @@ export default async function NewStudentPage() {
           {/* ── Parent Details ── */}
           <div className="md:col-span-2 pt-3 border-t border-white/[0.07]">
             <p className="text-[11px] font-semibold uppercase tracking-wider text-white/35 mb-3">Parent Details</p>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
-                <Label>Parent name</Label>
-                <Input name="parentName" placeholder="e.g. John Smith" />
+                <Label required>Parent name</Label>
+                <Input name="parentName" placeholder="e.g. John Smith" required />
+              </div>
+              <div>
+                <Label>Parent email</Label>
+                <Input name="parentEmail" type="email" placeholder="parent@example.com" />
+                <p className="mt-1 text-[11px] text-white/35">Use email to send invite/signup link.</p>
               </div>
               <div>
                 <Label>Parent mobile</Label>
-                <Input name="parentMobile" placeholder="+1 555 123 4567" />
+                <Input name="parentMobile" type="tel" placeholder="+1 555 123 4567" />
+                <p className="mt-1 text-[11px] text-white/35">Enter parent email or mobile (at least one is required).</p>
               </div>
             </div>
           </div>
+
+          {/* ── Fee Details ── */}
+          {session.roleKey === "ADMIN" ? (
+            <div className="md:col-span-2 pt-3 border-t border-white/[0.07]">
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-white/35 mb-3">Fee Details</p>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label>Total fee ($)</Label>
+                  <Input name="totalFee" type="number" min="0" step="0.01" placeholder="e.g. 1200.00" />
+                  <p className="mt-1 text-[11px] text-white/35">This creates the student's total fee invoice so parents see the same amount in Fees.</p>
+                </div>
+              </div>
+            </div>
+          ) : null}
 
           {/* ── Actions ── */}
           <div className="md:col-span-2 pt-3 border-t border-white/[0.07] flex items-center justify-between">

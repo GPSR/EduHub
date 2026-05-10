@@ -8,7 +8,7 @@ import { requireSession } from "@/lib/require";
 import { atLeastLevel, getEffectivePermissions } from "@/lib/permissions";
 import { requirePermission } from "@/lib/require-permission";
 import { sendStudentFeeReminderAction } from "../../fees/actions";
-import { uploadStudentPhotoAction } from "../actions";
+import { updateStudentProgressionAction, uploadStudentPhotoAction } from "../actions";
 import { getAcademicYearContext, withAcademicYearParam } from "@/lib/academic-year";
 
 function centsToUsd(cents: number) {
@@ -30,12 +30,12 @@ export default async function StudentProfilePage({
   searchParams
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ reminder?: string; photoUpdated?: string; photoError?: string; ay?: string }>;
+  searchParams: Promise<{ reminder?: string; photoUpdated?: string; photoError?: string; promotion?: string; ay?: string }>;
 }) {
   await requirePermission("STUDENTS", "VIEW");
   const session = await requireSession();
   const { id } = await params;
-  const { reminder, photoUpdated, photoError, ay } = await searchParams;
+  const { reminder, photoUpdated, photoError, promotion, ay } = await searchParams;
   const yearContext = await getAcademicYearContext({ schoolId: session.schoolId, requestedYearId: ay });
   const selectedYear = yearContext.selectedYear;
 
@@ -60,8 +60,12 @@ export default async function StudentProfilePage({
       }
     : { schoolId: session.schoolId, scope: "SCHOOL" };
 
-  const [perms, feedPosts, invoices] = await Promise.all([
-    getEffectivePermissions({ schoolId: session.schoolId, userId: session.userId, roleId: session.roleId }),
+  const perms = await getEffectivePermissions({ schoolId: session.schoolId, userId: session.userId, roleId: session.roleId });
+  const canSendFeeReminder = perms["FEES"] ? atLeastLevel(perms["FEES"], "EDIT") : false;
+  const canEditStudents = session.roleKey === "ADMIN" || (perms["STUDENTS"] ? atLeastLevel(perms["STUDENTS"], "EDIT") : false);
+  const canManageProgression = canEditStudents && session.roleKey === "ADMIN";
+
+  const [feedPosts, invoices, selectedYearRow, promotionClasses] = await Promise.all([
     db.feedPost.findMany({
       where: feedWhere,
       select: { id: true, title: true, scope: true, authorId: true, createdAt: true },
@@ -81,7 +85,22 @@ export default async function StudentProfilePage({
       include: { payments: { select: { amountCents: true } } },
       orderBy: { createdAt: "desc" },
       take: 100
-    })
+    }),
+    db.studentAcademicYear.findUnique({
+      where: {
+        academicYearId_studentId: {
+          academicYearId: selectedYear.id,
+          studentId: student.id
+        }
+      },
+      select: { classId: true, rollNumber: true, status: true }
+    }),
+    canManageProgression
+      ? db.class.findMany({
+          where: { schoolId: session.schoolId },
+          select: { id: true, name: true, section: true }
+        })
+      : Promise.resolve([])
   ]);
 
   const authorIds = Array.from(new Set(feedPosts.map((post) => post.authorId)));
@@ -93,9 +112,29 @@ export default async function StudentProfilePage({
     : [];
   const authorNameById = new Map(authorRows.map((row) => [row.id, row.name]));
 
-  const canSendFeeReminder = perms["FEES"] ? atLeastLevel(perms["FEES"], "EDIT") : false;
-  const canEditStudents = perms["STUDENTS"] ? atLeastLevel(perms["STUDENTS"], "EDIT") : false;
   const canUploadStudentPhoto = session.roleKey === "PARENT" || canEditStudents;
+
+  const currentProgressStatus = selectedYearRow?.status ?? "ACTIVE";
+  const progressionStatusLabel =
+    currentProgressStatus === "GRADUATED"
+      ? "Inactive"
+      : currentProgressStatus === "PROMOTED"
+        ? "Promoted"
+        : "Active";
+
+  const classCollator = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" });
+  const sortedPromotionClasses = [...promotionClasses].sort((a, b) => {
+    const byName = classCollator.compare(a.name, b.name);
+    if (byName !== 0) return byName;
+    return classCollator.compare(a.section, b.section);
+  });
+  const progressionClassId = selectedYearRow?.classId ?? student.classId ?? null;
+  const progressionClassIndex = progressionClassId
+    ? sortedPromotionClasses.findIndex((row) => row.id === progressionClassId)
+    : -1;
+  const nextClass = progressionClassIndex >= 0 ? sortedPromotionClasses[progressionClassIndex + 1] : undefined;
+  const nextClassLabel = nextClass ? `${nextClass.name}${nextClass.section ? ` - ${nextClass.section}` : ""}` : null;
+
   const feeRows = invoices.map((invoice) => {
     const paidCents = invoice.payments.reduce((sum, payment) => sum + payment.amountCents, 0);
     const pendingCents = Math.max(0, invoice.amountCents - paidCents);
@@ -130,6 +169,36 @@ export default async function StudentProfilePage({
       {photoError === "1" && (
         <div className="rounded-2xl border border-rose-500/25 bg-rose-500/10 px-4 py-3 text-sm text-rose-100">
           Unable to upload photo. Please use JPG/PNG/WEBP up to 1.5MB.
+        </div>
+      )}
+      {promotion === "next" && (
+        <div className="rounded-2xl border border-emerald-500/25 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-100">
+          Student promoted to next class successfully.
+        </div>
+      )}
+      {promotion === "same" && (
+        <div className="rounded-2xl border border-emerald-500/25 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-100">
+          Student retained in the same class.
+        </div>
+      )}
+      {promotion === "inactive" && (
+        <div className="rounded-2xl border border-emerald-500/25 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-100">
+          Student marked as inactive.
+        </div>
+      )}
+      {promotion === "noNextClass" && (
+        <div className="rounded-2xl border border-amber-500/25 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
+          No next class available. Configure the next class in Settings.
+        </div>
+      )}
+      {promotion === "yearLocked" && (
+        <div className="rounded-2xl border border-rose-500/25 bg-rose-500/10 px-4 py-3 text-sm text-rose-100">
+          Selected academic year is closed and cannot be updated.
+        </div>
+      )}
+      {promotion === "yearNotActive" && (
+        <div className="rounded-2xl border border-amber-500/25 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
+          Switch to active academic year to update promotion status.
         </div>
       )}
 
@@ -192,6 +261,41 @@ export default async function StudentProfilePage({
           </div>
         </div>
       </div>
+
+      {canManageProgression && (
+        <div className="rounded-[18px] border border-white/[0.08] bg-white/[0.04] p-4 sm:p-5">
+          <div className="mb-3 flex flex-wrap items-center gap-2">
+            <p className="text-[14px] font-semibold text-white/94">Student Progression</p>
+            <Badge tone={currentProgressStatus === "GRADUATED" ? "danger" : "info"}>
+              {progressionStatusLabel}
+            </Badge>
+            <Badge tone="neutral">{selectedYear.name}</Badge>
+          </div>
+          <form action={updateStudentProgressionAction} className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-3 items-end">
+            <input type="hidden" name="studentId" value={student.id} />
+            <input type="hidden" name="academicYearId" value={selectedYear.id} />
+            <input type="hidden" name="returnTo" value={withAcademicYearParam(`/students/${student.id}`, selectedYear.id)} />
+            <div>
+              <label className="mb-1 block text-[12px] text-white/60">Promotion action</label>
+              <select
+                name="outcome"
+                className="w-full rounded-[13px] bg-black/25 border border-white/[0.09] px-3.5 py-2.5 text-base sm:text-sm text-white outline-none"
+                defaultValue={nextClassLabel ? "NEXT_CLASS" : "SAME_CLASS"}
+              >
+                <option value="NEXT_CLASS" disabled={!nextClassLabel}>
+                  {nextClassLabel ? `Next class (${nextClassLabel})` : "Next class (not available)"}
+                </option>
+                <option value="SAME_CLASS">Same class</option>
+                <option value="INACTIVE">Inactive</option>
+              </select>
+              <p className="mt-1 text-[11px] text-white/40">
+                Applies to active year only. Inactive removes class assignment for this student.
+              </p>
+            </div>
+            <Button type="submit" size="sm">Update progression</Button>
+          </form>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 gap-4 sm:gap-5">
         <CollapsibleSection title="Academic Information" subtitle="Class, admission, and identity details">

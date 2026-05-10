@@ -9,7 +9,10 @@ import { z } from "zod";
 import { formatSchoolId } from "@/lib/id-sequence";
 import { auditLog } from "@/lib/audit";
 import { clearUserProfileImages, deleteUploadedImageByUrl, saveUploadedImage, saveUserProfileImage } from "@/lib/uploads";
-import { ensureActiveAcademicYearForSchool } from "@/lib/academic-year";
+import { ensureActiveAcademicYearForSchool, withAcademicYearParam } from "@/lib/academic-year";
+import { randomToken } from "@/lib/token";
+import { resolveSchoolAppBaseUrl } from "@/lib/app-env";
+import { sendTransactionalEmail } from "@/lib/mailer";
 
 const StudentCreateSchema = z.object({
   fullName: z.string().min(2),
@@ -20,8 +23,9 @@ const StudentCreateSchema = z.object({
   dateOfBirth: z.string().optional(),
   bloodGroup: z.string().optional(),
   address: z.string().optional(),
-  parentName: z.string().optional(),
-  parentMobile: z.string().optional(),
+  parentName: z.string().min(2),
+  parentMobile: z.string().regex(/^\+?[0-9][0-9()\-\s]{6,19}$/).optional(),
+  parentEmail: z.string().email().optional(),
   transportDetails: z.string().optional(),
   medicalNotes: z.string().optional()
 });
@@ -55,9 +59,217 @@ const StudentUpdateSchema = z.object({
   pickupAuthDetails: z.string().optional()
 });
 
+const StudentProgressionSchema = z.object({
+  studentId: z.string().min(1),
+  academicYearId: z.string().min(1),
+  outcome: z.enum(["NEXT_CLASS", "SAME_CLASS", "INACTIVE"]),
+  returnTo: z.string().optional()
+});
+
+function normalizeEmail(value: string) {
+  return value.trim().toLowerCase();
+}
+
+function isParentRole(roleKey?: string | null) {
+  const normalized = String(roleKey ?? "").trim().toUpperCase();
+  return normalized === "PARENT" || normalized.startsWith("PARENT_");
+}
+
+function escapeHtml(input: string) {
+  return input
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll("\"", "&quot;")
+    .replaceAll("'", "&#39;");
+}
+
+function buildParentEnrollmentInviteEmail(args: {
+  schoolName: string;
+  studentName: string;
+  inviteUrl: string;
+  expiresAt: Date;
+}) {
+  const schoolName = escapeHtml(args.schoolName);
+  const studentName = escapeHtml(args.studentName);
+  const inviteUrl = escapeHtml(args.inviteUrl);
+  const expiresText = new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "2-digit",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit"
+  }).format(args.expiresAt);
+
+  const subject = `Parent Enrollment Invite | ${args.schoolName}`;
+  const text = [
+    `You are invited to enroll in EduHub for ${args.schoolName}.`,
+    "",
+    `Student: ${args.studentName}`,
+    "Create your parent account using this secure link:",
+    args.inviteUrl,
+    "",
+    `This invite expires on ${expiresText}.`,
+    "If you did not expect this invitation, you can ignore this email."
+  ].join("\n");
+
+  const html = `
+  <div style="font-family:Arial,sans-serif;line-height:1.5;color:#0f172a;max-width:620px;margin:0 auto;">
+    <h2 style="margin:0 0 12px;">Welcome to EduHub</h2>
+    <p style="margin:0 0 12px;">You are invited to enroll in <strong>${schoolName}</strong> as a parent user.</p>
+    <p style="margin:0 0 12px;"><strong>Student:</strong> ${studentName}</p>
+    <p style="margin:0 0 16px;">Use the secure link below to create your parent account:</p>
+    <p style="margin:0 0 20px;">
+      <a href="${inviteUrl}" style="display:inline-block;background:#1d4ed8;color:#fff;text-decoration:none;padding:10px 16px;border-radius:8px;font-weight:600;">
+        Enroll Parent Account
+      </a>
+    </p>
+    <p style="margin:0 0 8px;font-size:13px;color:#334155;">Or copy this URL:</p>
+    <p style="margin:0 0 16px;font-size:13px;word-break:break-all;color:#1e3a8a;">${inviteUrl}</p>
+    <p style="margin:0 0 4px;font-size:13px;color:#334155;">This invite expires on <strong>${escapeHtml(expiresText)}</strong>.</p>
+    <p style="margin:0;font-size:12px;color:#64748b;">If you did not expect this invitation, you can ignore this email.</p>
+  </div>`;
+
+  return { subject, text, html };
+}
+
+async function ensureParentEnrollmentAccessForStudent(args: {
+  schoolId: string;
+  actorUserId: string;
+  schoolName: string;
+  studentId: string;
+  studentName: string;
+  parentEmail: string;
+}) {
+  const normalizedParentEmail = normalizeEmail(args.parentEmail);
+  if (!normalizedParentEmail) return;
+
+  try {
+    const existingUser = await db.user.findFirst({
+      where: { schoolId: args.schoolId, email: normalizedParentEmail },
+      select: { id: true, schoolRole: { select: { key: true } } }
+    });
+
+    if (existingUser) {
+      if (isParentRole(existingUser.schoolRole.key)) {
+        await db.studentParent.createMany({
+          data: [
+            {
+              schoolId: args.schoolId,
+              studentId: args.studentId,
+              userId: existingUser.id,
+              relation: "Parent"
+            }
+          ],
+          skipDuplicates: true
+        });
+        await auditLog({
+          actor: { type: "SCHOOL_USER", id: args.actorUserId, schoolId: args.schoolId },
+          action: "STUDENT_PARENT_LINKED_TO_EXISTING_PARENT_USER",
+          entityType: "Student",
+          entityId: args.studentId,
+          metadata: { parentEmail: normalizedParentEmail, existingUserId: existingUser.id }
+        });
+      } else {
+        await auditLog({
+          actor: { type: "SCHOOL_USER", id: args.actorUserId, schoolId: args.schoolId },
+          action: "STUDENT_PARENT_INVITE_SKIPPED_EMAIL_ALREADY_IN_USE",
+          entityType: "Student",
+          entityId: args.studentId,
+          metadata: { parentEmail: normalizedParentEmail, existingUserRole: existingUser.schoolRole.key }
+        });
+      }
+      return;
+    }
+
+    const parentRole = await db.schoolRole.findFirst({
+      where: { schoolId: args.schoolId, key: "PARENT" },
+      select: { id: true }
+    });
+    if (!parentRole) {
+      await auditLog({
+        actor: { type: "SCHOOL_USER", id: args.actorUserId, schoolId: args.schoolId },
+        action: "STUDENT_PARENT_INVITE_SKIPPED_ROLE_MISSING",
+        entityType: "Student",
+        entityId: args.studentId,
+        metadata: { parentEmail: normalizedParentEmail }
+      });
+      return;
+    }
+
+    const token = randomToken(24);
+    const expiresAt = new Date(Date.now() + 30 * 60 * 1000);
+    await db.schoolInvite.create({
+      data: {
+        schoolId: args.schoolId,
+        email: normalizedParentEmail,
+        schoolRoleId: parentRole.id,
+        token,
+        expiresAt
+      }
+    });
+
+    const inviteUrl = `${resolveSchoolAppBaseUrl()}/accept-invite?token=${encodeURIComponent(token)}`;
+    const mail = buildParentEnrollmentInviteEmail({
+      schoolName: args.schoolName,
+      studentName: args.studentName,
+      inviteUrl,
+      expiresAt
+    });
+    const emailResult = await sendTransactionalEmail({
+      to: normalizedParentEmail,
+      subject: mail.subject,
+      text: mail.text,
+      html: mail.html
+    });
+
+    await auditLog({
+      actor: { type: "SCHOOL_USER", id: args.actorUserId, schoolId: args.schoolId },
+      action: "STUDENT_PARENT_ENROLLMENT_INVITE_CREATED",
+      entityType: "Student",
+      entityId: args.studentId,
+      metadata: {
+        parentEmail: normalizedParentEmail,
+        emailSent: emailResult.sent,
+        emailReason: "reason" in emailResult ? emailResult.reason : null
+      }
+    });
+  } catch (error) {
+    await auditLog({
+      actor: { type: "SCHOOL_USER", id: args.actorUserId, schoolId: args.schoolId },
+      action: "STUDENT_PARENT_ENROLLMENT_INVITE_FAILED",
+      entityType: "Student",
+      entityId: args.studentId,
+      metadata: {
+        parentEmail: normalizedParentEmail,
+        error: error instanceof Error ? error.message : "invite_send_failed"
+      }
+    });
+  }
+}
+
 export async function createStudentAction(formData: FormData) {
   const { session } = await requirePermission("STUDENTS", "EDIT");
   const activeYear = await ensureActiveAcademicYearForSchool(session.schoolId);
+  const parentMobile = String(formData.get("parentMobile") ?? "").trim() || undefined;
+  const parentEmail = String(formData.get("parentEmail") ?? "").trim().toLowerCase() || undefined;
+  const totalFeeRaw = String(formData.get("totalFee") ?? "").trim();
+  let totalFeeCents: number | null = null;
+
+  if (totalFeeRaw.length > 0) {
+    const totalFeeAmount = Number(totalFeeRaw);
+    if (!Number.isFinite(totalFeeAmount) || totalFeeAmount <= 0) {
+      redirect("/students/new?error=totalFeeInvalid");
+    }
+    totalFeeCents = Math.round(totalFeeAmount * 100);
+    if (!Number.isFinite(totalFeeCents) || totalFeeCents <= 0) {
+      redirect("/students/new?error=totalFeeInvalid");
+    }
+  }
+
+  if (!parentMobile && !parentEmail) {
+    redirect("/students/new?error=parentContactRequired");
+  }
 
   const parsed = StudentCreateSchema.safeParse({
     fullName: formData.get("fullName"),
@@ -69,11 +281,18 @@ export async function createStudentAction(formData: FormData) {
     bloodGroup: String(formData.get("bloodGroup") ?? "").trim() || undefined,
     address: String(formData.get("address") ?? "").trim() || undefined,
     parentName: String(formData.get("parentName") ?? "").trim() || undefined,
-    parentMobile: String(formData.get("parentMobile") ?? "").trim() || undefined,
+    parentMobile,
+    parentEmail,
     transportDetails: String(formData.get("transportDetails") ?? "").trim() || undefined,
     medicalNotes: String(formData.get("medicalNotes") ?? "").trim() || undefined
   });
-  if (!parsed.success) throw new Error("Unable to process request.");
+  if (!parsed.success) {
+    const firstPath = String(parsed.error.issues[0]?.path?.[0] ?? "");
+    if (firstPath === "parentName") redirect("/students/new?error=parentNameRequired");
+    if (firstPath === "parentMobile") redirect("/students/new?error=parentMobileInvalid");
+    if (firstPath === "parentEmail") redirect("/students/new?error=parentEmailInvalid");
+    throw new Error("Unable to process request.");
+  }
 
   let classId: string | null = null;
   if (parsed.data.classId) {
@@ -101,7 +320,7 @@ export async function createStudentAction(formData: FormData) {
     classId = cls.id;
   }
 
-  const student = await db.$transaction(async (tx) => {
+  const created = await db.$transaction(async (tx) => {
     const school = await tx.school.findUnique({ where: { id: session.schoolId } });
     if (!school) throw new Error("Unable to process request.");
 
@@ -136,6 +355,7 @@ export async function createStudentAction(formData: FormData) {
         address: parsed.data.address || undefined,
         fatherName: parsed.data.parentName || undefined,
         parentMobiles: parsed.data.parentMobile || undefined,
+        parentEmails: parsed.data.parentEmail || undefined,
         transportDetails: parsed.data.transportDetails || undefined,
         medicalNotes: parsed.data.medicalNotes || undefined
       }
@@ -165,10 +385,34 @@ export async function createStudentAction(formData: FormData) {
       }
     });
 
-    return createdStudent;
+    if (session.roleKey === "ADMIN" && totalFeeCents !== null) {
+      await tx.feeInvoice.create({
+        data: {
+          schoolId: session.schoolId,
+          academicYearId: activeYear.id,
+          studentId: createdStudent.id,
+          title: `Total Fee - ${activeYear.name}`,
+          amountCents: totalFeeCents,
+          dueOn: null
+        }
+      });
+    }
+
+    return { student: createdStudent, schoolName: school.name };
   });
 
-  redirect(`/students/${student.id}`);
+  if (parsed.data.parentEmail) {
+    await ensureParentEnrollmentAccessForStudent({
+      schoolId: session.schoolId,
+      actorUserId: session.userId,
+      schoolName: created.schoolName,
+      studentId: created.student.id,
+      studentName: created.student.fullName,
+      parentEmail: parsed.data.parentEmail
+    });
+  }
+
+  redirect(`/students/${created.student.id}`);
 }
 
 function normalizeOptional(value: FormDataEntryValue | null) {
@@ -191,7 +435,7 @@ function firstCsvValue(value?: string | null) {
   return first ?? null;
 }
 
-function safeReturnPath(value: FormDataEntryValue | null, fallback: string) {
+function safeReturnPath(value: FormDataEntryValue | string | null | undefined, fallback: string) {
   const raw = String(value ?? "").trim();
   if (!raw) return fallback;
   if (!raw.startsWith("/") || raw.startsWith("//")) return fallback;
@@ -203,6 +447,155 @@ function withQuery(path: string, key: string, value: string) {
   return `${path}${glue}${encodeURIComponent(key)}=${encodeURIComponent(value)}`;
 }
 
+function classComparator(a: { name: string; section: string }, b: { name: string; section: string }) {
+  const collator = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" });
+  const byName = collator.compare(a.name, b.name);
+  if (byName !== 0) return byName;
+  return collator.compare(a.section, b.section);
+}
+
+export async function updateStudentProgressionAction(formData: FormData) {
+  const { session } = await requirePermission("STUDENTS", "EDIT");
+  if (session.roleKey !== "ADMIN") throw new Error("Only school admin can update student progression.");
+
+  const parsed = StudentProgressionSchema.safeParse({
+    studentId: String(formData.get("studentId") ?? "").trim(),
+    academicYearId: String(formData.get("academicYearId") ?? "").trim(),
+    outcome: String(formData.get("outcome") ?? "").trim(),
+    returnTo: String(formData.get("returnTo") ?? "").trim() || undefined
+  });
+  if (!parsed.success) throw new Error("Unable to update student progression.");
+
+  const defaultReturn = withAcademicYearParam(`/students/${parsed.data.studentId}`, parsed.data.academicYearId);
+  const returnTo = safeReturnPath(parsed.data.returnTo, defaultReturn);
+
+  const [student, year] = await Promise.all([
+    db.student.findFirst({
+      where: { id: parsed.data.studentId, schoolId: session.schoolId },
+      select: { id: true, fullName: true, classId: true, rollNumber: true }
+    }),
+    db.academicYear.findFirst({
+      where: { id: parsed.data.academicYearId, schoolId: session.schoolId },
+      select: { id: true, name: true, status: true, isActive: true }
+    })
+  ]);
+  if (!student || !year) throw new Error("Unable to process request.");
+
+  if (year.status === "CLOSED") {
+    redirect(withQuery(returnTo, "promotion", "yearLocked"));
+  }
+  if (!year.isActive) {
+    redirect(withQuery(returnTo, "promotion", "yearNotActive"));
+  }
+
+  const currentYearRow = await db.studentAcademicYear.findUnique({
+    where: {
+      academicYearId_studentId: {
+        academicYearId: year.id,
+        studentId: student.id
+      }
+    },
+    select: { classId: true, rollNumber: true }
+  });
+
+  const currentClassId = currentYearRow?.classId ?? student.classId ?? null;
+  const currentRollNumber = currentYearRow?.rollNumber ?? student.rollNumber ?? null;
+  let nextClassId = currentClassId;
+  let nextRollNumber = currentRollNumber;
+  let status: "ACTIVE" | "GRADUATED" = "ACTIVE";
+  let promotedAt: Date | null = null;
+  let graduatedAt: Date | null = null;
+  let resultKey: "next" | "same" | "inactive" = "same";
+
+  if (parsed.data.outcome === "NEXT_CLASS") {
+    if (!currentClassId) {
+      redirect(withQuery(returnTo, "promotion", "noNextClass"));
+    }
+    const classes = await db.class.findMany({
+      where: { schoolId: session.schoolId },
+      select: { id: true, name: true, section: true }
+    });
+    const sortedClasses = [...classes].sort(classComparator);
+    const currentIndex = sortedClasses.findIndex((row) => row.id === currentClassId);
+    if (currentIndex < 0 || currentIndex >= sortedClasses.length - 1) {
+      redirect(withQuery(returnTo, "promotion", "noNextClass"));
+    }
+    nextClassId = sortedClasses[currentIndex + 1].id;
+    const nextClassStrength = await db.student.count({
+      where: { schoolId: session.schoolId, classId: nextClassId, id: { not: student.id } }
+    });
+    nextRollNumber = String(nextClassStrength + 1);
+    promotedAt = new Date();
+    resultKey = "next";
+  } else if (parsed.data.outcome === "SAME_CLASS") {
+    if (nextClassId && !nextRollNumber) {
+      const classStrength = await db.student.count({
+        where: { schoolId: session.schoolId, classId: nextClassId, id: { not: student.id } }
+      });
+      nextRollNumber = String(classStrength + 1);
+    }
+    resultKey = "same";
+  } else {
+    nextClassId = null;
+    nextRollNumber = null;
+    status = "GRADUATED";
+    graduatedAt = new Date();
+    resultKey = "inactive";
+  }
+
+  await db.$transaction(async (tx) => {
+    await tx.studentAcademicYear.upsert({
+      where: {
+        academicYearId_studentId: {
+          academicYearId: year.id,
+          studentId: student.id
+        }
+      },
+      update: {
+        classId: nextClassId,
+        rollNumber: nextRollNumber,
+        status,
+        promotedAt,
+        graduatedAt
+      },
+      create: {
+        schoolId: session.schoolId,
+        academicYearId: year.id,
+        studentId: student.id,
+        classId: nextClassId,
+        rollNumber: nextRollNumber,
+        status,
+        promotedAt,
+        graduatedAt
+      }
+    });
+
+    await tx.student.update({
+      where: { id: student.id },
+      data: {
+        classId: nextClassId,
+        rollNumber: nextRollNumber
+      }
+    });
+  });
+
+  await auditLog({
+    actor: { type: "SCHOOL_USER", id: session.userId, schoolId: session.schoolId },
+    action: "STUDENT_PROGRESSION_UPDATED",
+    entityType: "Student",
+    entityId: student.id,
+    schoolId: session.schoolId,
+    metadata: {
+      academicYearId: year.id,
+      academicYearName: year.name,
+      outcome: parsed.data.outcome,
+      updatedClassId: nextClassId
+    }
+  });
+
+  redirect(withQuery(returnTo, "promotion", resultKey));
+}
+
 export async function updateStudentAction(formData: FormData) {
   const session = await requireSession();
   const perms = await getEffectivePermissions({
@@ -210,7 +603,7 @@ export async function updateStudentAction(formData: FormData) {
     userId: session.userId,
     roleId: session.roleId
   });
-  const canEditStudents = perms["STUDENTS"] ? atLeastLevel(perms["STUDENTS"], "EDIT") : false;
+  const canEditStudents = session.roleKey === "ADMIN" || (perms["STUDENTS"] ? atLeastLevel(perms["STUDENTS"], "EDIT") : false);
 
   const parsed = StudentUpdateSchema.safeParse({
     id: formData.get("id"),
@@ -474,7 +867,7 @@ export async function uploadStudentPhotoAction(formData: FormData) {
     userId: session.userId,
     roleId: session.roleId
   });
-  const canEditStudents = perms["STUDENTS"] ? atLeastLevel(perms["STUDENTS"], "EDIT") : false;
+  const canEditStudents = session.roleKey === "ADMIN" || (perms["STUDENTS"] ? atLeastLevel(perms["STUDENTS"], "EDIT") : false);
 
   const student = await db.student.findFirst({
     where: canEditStudents

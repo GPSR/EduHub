@@ -7,6 +7,8 @@ import { requirePermission } from "@/lib/require-permission";
 import { DashboardGlobalSearch } from "../dashboard-global-search";
 import { FolderSlideshow } from "../gallery/folder-slideshow";
 import { getLatestGallerySlideshow } from "@/lib/latest-gallery-slideshow";
+import { getAcademicYearContext, withAcademicYearParam } from "@/lib/academic-year";
+import { parseStudentTransportAssignment } from "@/lib/transport";
 
 function avatarColor(name: string) {
   const colors = [
@@ -24,32 +26,74 @@ function avatarColor(name: string) {
 export default async function StudentsPage({
   searchParams
 }: {
-  searchParams: Promise<{ q?: string }>;
+  searchParams: Promise<{ q?: string; classId?: string; status?: string; routeId?: string; ay?: string }>;
 }) {
   await requirePermission("STUDENTS", "VIEW");
   const session = await requireSession();
-  const { q } = await searchParams;
+  const { q, classId, status, routeId, ay } = await searchParams;
   const query = (q ?? "").trim();
   const normalizedQuery = query.toLowerCase();
+  const selectedClassId = (classId ?? "").trim();
+  const selectedStatus = (status ?? "").trim().toUpperCase();
+  const selectedRouteId = (routeId ?? "").trim();
   const perms = await getEffectivePermissions({
     schoolId: session.schoolId,
     userId: session.userId,
     roleId: session.roleId,
   });
   const canWrite = perms["STUDENTS"] ? atLeastLevel(perms["STUDENTS"], "EDIT") : false;
+  const isSchoolAdmin = session.roleKey === "ADMIN";
+  const yearContext = await getAcademicYearContext({
+    schoolId: session.schoolId,
+    requestedYearId: ay
+  });
+  const selectedYear = yearContext.selectedYear;
 
-  const [students, quickSearchTeachers, latestSlideshow] = await Promise.all([
+  const shouldFilterByStatus =
+    isSchoolAdmin && (selectedStatus === "ACTIVE" || selectedStatus === "PROMOTED" || selectedStatus === "INACTIVE");
+  const statusDbValue = selectedStatus === "INACTIVE" ? "GRADUATED" : selectedStatus;
+  const shouldFilterByClass = isSchoolAdmin && selectedClassId.length > 0;
+  const shouldFilterByRoute = isSchoolAdmin && selectedRouteId.length > 0;
+
+  const [students, quickSearchTeachers, latestSlideshow, classes, routes] = await Promise.all([
     session.roleKey === "PARENT"
       ? db.student.findMany({
           where: { schoolId: session.schoolId, parents: { some: { userId: session.userId } } },
           orderBy: { fullName: "asc" },
-          include: { class: true },
+          include: {
+            class: true,
+            studentAcademicYears: {
+              where: { academicYearId: selectedYear.id },
+              select: { status: true },
+              take: 1
+            }
+          },
         })
       : db.student.findMany({
-          where: { schoolId: session.schoolId },
+          where: {
+            schoolId: session.schoolId,
+            ...(shouldFilterByClass ? { classId: selectedClassId } : {}),
+            ...(shouldFilterByRoute
+              ? { transportDetails: { contains: `"routeId":"${selectedRouteId}"` } }
+              : {}),
+            ...(shouldFilterByStatus
+              ? {
+                  studentAcademicYears: {
+                    some: { academicYearId: selectedYear.id, status: statusDbValue as "ACTIVE" | "PROMOTED" | "GRADUATED" }
+                  }
+                }
+              : {})
+          },
           orderBy: { createdAt: "desc" },
           take: 220,
-          include: { class: true },
+          include: {
+            class: true,
+            studentAcademicYears: {
+              where: { academicYearId: selectedYear.id },
+              select: { status: true },
+              take: 1
+            }
+          },
         }),
     session.roleKey === "ADMIN"
       ? db.user.findMany({
@@ -72,7 +116,21 @@ export default async function StudentsPage({
       roleKey: session.roleKey,
       roleId: session.roleId,
       take: 20
-    })
+    }),
+    isSchoolAdmin
+      ? db.class.findMany({
+          where: { schoolId: session.schoolId },
+          orderBy: [{ name: "asc" }, { section: "asc" }],
+          select: { id: true, name: true, section: true }
+        })
+      : Promise.resolve([]),
+    isSchoolAdmin
+      ? db.busRoute.findMany({
+          where: { schoolId: session.schoolId },
+          orderBy: { name: "asc" },
+          select: { id: true, name: true, bus: { select: { name: true } } }
+        })
+      : Promise.resolve([])
   ]);
 
   const filteredStudents = query
@@ -82,6 +140,8 @@ export default async function StudentsPage({
           .includes(normalizedQuery)
       )
     : students;
+  const routeNameById = new Map(routes.map((route) => [route.id, route.name]));
+  const hasActiveFilters = Boolean(selectedClassId || selectedStatus || selectedRouteId);
 
   return (
     <div className="space-y-5 animate-fade-up">
@@ -91,7 +151,7 @@ export default async function StudentsPage({
           subtitle={
             query
               ? `${filteredStudents.length} result${filteredStudents.length !== 1 ? "s" : ""} for "${query}"`
-              : `${students.length} student${students.length !== 1 ? "s" : ""} enrolled`
+              : `${students.length} student${students.length !== 1 ? "s" : ""} enrolled · ${selectedYear.name}`
           }
         />
         {canWrite && (
@@ -122,6 +182,64 @@ export default async function StudentsPage({
         />
       </Card>
 
+      {isSchoolAdmin ? (
+        <Card>
+          <form method="get" className="grid grid-cols-1 md:grid-cols-[1fr_1fr_1fr_auto_auto] gap-3 items-end">
+            <input type="hidden" name="q" value={query} />
+            <input type="hidden" name="ay" value={selectedYear.id} />
+            <div>
+              <label className="mb-1 block text-[12px] text-white/60">Class</label>
+              <select
+                name="classId"
+                defaultValue={selectedClassId}
+                className="w-full rounded-[13px] bg-black/25 border border-white/[0.09] px-3.5 py-2.5 text-base sm:text-sm text-white outline-none"
+              >
+                <option value="">All classes</option>
+                {classes.map((row) => (
+                  <option key={row.id} value={row.id}>
+                    {row.name}{row.section ? ` - ${row.section}` : ""}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="mb-1 block text-[12px] text-white/60">Student status</label>
+              <select
+                name="status"
+                defaultValue={selectedStatus}
+                className="w-full rounded-[13px] bg-black/25 border border-white/[0.09] px-3.5 py-2.5 text-base sm:text-sm text-white outline-none"
+              >
+                <option value="">All status</option>
+                <option value="ACTIVE">Active</option>
+                <option value="PROMOTED">Promoted</option>
+                <option value="INACTIVE">Inactive</option>
+              </select>
+            </div>
+            <div>
+              <label className="mb-1 block text-[12px] text-white/60">Bus route location</label>
+              <select
+                name="routeId"
+                defaultValue={selectedRouteId}
+                className="w-full rounded-[13px] bg-black/25 border border-white/[0.09] px-3.5 py-2.5 text-base sm:text-sm text-white outline-none"
+              >
+                <option value="">All routes</option>
+                {routes.map((route) => (
+                  <option key={route.id} value={route.id}>
+                    {route.name}{route.bus?.name ? ` (${route.bus.name})` : ""}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <Button type="submit" size="sm">Apply</Button>
+            <Link href={withAcademicYearParam("/students", selectedYear.id)}>
+              <Button type="button" variant="ghost" size="sm" className={!hasActiveFilters ? "opacity-60" : ""}>
+                Reset
+              </Button>
+            </Link>
+          </form>
+        </Card>
+      ) : null}
+
       {latestSlideshow ? (
         <Card
           className="hidden md:block"
@@ -151,6 +269,10 @@ export default async function StudentsPage({
             {filteredStudents.map((s, i) => {
               const initials = s.fullName.trim().split(/\s+/).map((p: string) => p[0]).slice(0, 2).join("").toUpperCase();
               const className = s.class ? `${s.class.name}${s.class.section ? `-${s.class.section}` : ""}` : null;
+              const statusRaw = s.studentAcademicYears[0]?.status ?? "ACTIVE";
+              const statusLabel = statusRaw === "GRADUATED" ? "Inactive" : statusRaw === "PROMOTED" ? "Promoted" : "Active";
+              const routeAssignment = parseStudentTransportAssignment(s.transportDetails);
+              const routeLabel = routeAssignment?.routeId ? routeNameById.get(routeAssignment.routeId) ?? null : null;
               return (
                 <Link
                   key={s.id}
@@ -171,6 +293,8 @@ export default async function StudentsPage({
                       <span>ID: {s.studentId}</span>
                       {s.rollNumber && <span>• Roll: {s.rollNumber}</span>}
                       {className && <span>• {className}</span>}
+                      {isSchoolAdmin ? <span>• {statusLabel}</span> : null}
+                      {isSchoolAdmin && routeLabel ? <span>• Route: {routeLabel}</span> : null}
                     </div>
                   </div>
                   {/* Chevron */}

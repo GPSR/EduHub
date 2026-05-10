@@ -24,7 +24,7 @@ export default async function EditStudentPage({ params }: { params: Promise<{ id
     userId: session.userId,
     roleId: session.roleId
   });
-  const canEditStudents = perms["STUDENTS"] ? atLeastLevel(perms["STUDENTS"], "EDIT") : false;
+  const canEditStudents = session.roleKey === "ADMIN" || (perms["STUDENTS"] ? atLeastLevel(perms["STUDENTS"], "EDIT") : false);
   const { id } = await params;
 
   const student = await db.student.findFirst({

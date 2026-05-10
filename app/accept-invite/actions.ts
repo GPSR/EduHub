@@ -15,6 +15,44 @@ const Schema = z.object({
   password: z.string().min(10, "Password must be at least 10 characters.")
 });
 
+function normalizeEmail(value: string) {
+  return value.trim().toLowerCase();
+}
+
+function csvContainsEmail(csv: string | null | undefined, email: string) {
+  if (!csv) return false;
+  const normalized = normalizeEmail(email);
+  return csv
+    .split(/[,;]+/)
+    .map((part) => normalizeEmail(part))
+    .some((part) => part.length > 0 && part === normalized);
+}
+
+async function linkParentUserToStudentsByEmail(args: { schoolId: string; userId: string; email: string }) {
+  const candidates = await db.student.findMany({
+    where: {
+      schoolId: args.schoolId,
+      parentEmails: { contains: args.email, mode: "insensitive" }
+    },
+    select: { id: true, parentEmails: true }
+  });
+
+  const studentIds = candidates
+    .filter((student) => csvContainsEmail(student.parentEmails, args.email))
+    .map((student) => student.id);
+  if (studentIds.length === 0) return;
+
+  await db.studentParent.createMany({
+    data: studentIds.map((studentId) => ({
+      schoolId: args.schoolId,
+      studentId,
+      userId: args.userId,
+      relation: "Parent"
+    })),
+    skipDuplicates: true
+  });
+}
+
 export async function acceptInviteAction(
   _prev: AcceptInviteState,
   formData: FormData
@@ -26,7 +64,10 @@ export async function acceptInviteAction(
   });
   if (!parsed.success) return { ok: false, message: parsed.error.issues[0]?.message };
 
-  const invite = await db.schoolInvite.findUnique({ where: { token: parsed.data.token } });
+  const invite = await db.schoolInvite.findUnique({
+    where: { token: parsed.data.token },
+    include: { schoolRole: { select: { id: true, key: true } } }
+  });
   if (!invite) return { ok: false, message: "Invite link is invalid." };
   if (invite.usedAt) return { ok: false, message: "This invite link has already been used." };
   if (invite.expiresAt.getTime() < Date.now()) return { ok: false, message: "This invite link has expired." };
@@ -52,8 +93,19 @@ export async function acceptInviteAction(
     data: { usedAt: new Date() }
   });
 
-  const role = await db.schoolRole.findUnique({ where: { id: invite.schoolRoleId } });
-  if (!role) return { ok: false, message: "Invite is misconfigured (missing role)." };
-  await createSessionCookie({ userId: user.id, schoolId: invite.schoolId, roleId: role.id, roleKey: role.key });
-  redirect(getDefaultSchoolHomePath(role.key));
+  if (invite.schoolRole.key === "PARENT") {
+    await linkParentUserToStudentsByEmail({
+      schoolId: invite.schoolId,
+      userId: user.id,
+      email: invite.email
+    });
+  }
+
+  await createSessionCookie({
+    userId: user.id,
+    schoolId: invite.schoolId,
+    roleId: invite.schoolRole.id,
+    roleKey: invite.schoolRole.key
+  });
+  redirect(getDefaultSchoolHomePath(invite.schoolRole.key));
 }
