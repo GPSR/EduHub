@@ -65,7 +65,7 @@ export default async function StudentProfilePage({
   const canEditStudents = session.roleKey === "ADMIN" || (perms["STUDENTS"] ? atLeastLevel(perms["STUDENTS"], "EDIT") : false);
   const canManageProgression = canEditStudents && session.roleKey === "ADMIN";
 
-  const [feedPosts, invoices, selectedYearRow, promotionClasses] = await Promise.all([
+  const [feedPosts, invoices, selectedYearRow, promotionClasses, lastKnownPlacement] = await Promise.all([
     db.feedPost.findMany({
       where: feedWhere,
       select: { id: true, title: true, scope: true, authorId: true, createdAt: true },
@@ -100,7 +100,18 @@ export default async function StudentProfilePage({
           where: { schoolId: session.schoolId },
           select: { id: true, name: true, section: true }
         })
-      : Promise.resolve([])
+      : Promise.resolve([]),
+    canManageProgression
+      ? db.studentAcademicYear.findFirst({
+          where: {
+            schoolId: session.schoolId,
+            studentId: student.id,
+            classId: { not: null }
+          },
+          orderBy: { updatedAt: "desc" },
+          select: { classId: true }
+        })
+      : Promise.resolve(null)
   ]);
 
   const authorIds = Array.from(new Set(feedPosts.map((post) => post.authorId)));
@@ -128,7 +139,7 @@ export default async function StudentProfilePage({
     if (byName !== 0) return byName;
     return classCollator.compare(a.section, b.section);
   });
-  const progressionClassId = selectedYearRow?.classId ?? student.classId ?? null;
+  const progressionClassId = selectedYearRow?.classId ?? student.classId ?? lastKnownPlacement?.classId ?? null;
   const progressionClassIndex = progressionClassId
     ? sortedPromotionClasses.findIndex((row) => row.id === progressionClassId)
     : -1;
@@ -288,9 +299,7 @@ export default async function StudentProfilePage({
                 <option value="SAME_CLASS">Same class</option>
                 <option value="INACTIVE">Inactive</option>
               </select>
-              <p className="mt-1 text-[11px] text-white/40">
-                Applies to active year only. Inactive removes class assignment for this student.
-              </p>
+              <p className="mt-1 text-[11px] text-white/40">Applies to active year only. Inactive can be reactivated to same or next class.</p>
             </div>
             <Button type="submit" size="sm">Update progression</Button>
           </form>

@@ -497,9 +497,20 @@ export async function updateStudentProgressionAction(formData: FormData) {
     },
     select: { classId: true, rollNumber: true }
   });
+  const lastKnownPlacement = !currentYearRow?.classId
+    ? await db.studentAcademicYear.findFirst({
+        where: {
+          schoolId: session.schoolId,
+          studentId: student.id,
+          classId: { not: null }
+        },
+        orderBy: { updatedAt: "desc" },
+        select: { classId: true, rollNumber: true }
+      })
+    : null;
 
-  const currentClassId = currentYearRow?.classId ?? student.classId ?? null;
-  const currentRollNumber = currentYearRow?.rollNumber ?? student.rollNumber ?? null;
+  const currentClassId = currentYearRow?.classId ?? student.classId ?? lastKnownPlacement?.classId ?? null;
+  const currentRollNumber = currentYearRow?.rollNumber ?? student.rollNumber ?? lastKnownPlacement?.rollNumber ?? null;
   let nextClassId = currentClassId;
   let nextRollNumber = currentRollNumber;
   let status: "ACTIVE" | "GRADUATED" = "ACTIVE";
@@ -536,12 +547,17 @@ export async function updateStudentProgressionAction(formData: FormData) {
     }
     resultKey = "same";
   } else {
-    nextClassId = null;
-    nextRollNumber = null;
+    // Keep last known class context on academic-year row so inactive students can be
+    // reactivated to same/next class without losing progression reference.
+    nextClassId = currentClassId;
+    nextRollNumber = currentRollNumber;
     status = "GRADUATED";
     graduatedAt = new Date();
     resultKey = "inactive";
   }
+
+  const studentCurrentClassId = status === "GRADUATED" ? null : nextClassId;
+  const studentCurrentRollNumber = status === "GRADUATED" ? null : nextRollNumber;
 
   await db.$transaction(async (tx) => {
     await tx.studentAcademicYear.upsert({
@@ -573,8 +589,8 @@ export async function updateStudentProgressionAction(formData: FormData) {
     await tx.student.update({
       where: { id: student.id },
       data: {
-        classId: nextClassId,
-        rollNumber: nextRollNumber
+        classId: studentCurrentClassId,
+        rollNumber: studentCurrentRollNumber
       }
     });
   });

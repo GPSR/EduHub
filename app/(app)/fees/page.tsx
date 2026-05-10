@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Card, Button, Badge, Label, SectionHeader, EmptyState } from "@/components/ui";
+import type { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { requireSession } from "@/lib/require";
 import { atLeastLevel, getEffectivePermissions } from "@/lib/permissions";
@@ -14,21 +15,57 @@ function centsToDollars(cents: number) {
 function statusTone(status: string): "success" | "danger" | "warning" | "neutral" {
   if (status === "PAID") return "success";
   if (status === "OVERDUE") return "danger";
-  if (status === "PENDING") return "warning";
+  if (status === "PENDING" || status === "DUE" || status === "PARTIAL") return "warning";
   return "neutral";
+}
+
+type FeesStatusFilter = "ALL" | "PENDING" | "PAID" | "PARTIAL" | "OVERDUE" | "DUE";
+
+function normalizeFeesStatusFilter(raw?: string): FeesStatusFilter {
+  const value = String(raw ?? "").trim().toUpperCase();
+  if (value === "PENDING") return "PENDING";
+  if (value === "PAID") return "PAID";
+  if (value === "PARTIAL") return "PARTIAL";
+  if (value === "OVERDUE") return "OVERDUE";
+  if (value === "DUE") return "DUE";
+  return "ALL";
+}
+
+function buildFeesListPath(args: {
+  academicYearId: string;
+  query: string;
+  classId: string;
+  status: FeesStatusFilter;
+}) {
+  const params = new URLSearchParams();
+  params.set("ay", args.academicYearId);
+  if (args.query) params.set("q", args.query);
+  if (args.classId) params.set("classId", args.classId);
+  if (args.status !== "ALL") params.set("status", args.status);
+  return `/fees?${params.toString()}`;
 }
 
 export default async function FeesPage({
   searchParams
 }: {
-  searchParams: Promise<{ reminder?: string; count?: string; ay?: string }>;
+  searchParams: Promise<{ reminder?: string; count?: string; ay?: string; q?: string; classId?: string; status?: string }>;
 }) {
   await requirePermission("FEES", "VIEW");
   const session = await requireSession();
-  const { reminder, count, ay } = await searchParams;
+  const { reminder, count, ay, q, classId, status } = await searchParams;
   const yearContext = await getAcademicYearContext({ schoolId: session.schoolId, requestedYearId: ay });
   const selectedYear = yearContext.selectedYear;
   const isYearWritable = selectedYear.status !== "CLOSED";
+  const searchQuery = String(q ?? "").trim();
+  const selectedClassId = String(classId ?? "").trim();
+  const statusFilter = normalizeFeesStatusFilter(status);
+  const hasActiveFilters = Boolean(searchQuery || selectedClassId || statusFilter !== "ALL");
+  const currentListPath = buildFeesListPath({
+    academicYearId: selectedYear.id,
+    query: searchQuery,
+    classId: selectedClassId,
+    status: statusFilter
+  });
   const perms = await getEffectivePermissions({
     schoolId: session.schoolId,
     userId: session.userId,
@@ -36,28 +73,51 @@ export default async function FeesPage({
   });
   const canWrite = isYearWritable && (perms["FEES"] ? atLeastLevel(perms["FEES"], "EDIT") : false);
 
-  const invoices =
-    session.roleKey === "PARENT"
-      ? await db.feeInvoice.findMany({
-          where: {
-            schoolId: session.schoolId,
-            academicYearId: selectedYear.id,
-            student: { parents: { some: { userId: session.userId } } }
-          },
-          include: { student: true },
-          orderBy: { createdAt: "desc" },
-          take: 200,
-        })
-      : await db.feeInvoice.findMany({
-          where: { schoolId: session.schoolId, academicYearId: selectedYear.id },
-          include: { student: true },
-          orderBy: { createdAt: "desc" },
-          take: 200,
-        });
+  const invoiceWhere: Prisma.FeeInvoiceWhereInput = {
+    schoolId: session.schoolId,
+    academicYearId: selectedYear.id,
+  };
+  const studentWhere: Prisma.StudentWhereInput = {};
+  if (session.roleKey === "PARENT") {
+    studentWhere.parents = { some: { userId: session.userId } };
+  }
+  if (selectedClassId) {
+    studentWhere.classId = selectedClassId;
+  }
+  if (searchQuery) {
+    studentWhere.OR = [
+      { fullName: { contains: searchQuery, mode: "insensitive" } },
+      { studentId: { contains: searchQuery, mode: "insensitive" } },
+      { admissionNo: { contains: searchQuery, mode: "insensitive" } }
+    ];
+  }
+  if (Object.keys(studentWhere).length > 0) {
+    invoiceWhere.student = studentWhere;
+  }
+  if (statusFilter === "PENDING") {
+    invoiceWhere.status = { not: "PAID" };
+  } else if (statusFilter !== "ALL") {
+    invoiceWhere.status = statusFilter;
+  }
+
+  const invoices = await db.feeInvoice.findMany({
+    where: invoiceWhere,
+    include: { student: { include: { class: true } } },
+    orderBy: { createdAt: "desc" },
+    take: 200,
+  });
 
   const students =
     canWrite && session.roleKey !== "PARENT"
       ? await db.student.findMany({ where: { schoolId: session.schoolId }, orderBy: { fullName: "asc" } })
+      : [];
+  const classes =
+    session.roleKey !== "PARENT"
+      ? await db.class.findMany({
+          where: { schoolId: session.schoolId },
+          select: { id: true, name: true, section: true },
+          orderBy: [{ name: "asc" }, { section: "asc" }]
+        })
       : [];
 
   const totalCents = invoices.reduce((sum, inv) => sum + inv.amountCents, 0);
@@ -72,15 +132,66 @@ export default async function FeesPage({
         </div>
       ) : null}
       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
-        <SectionHeader title="Fee Invoices" subtitle={`${invoices.length} total invoices · ${selectedYear.name}`} />
+        <SectionHeader title="Fee Invoices" subtitle={`${invoices.length} ${hasActiveFilters ? "matching" : "total"} invoices · ${selectedYear.name}`} />
         {canWrite && pendingCount > 0 && (
           <form action={sendPendingFeeRemindersAction}>
-            <input type="hidden" name="returnTo" value={withAcademicYearParam("/fees", selectedYear.id)} />
+            <input type="hidden" name="returnTo" value={currentListPath} />
             <input type="hidden" name="academicYearId" value={selectedYear.id} />
             <Button type="submit" variant="secondary" size="sm">Send Pending Reminders</Button>
           </form>
         )}
       </div>
+
+      <Card>
+        <form method="get" className="grid grid-cols-1 md:grid-cols-4 gap-3 items-end">
+          <input type="hidden" name="ay" value={selectedYear.id} />
+          <div className="md:col-span-2">
+            <Label>Search student or ID</Label>
+            <input
+              name="q"
+              defaultValue={searchQuery}
+              placeholder="Student name, student ID, admission number"
+              className="w-full rounded-[13px] bg-black/25 border border-white/[0.09] px-3.5 py-2.5 text-sm text-white placeholder:text-white/30 outline-none focus:border-indigo-400/50 focus:ring-4 focus:ring-indigo-500/12 transition-all"
+            />
+          </div>
+          <div>
+            <Label>Class</Label>
+            <select
+              name="classId"
+              defaultValue={selectedClassId}
+              className="w-full rounded-[13px] bg-black/25 border border-white/[0.09] px-3.5 py-2.5 text-base sm:text-sm text-white outline-none focus:border-indigo-400/50 focus:ring-4 focus:ring-indigo-500/12 transition-all"
+            >
+              <option value="">All classes</option>
+              {classes.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}{c.section ? ` - ${c.section}` : ""}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <Label>Fee status</Label>
+            <select
+              name="status"
+              defaultValue={statusFilter}
+              className="w-full rounded-[13px] bg-black/25 border border-white/[0.09] px-3.5 py-2.5 text-base sm:text-sm text-white outline-none focus:border-indigo-400/50 focus:ring-4 focus:ring-indigo-500/12 transition-all"
+            >
+              <option value="ALL">All statuses</option>
+              <option value="PENDING">Pending</option>
+              <option value="PAID">Paid</option>
+              <option value="PARTIAL">Partial</option>
+              <option value="DUE">Due</option>
+              <option value="OVERDUE">Overdue</option>
+            </select>
+          </div>
+          <div className="md:col-span-4 flex justify-end gap-2">
+            <Link href={withAcademicYearParam("/fees", selectedYear.id)}>
+              <Button type="button" variant="ghost" size="sm">Reset</Button>
+            </Link>
+            <Button type="submit" variant="secondary" size="sm">Apply Filters</Button>
+          </div>
+        </form>
+      </Card>
 
       {reminder === "bulk_sent" && (
         <div className="rounded-2xl border border-emerald-500/25 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-100">
@@ -120,7 +231,11 @@ export default async function FeesPage({
       {/* Invoice list */}
       <Card>
         {invoices.length === 0 ? (
-          <EmptyState icon="💳" title="No invoices yet" description="Create your first invoice to get started." />
+          <EmptyState
+            icon="💳"
+            title={hasActiveFilters ? "No matching invoices" : "No invoices yet"}
+            description={hasActiveFilters ? "Try changing search or filters." : "Create your first invoice to get started."}
+          />
         ) : (
           <div className="divide-y divide-white/[0.06]">
             {invoices.map((inv, i) => (
@@ -137,7 +252,10 @@ export default async function FeesPage({
                     <Badge tone={statusTone(inv.status)}>{inv.status}</Badge>
                   </div>
                   <div className="text-[12px] text-white/45 mt-1">
-                    {inv.student.fullName} · {inv.createdAt.toDateString()}
+                    {inv.student.fullName}
+                    {` · ID ${inv.student.studentId}`}
+                    {inv.student.class ? ` · ${inv.student.class.name}${inv.student.class.section ? `-${inv.student.class.section}` : ""}` : ""}
+                    {` · ${inv.createdAt.toDateString()}`}
                   </div>
                 </div>
                 <div className="text-right shrink-0">

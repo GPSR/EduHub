@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { Button } from "@/components/ui";
 
 type ImageCropperDialogProps = {
@@ -105,6 +106,7 @@ export function ImageCropperDialog({
   onApply,
   outputSize = 1024,
 }: ImageCropperDialogProps) {
+  const [mounted, setMounted] = useState(false);
   const [sourceUrl, setSourceUrl] = useState<string | null>(null);
   const [zoom, setZoom] = useState(1);
   const [offsetX, setOffsetX] = useState(0);
@@ -112,6 +114,11 @@ export function ImageCropperDialog({
   const [imageSize, setImageSize] = useState<{ width: number; height: number } | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setMounted(true);
+    return () => setMounted(false);
+  }, []);
 
   useEffect(() => {
     if (!open || !file) {
@@ -169,9 +176,9 @@ export function ImageCropperDialog({
     setOffsetY((current) => clamp(current, -bounds.maxOffsetY, bounds.maxOffsetY));
   }, [bounds.maxOffsetX, bounds.maxOffsetY]);
 
-  if (!open || !file) return null;
+  if (!open || !file || !mounted) return null;
 
-  return (
+  const dialog = (
     <div className="fixed inset-0 z-[220] flex items-start sm:items-center justify-center bg-black/70 backdrop-blur-sm px-2 sm:px-4 pt-[max(0.75rem,env(safe-area-inset-top))] pb-[max(0.75rem,env(safe-area-inset-bottom))] overflow-y-auto overscroll-contain">
       <button
         type="button"
@@ -302,4 +309,6 @@ export function ImageCropperDialog({
       </div>
     </div>
   );
+
+  return createPortal(dialog, document.body);
 }
